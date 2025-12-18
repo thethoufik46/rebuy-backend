@@ -1,0 +1,22 @@
+import mongoose from "mongoose";
+
+const wishlistSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    car: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Car",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+// Prevent duplicate wishlist entries for same user+car
+wishlistSchema.index({ user: 1, car: 1 }, { unique: true });
+
+export default mongoose.model("Wishlist", wishlistSchema);

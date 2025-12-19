@@ -2,47 +2,122 @@ import mongoose from "mongoose";
 
 const carSchema = new mongoose.Schema(
   {
+    /* -------------------------------------------------
+       🔗 Brand Reference
+    ---------------------------------------------------*/
     brand: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Brand", // Link to brand collection
+      ref: "Brand",
       required: true,
     },
-    model: { type: String, required: true },
-    year: { type: String, required: true },
-    price: { type: Number, required: true },
-    km: { type: Number, required: true },
-    color: { type: String, required: true },
+
+    /* -------------------------------------------------
+       🚗 Basic Details
+    ---------------------------------------------------*/
+    model: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    year: {
+      type: String, // kept string for legacy safety
+      required: true,
+    },
+
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    km: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    color: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    /* -------------------------------------------------
+       ⛽ Engine & Drive
+    ---------------------------------------------------*/
     fuel: {
       type: String,
       enum: ["petrol", "diesel", "cng", "lpg", "electric"],
       required: true,
     },
+
     transmission: {
       type: String,
       enum: ["manual", "automatic"],
       required: true,
     },
-    owner: { type: String, required: true },
+
+    owner: {
+      type: String, // "1", "2", "3", "4+"
+      required: true,
+    },
+
     board: {
       type: String,
       enum: ["own", "t board"],
       required: true,
     },
-    description: { type: String },
+
+    /* -------------------------------------------------
+       🛡️ Insurance & Status
+    ---------------------------------------------------*/
     insurance: {
       type: String,
       enum: ["comprehensive", "thirdparty", "no insurance"],
       required: true,
     },
+
     status: {
       type: String,
       enum: ["available", "booking", "sold"],
       default: "available",
     },
-    bannerImage: { type: String, required: true }, // single banner
-    galleryImages: [{ type: String }], // multiple images
+
+    /* -------------------------------------------------
+       📝 Description
+    ---------------------------------------------------*/
+    description: {
+      type: String,
+      trim: true,
+    },
+
+    /* -------------------------------------------------
+       🖼️ Images
+    ---------------------------------------------------*/
+    bannerImage: {
+      type: String,
+      required: true,
+    },
+
+    galleryImages: [
+      {
+        type: String,
+      },
+    ],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
+
+/* -------------------------------------------------
+   ⚡ Indexes (FAST SEARCH & FILTER)
+---------------------------------------------------*/
+carSchema.index({ brand: 1 });
+carSchema.index({ model: 1 });
+carSchema.index({ price: 1 });
+carSchema.index({ year: 1 });
+carSchema.index({ status: 1 });
 
 export default mongoose.model("Car", carSchema);

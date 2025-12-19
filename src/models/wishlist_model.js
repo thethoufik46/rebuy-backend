@@ -16,7 +16,6 @@ const wishlistSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevent duplicate wishlist entries for same user+car
 wishlistSchema.index({ user: 1, car: 1 }, { unique: true });
 
 export default mongoose.model("Wishlist", wishlistSchema);

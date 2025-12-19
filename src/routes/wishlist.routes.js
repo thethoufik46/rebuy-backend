@@ -1,12 +1,13 @@
 import express from "express";
 import { toggleWishlist, getWishlist } from "../controllers/wishlist.controller.js";
+import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ✅ Get all wishlist cars for a user (by ID)
-router.get("/:userId", getWishlist);
+/* ❤️ GET wishlist for logged-in user */
+router.get("/", verifyToken, getWishlist);
 
-// ✅ Add/remove car from wishlist
-router.post("/", toggleWishlist);
+/* ❤️ Toggle wishlist */
+router.post("/toggle/:carId", verifyToken, toggleWishlist);
 
 export default router;

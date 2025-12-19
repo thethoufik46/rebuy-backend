@@ -11,7 +11,7 @@ import brandRoutes from "./routes/brand.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import carRoutes from "./routes/car.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
-import searchRoutes from "./routes/search.routes.js"; // 🔍 ADD THIS
+import searchRoutes from "./routes/search.routes.js";
 
 dotenv.config();
 
@@ -20,17 +20,14 @@ const app = express();
 /* -------------------------------------------------
    ✅ MIDDLEWARE
 ---------------------------------------------------*/
-
-// Enable CORS (safe for mobile + web)
 app.use(
   cors({
-    origin: "*", // 🔒 restrict later
+    origin: "*", // restrict later for production
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Parse JSON & large payloads
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -50,12 +47,12 @@ connectDB()
 /* -------------------------------------------------
    ✅ API ROUTES
 ---------------------------------------------------*/
-app.use("/api/auth", authRoutes);        // 🔐 Authentication
-app.use("/api/brands", brandRoutes);     // 🏷️ Brands
-app.use("/api/products", productRoutes);// 📦 Products
-app.use("/api/cars", carRoutes);         // 🚗 Cars (CRUD + filter)
-app.use("/api/search", searchRoutes);    // 🔍 SEARCH (NEW)
-app.use("/api/wishlist", wishlistRoutes);// ❤️ Wishlist
+app.use("/api/auth", authRoutes);          // 🔐 Auth
+app.use("/api/brands", brandRoutes);       // 🏷️ Brands
+app.use("/api/products", productRoutes);   // 📦 Products
+app.use("/api/cars", carRoutes);           // 🚗 Cars
+app.use("/api/search", searchRoutes);      // 🔍 Search
+app.use("/api/wishlist", wishlistRoutes);  // ❤️ Wishlist
 
 /* -------------------------------------------------
    ✅ HEALTH CHECK
@@ -68,7 +65,7 @@ app.get("/", (req, res) => {
 });
 
 /* -------------------------------------------------
-   ✅ 404 HANDLER
+   ✅ 404 HANDLER (KEEP LAST)
 ---------------------------------------------------*/
 app.use((req, res) => {
   res.status(404).json({

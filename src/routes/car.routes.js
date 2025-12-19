@@ -21,7 +21,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* =================================================
-   ✅ FILTER CARS (FIXED & SAFE)
+   ✅ FILTER CARS (MUST BE ON TOP)
    GET /api/cars/filter
 ==================================================*/
 router.get("/filter", async (req, res) => {
@@ -40,42 +40,22 @@ router.get("/filter", async (req, res) => {
 
     const query = {};
 
-    // 🔹 BASIC FILTERS
     if (brand) query.brand = brand;
     if (model) query.model = { $regex: model, $options: "i" };
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
 
-    // 🔹 PRICE FILTER (0 SAFE)
-    if (minPrice !== undefined || maxPrice !== undefined) {
+    if (minPrice || maxPrice) {
       query.price = {};
-      if (minPrice !== undefined) {
-        query.price.$gte = Number(minPrice);
-      }
-      if (maxPrice !== undefined) {
-        query.price.$lte = Number(maxPrice);
-      }
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    // 🔹 YEAR FILTER (STRING → NUMBER SAFE)
-    if (minYear !== undefined || maxYear !== undefined) {
-      query.$expr = {
-        $and: [
-          {
-            $gte: [
-              { $toInt: "$year" },
-              Number(minYear ?? 0),
-            ],
-          },
-          {
-            $lte: [
-              { $toInt: "$year" },
-              Number(maxYear ?? new Date().getFullYear()),
-            ],
-          },
-        ],
-      };
+    if (minYear || maxYear) {
+      query.year = {};
+      if (minYear) query.year.$gte = Number(minYear);
+      if (maxYear) query.year.$lte = Number(maxYear);
     }
 
     const cars = await Car.find(query)

@@ -9,7 +9,7 @@ const brandSchema = new mongoose.Schema(
       trim: true,
     },
     logoUrl: {
-      type: String, // Cloudinary URL
+      type: String,
       required: true,
     },
   },

@@ -21,7 +21,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* =================================================
-   ✅ FILTER CARS (MUST BE ON TOP)
+   ✅ FILTER CARS (UPDATED)
    GET /api/cars/filter
 ==================================================*/
 router.get("/filter", async (req, res) => {
@@ -32,6 +32,8 @@ router.get("/filter", async (req, res) => {
       fuel,
       transmission,
       owner,
+      sellerinfo,   // ✅ NEW
+      location,     // ✅ NEW
       minPrice,
       maxPrice,
       minYear,
@@ -45,6 +47,8 @@ router.get("/filter", async (req, res) => {
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
+    if (sellerinfo) query.sellerinfo = sellerinfo; // ✅
+    if (location) query.location = { $regex: location, $options: "i" }; // ✅
 
     if (minPrice || maxPrice) {
       query.price = {};
@@ -77,7 +81,7 @@ router.get("/filter", async (req, res) => {
 });
 
 /* =================================================
-   ✅ ADD CAR (ADMIN)
+   ✅ ADD CAR (ADMIN) — UPDATED
    POST /api/cars/add
 ==================================================*/
 router.post(
@@ -104,6 +108,9 @@ router.post(
         description,
         insurance,
         status,
+        seller,        // ✅ NEW
+        location,      // ✅ NEW
+        sellerinfo,    // ✅ NEW
       } = req.body;
 
       if (!req.files?.banner) {
@@ -132,6 +139,9 @@ router.post(
         description,
         insurance,
         status,
+        seller,        // ✅
+        location,      // ✅
+        sellerinfo,    // ✅
         bannerImage,
         galleryImages,
       });
@@ -147,15 +157,14 @@ router.post(
       console.error("❌ Add Car Error:", error);
       res.status(500).json({
         success: false,
-        message: "Error adding car",
+        message: error.message || "Error adding car",
       });
     }
   }
 );
 
 /* =================================================
-   ✅ GET ALL CARS (PUBLIC)
-   GET /api/cars
+   ✅ GET ALL CARS
 ==================================================*/
 router.get("/", async (req, res) => {
   try {
@@ -178,8 +187,7 @@ router.get("/", async (req, res) => {
 });
 
 /* =================================================
-   ✅ GET SINGLE CAR BY ID
-   GET /api/cars/:id
+   ✅ GET SINGLE CAR
 ==================================================*/
 router.get("/:id", async (req, res) => {
   try {
@@ -209,8 +217,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* =================================================
-   ✅ UPDATE CAR (ADMIN)
-   PUT /api/cars/:id
+   ✅ UPDATE CAR (ADMIN) — UPDATED
 ==================================================*/
 router.put(
   "/:id",
@@ -244,6 +251,7 @@ router.put(
         car.galleryImages = req.files.gallery.map((f) => f.path);
       }
 
+      // ✅ allows seller, location, sellerinfo update
       Object.assign(car, req.body);
       await car.save();
 
@@ -256,15 +264,14 @@ router.put(
       console.error("❌ Update Car Error:", error);
       res.status(500).json({
         success: false,
-        message: "Error updating car",
+        message: error.message || "Error updating car",
       });
     }
   }
 );
 
 /* =================================================
-   ✅ DELETE CAR (ADMIN)
-   DELETE /api/cars/:id
+   ✅ DELETE CAR
 ==================================================*/
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {

@@ -21,7 +21,7 @@ const carSchema = new mongoose.Schema(
     },
 
     year: {
-      type: String, // kept string for legacy safety
+      type: String,
       required: true,
     },
 
@@ -59,7 +59,7 @@ const carSchema = new mongoose.Schema(
     },
 
     owner: {
-      type: String, // "1", "2", "3", "4+"
+      type: String,
       required: true,
     },
 
@@ -82,6 +82,15 @@ const carSchema = new mongoose.Schema(
       type: String,
       enum: ["available", "booking", "sold"],
       default: "available",
+    },
+
+    /* -------------------------------------------------
+       🧑 Seller Info (✅ NEW ENUM FIELD)
+    ---------------------------------------------------*/
+    sellerinfo: {
+      type: String,
+      enum: ["Rc owner", "Dealer", "Verified"],
+      required: true,
     },
 
     /* -------------------------------------------------
@@ -112,12 +121,13 @@ const carSchema = new mongoose.Schema(
 );
 
 /* -------------------------------------------------
-   ⚡ Indexes (FAST SEARCH & FILTER)
+   ⚡ Indexes
 ---------------------------------------------------*/
 carSchema.index({ brand: 1 });
 carSchema.index({ model: 1 });
 carSchema.index({ price: 1 });
 carSchema.index({ year: 1 });
 carSchema.index({ status: 1 });
+carSchema.index({ sellerinfo: 1 }); // ✅ OPTIONAL BUT GOOD
 
 export default mongoose.model("Car", carSchema);

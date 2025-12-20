@@ -85,8 +85,20 @@ const carSchema = new mongoose.Schema(
     },
 
     /* -------------------------------------------------
-       🧑 Seller Info (✅ NEW ENUM FIELD)
+       🧑 Seller Details (✅ NEW)
     ---------------------------------------------------*/
+    seller: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     sellerinfo: {
       type: String,
       enum: ["Rc owner", "Dealer", "Verified"],
@@ -128,6 +140,8 @@ carSchema.index({ model: 1 });
 carSchema.index({ price: 1 });
 carSchema.index({ year: 1 });
 carSchema.index({ status: 1 });
-carSchema.index({ sellerinfo: 1 }); // ✅ OPTIONAL BUT GOOD
+carSchema.index({ seller: 1 });
+carSchema.index({ location: 1 });
+carSchema.index({ sellerinfo: 1 });
 
 export default mongoose.model("Car", carSchema);

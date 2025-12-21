@@ -1,4 +1,4 @@
-// routes/auth_routes.js
+// routes/auth_routes.js  ✅ FINAL (REGISTER + LOGIN + GET + UPDATE + DELETE)
 
 import express from "express";
 import bcrypt from "bcryptjs";
@@ -11,15 +11,8 @@ const router = express.Router();
 /* ---------------- REGISTER ---------------- */
 router.post("/register", async (req, res) => {
   try {
-    const {
-      name,
-      phone,
-      email,
-      password,
-      category,
-      location,
-      address,
-    } = req.body;
+    const { name, phone, email, password, category, location, address } =
+      req.body;
 
     if (!name || !phone || !email || !password || !category) {
       return res.status(400).json({
@@ -104,7 +97,6 @@ router.post("/login", async (req, res) => {
 });
 
 /* ---------------- GET LOGGED-IN USER ---------------- */
-
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
@@ -112,5 +104,30 @@ router.get("/me", verifyToken, (req, res) => {
   });
 });
 
+/* ---------------- UPDATE LOGGED-IN USER ---------------- */
+router.put("/me", verifyToken, async (req, res) => {
+  const { name, phone, location, address } = req.body;
+
+  const user = await User.findByIdAndUpdate(
+    req.userId,
+    { name, phone, location, address },
+    { new: true }
+  ).select("-password");
+
+  res.json({
+    success: true,
+    user,
+  });
+});
+
+/* ---------------- DELETE LOGGED-IN USER ---------------- */
+router.delete("/me", verifyToken, async (req, res) => {
+  await User.findByIdAndDelete(req.userId);
+
+  res.json({
+    success: true,
+    message: "User profile deleted",
+  });
+});
 
 export default router;

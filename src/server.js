@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
+// 🔹 DB & Admin
 import { connectDB } from "./config/db.js";
 import { createAdminUser } from "./config/createAdmin.js";
 
@@ -18,11 +19,11 @@ dotenv.config();
 const app = express();
 
 /* -------------------------------------------------
-   ✅ MIDDLEWARE
+   ✅ GLOBAL MIDDLEWARE
 ---------------------------------------------------*/
 app.use(
   cors({
-    origin: "*", // restrict later for production
+    origin: "*", // ⚠️ restrict in production
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -37,7 +38,7 @@ app.use(express.urlencoded({ extended: true }));
 connectDB()
   .then(() => {
     console.log("✅ MongoDB Connected");
-    createAdminUser();
+    createAdminUser(); // create admin if not exists
   })
   .catch((err) => {
     console.error("❌ MongoDB Connection Error:", err);
@@ -47,7 +48,7 @@ connectDB()
 /* -------------------------------------------------
    ✅ API ROUTES
 ---------------------------------------------------*/
-app.use("/api/auth", authRoutes);          // 🔐 Auth
+app.use("/api/auth", authRoutes);          // 🔐 Auth (login, register, profile)
 app.use("/api/brands", brandRoutes);       // 🏷️ Brands
 app.use("/api/products", productRoutes);   // 📦 Products
 app.use("/api/cars", carRoutes);           // 🚗 Cars
@@ -65,7 +66,7 @@ app.get("/", (req, res) => {
 });
 
 /* -------------------------------------------------
-   ✅ 404 HANDLER (KEEP LAST)
+   ❌ 404 HANDLER (KEEP LAST)
 ---------------------------------------------------*/
 app.use((req, res) => {
   res.status(404).json({
@@ -75,7 +76,7 @@ app.use((req, res) => {
 });
 
 /* -------------------------------------------------
-   ✅ GLOBAL ERROR HANDLER
+   ❌ GLOBAL ERROR HANDLER
 ---------------------------------------------------*/
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
@@ -86,7 +87,7 @@ app.use((err, req, res, next) => {
 });
 
 /* -------------------------------------------------
-   ✅ START SERVER
+   🚀 START SERVER
 ---------------------------------------------------*/
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

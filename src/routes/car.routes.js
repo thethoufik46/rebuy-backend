@@ -14,7 +14,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "rebuy_cars",
-    allowed_formats: ["jpg", "png", "jpeg"],
+      allowed_formats: ["jpg", "png", "jpeg", "webp"], // ✅ ADD WEBP
   },
 });
 

@@ -13,6 +13,8 @@ import productRoutes from "./routes/product.routes.js";
 import carRoutes from "./routes/car.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
+import orderRoutes from "./routes/order.routes.js";
+
 
 dotenv.config();
 
@@ -54,6 +56,7 @@ app.use("/api/products", productRoutes);   // 📦 Products
 app.use("/api/cars", carRoutes);           // 🚗 Cars
 app.use("/api/search", searchRoutes);      // 🔍 Search
 app.use("/api/wishlist", wishlistRoutes);  // ❤️ Wishlist
+app.use("/api/orders", orderRoutes);
 
 /* -------------------------------------------------
    ✅ HEALTH CHECK

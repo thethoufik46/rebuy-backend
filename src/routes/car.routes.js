@@ -20,6 +20,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
+
 /* =================================================
    ✅ FILTER CARS (UPDATED)
    GET /api/cars/filter
@@ -32,8 +33,9 @@ router.get("/filter", async (req, res) => {
       fuel,
       transmission,
       owner,
-      sellerinfo,   // ✅ NEW
-      location,     // ✅ NEW
+      board,        // ✅ ADD THIS
+      sellerinfo,
+      location,
       minPrice,
       maxPrice,
       minYear,
@@ -47,8 +49,9 @@ router.get("/filter", async (req, res) => {
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
-    if (sellerinfo) query.sellerinfo = sellerinfo; // ✅
-    if (location) query.location = { $regex: location, $options: "i" }; // ✅
+    if (board) query.board = board; // ✅ ADD THIS
+    if (sellerinfo) query.sellerinfo = sellerinfo;
+    if (location) query.location = { $regex: location, $options: "i" };
 
     if (minPrice || maxPrice) {
       query.price = {};

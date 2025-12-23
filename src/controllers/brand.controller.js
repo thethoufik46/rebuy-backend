@@ -14,9 +14,20 @@ export const addBrand = async (req, res) => {
         .json({ message: "Brand name and logo are required" });
     }
 
+    // ✅ prevent duplicate brand
+    const exists = await Brand.findOne({
+      name: name.trim().toLowerCase(),
+    });
+
+    if (exists) {
+      return res.status(409).json({
+        message: "Brand already exists",
+      });
+    }
+
     const brand = await Brand.create({
       name: name.trim(),
-      logoUrl: req.file.path, // ✅ Cloudinary URL
+      logoUrl: req.file.path, // Cloudinary URL
     });
 
     res.status(201).json({
@@ -61,15 +72,36 @@ export const updateBrand = async (req, res) => {
       return res.status(404).json({ message: "Brand not found" });
     }
 
-    // Replace logo if new one uploaded
-    if (req.file) {
-      const publicId = brand.logoUrl.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`brands/${publicId}`);
+    // ✅ check duplicate name (except current brand)
+    if (name) {
+      const exists = await Brand.findOne({
+        _id: { $ne: id },
+        name: name.trim().toLowerCase(),
+      });
 
-      brand.logoUrl = req.file.path; // ✅ new Cloudinary URL
+      if (exists) {
+        return res.status(409).json({
+          message: "Brand name already exists",
+        });
+      }
+
+      brand.name = name.trim();
     }
 
-    if (name) brand.name = name.trim();
+    // ✅ replace logo
+    if (req.file) {
+      if (brand.logoUrl) {
+        const publicId = brand.logoUrl
+          .split("/")
+          .slice(-2)
+          .join("/")
+          .split(".")[0];
+
+        await cloudinary.uploader.destroy(publicId);
+      }
+
+      brand.logoUrl = req.file.path;
+    }
 
     await brand.save();
 
@@ -96,9 +128,16 @@ export const deleteBrand = async (req, res) => {
       return res.status(404).json({ message: "Brand not found" });
     }
 
-    // Delete logo from Cloudinary
-    const publicId = brand.logoUrl.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`brands/${publicId}`);
+    // ✅ delete logo from Cloudinary
+    if (brand.logoUrl) {
+      const publicId = brand.logoUrl
+        .split("/")
+        .slice(-2)
+        .join("/")
+        .split(".")[0];
+
+      await cloudinary.uploader.destroy(publicId);
+    }
 
     await brand.deleteOne();
 

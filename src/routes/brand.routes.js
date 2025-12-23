@@ -1,3 +1,5 @@
+// routes/brand.route.js
+
 import express from "express";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -12,7 +14,9 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-/* ☁️ Cloudinary Storage (NO local uploads) */
+/* =========================
+   ☁️ CLOUDINARY STORAGE
+========================= */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -23,16 +27,41 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// CREATE BRAND
-router.post("/add", verifyToken, upload.single("logo"), addBrand);
+/* =========================
+   🟢 CREATE BRAND
+========================= */
+router.post(
+  "/add",
+  verifyToken,
+  upload.single("logo"),
+  addBrand
+);
 
-// READ BRANDS
-router.get("/", getBrands);
+/* =========================
+   🔵 GET BRANDS
+========================= */
+router.get(
+  "/",
+  getBrands
+);
 
-// UPDATE BRAND
-router.put("/:id", verifyToken, upload.single("logo"), updateBrand);
+/* =========================
+   🟡 UPDATE BRAND
+========================= */
+router.put(
+  "/:id",
+  verifyToken,
+  upload.single("logo"),
+  updateBrand
+);
 
-// DELETE BRAND
-router.delete("/:id", verifyToken, deleteBrand);
+/* =========================
+   🔴 DELETE BRAND
+========================= */
+router.delete(
+  "/:id",
+  verifyToken,
+  deleteBrand
+);
 
 export default router;

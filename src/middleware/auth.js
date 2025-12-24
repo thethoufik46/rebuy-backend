@@ -14,22 +14,30 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
+
+    // ✅ VERIFY TOKEN
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select("-password");
+    // ✅ FETCH USER
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .lean();
+
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "User no longer exists",
       });
     }
 
+    // ✅ ATTACH USER
     req.user = user;
     req.userId = user._id;
 
     next();
   } catch (err) {
     console.error("❌ Auth Error:", err.message);
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
@@ -39,7 +47,7 @@ export const verifyToken = async (req, res, next) => {
 
 /* ---------------- ADMIN ONLY ---------------- */
 export const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
+  if (req.user?.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Admins only",

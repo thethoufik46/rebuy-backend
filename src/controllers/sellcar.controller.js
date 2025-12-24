@@ -1,168 +1,146 @@
-import SellCar from "../models/sellcar_model.js";
+// ======================= sellcar.controller.js =======================
+import SellCar from "../models/sellcar.model.js";
 
-/* =========================
-   🟢 CREATE SELL CAR
-   (LOGIN USER)
-========================= */
+/* 🟢 ADD SELL CAR (USER) */
 export const addSellCar = async (req, res) => {
   try {
-    const {
-      name,
-      phone,
-      location,
-      brand,
-      model,
-      variant,
-      year,
-      fuelType,
-      transmission,
-      kmsDriven,
-      seater,
-      insuranceIdv,
-      price,
-      carImages,
-    } = req.body;
-
-    if (
-      !name ||
-      !phone ||
-      !location ||
-      !brand ||
-      !model ||
-      !variant ||
-      !year ||
-      !fuelType ||
-      !transmission ||
-      !kmsDriven ||
-      !seater ||
-      !price
-    ) {
-      return res
-        .status(400)
-        .json({ message: "All required fields must be filled" });
+    if (!req.file) {
+      return res.status(400).json({ message: "Image required" });
     }
 
-    const sellCar = await SellCar.create({
-      user: req.user.id, // ✅ LOGIN USER ID
-      name: name.trim(),
-      phone: phone.trim(),
-      location: location.trim(),
-      brand: brand.trim(),
-      model: model.trim(),
-      variant: variant.trim(),
-      year,
-      fuelType,
-      transmission,
-      kmsDriven,
-      seater,
-      insuranceIdv,
-      price,
-      carImages,
+    const car = new SellCar({
+      ...req.body,
+      user: req.user._id,                 // 🔗 reference
+      userId: req.user._id.toString(),    // 🔑 explicit userId field
+      image: req.file.path,
     });
+
+    await car.save();
 
     res.status(201).json({
       success: true,
-      sellCar,
+      message: "Sell request submitted",
+      car,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-/* =========================
-   🔵 GET ALL SELL CARS
-========================= */
-export const getSellCars = async (req, res) => {
+/* 🟢 GET MY SELL CARS (USER) */
+export const getMySellCars = async (req, res) => {
   try {
-    const sellCars = await SellCar.find()
-      .populate("user", "name phone")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      count: sellCars.length,
-      sellCars,
+    const cars = await SellCar.find({ user: req.user._id }).sort({
+      createdAt: -1,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.json({ success: true, count: cars.length, cars });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-/* =========================
-   🔵 GET SINGLE SELL CAR
-========================= */
-export const getSellCarById = async (req, res) => {
+/* 🟢 UPDATE MY SELL CAR (USER) */
+export const updateMySellCar = async (req, res) => {
   try {
-    const sellCar = await SellCar.findById(req.params.id).populate(
-      "user",
-      "name phone"
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      updateData.image = req.file.path;
+    }
+
+    const car = await SellCar.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      updateData,
+      { new: true }
     );
 
-    if (!sellCar) {
-      return res.status(404).json({ message: "Sell car not found" });
+    if (!car) {
+      return res.status(404).json({ message: "Not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      sellCar,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ success: true, car });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-/* =========================
-   🟡 UPDATE STATUS
-========================= */
+/* 🟢 DELETE MY SELL CAR (USER) */
+export const deleteMySellCar = async (req, res) => {
+  try {
+    const car = await SellCar.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!car) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    res.json({ success: true, message: "Sell car deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* 🔵 GET ALL SELL CARS (ADMIN) */
+export const getSellCars = async (req, res) => {
+  try {
+    const cars = await SellCar.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, count: cars.length, cars });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* 🔵 GET SINGLE SELL CAR (ADMIN) */
+export const getSellCarById = async (req, res) => {
+  try {
+    const car = await SellCar.findById(req.params.id).populate(
+      "user",
+      "name email"
+    );
+
+    if (!car) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    res.json({ success: true, car });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* 🟡 UPDATE STATUS (ADMIN) */
 export const updateSellCarStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, adminNote } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ message: "Status is required" });
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
     }
 
-    const sellCar = await SellCar.findById(req.params.id);
-    if (!sellCar) {
-      return res.status(404).json({ message: "Sell car not found" });
-    }
+    const car = await SellCar.findByIdAndUpdate(
+      req.params.id,
+      { status, adminNote },
+      { new: true }
+    );
 
-    sellCar.status = status;
-    await sellCar.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Status updated successfully",
-      sellCar,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ success: true, car });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-/* =========================
-   🔴 DELETE SELL CAR
-========================= */
+/* 🔴 DELETE SELL CAR (ADMIN) */
 export const deleteSellCar = async (req, res) => {
   try {
-    const sellCar = await SellCar.findById(req.params.id);
-
-    if (!sellCar) {
-      return res.status(404).json({ message: "Sell car not found" });
-    }
-
-    await sellCar.deleteOne();
-
-    res.status(200).json({
-      success: true,
-      message: "Sell car deleted successfully",
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    await SellCar.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Sell car deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

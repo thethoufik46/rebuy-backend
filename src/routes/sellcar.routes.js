@@ -1,62 +1,34 @@
+// ======================= sellcar.routes.js =======================
 import express from "express";
 import {
   addSellCar,
+  getMySellCars,
+  updateMySellCar,
+  deleteMySellCar,
   getSellCars,
   getSellCarById,
   updateSellCarStatus,
   deleteSellCar,
 } from "../controllers/sellcar.controller.js";
-import { verifyToken } from "../middleware/auth.js";
+import { verifyToken, isAdmin } from "../middleware/auth.js";
+import { uploadSingle } from "../middleware/upload.js";
 
 const router = express.Router();
 
 /* =========================
-   🟢 CREATE SELL CAR
-   (LOGIN USER ONLY)
+   USER ROUTES
 ========================= */
-router.post(
-  "/add",
-  verifyToken,   // ✅ login user required
-  addSellCar
-);
+router.post("/add", verifyToken, uploadSingle, addSellCar);
+router.get("/my", verifyToken, getMySellCars);
+router.put("/my/:id", verifyToken, uploadSingle, updateMySellCar);
+router.delete("/my/:id", verifyToken, deleteMySellCar);
 
 /* =========================
-   🔵 GET ALL SELL CARS
-   (Admin)
+   ADMIN ROUTES
 ========================= */
-router.get(
-  "/",
-  verifyToken,
-  getSellCars
-);
-
-/* =========================
-   🔵 GET SINGLE SELL CAR
-========================= */
-router.get(
-  "/:id",
-  verifyToken,
-  getSellCarById
-);
-
-/* =========================
-   🟡 UPDATE STATUS
-   (Admin approve / reject)
-========================= */
-router.put(
-  "/:id/status",
-  verifyToken,
-  updateSellCarStatus
-);
-
-/* =========================
-   🔴 DELETE SELL CAR
-   (Admin)
-========================= */
-router.delete(
-  "/:id",
-  verifyToken,
-  deleteSellCar
-);
+router.get("/", verifyToken, isAdmin, getSellCars);
+router.get("/:id", verifyToken, isAdmin, getSellCarById);
+router.put("/:id/status", verifyToken, isAdmin, updateSellCarStatus);
+router.delete("/:id", verifyToken, isAdmin, deleteSellCar);
 
 export default router;

@@ -14,7 +14,7 @@ import carRoutes from "./routes/car.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import orderRoutes from "./routes/order.routes.js";
-
+import sellCarRoutes from "./routes/sellcar.routes.js"; // ✅ ADD THIS
 
 dotenv.config();
 
@@ -50,13 +50,14 @@ connectDB()
 /* -------------------------------------------------
    ✅ API ROUTES
 ---------------------------------------------------*/
-app.use("/api/auth", authRoutes);          // 🔐 Auth (login, register, profile)
-app.use("/api/brands", brandRoutes);       // 🏷️ Brands
-app.use("/api/products", productRoutes);   // 📦 Products
-app.use("/api/cars", carRoutes);           // 🚗 Cars
-app.use("/api/search", searchRoutes);      // 🔍 Search
-app.use("/api/wishlist", wishlistRoutes);  // ❤️ Wishlist
-app.use("/api/orders", orderRoutes);
+app.use("/api/auth", authRoutes);          
+app.use("/api/brands", brandRoutes);       
+app.use("/api/products", productRoutes);   
+app.use("/api/cars", carRoutes);           
+app.use("/api/search", searchRoutes);      
+app.use("/api/wishlist", wishlistRoutes);  
+app.use("/api/orders", orderRoutes);       
+app.use("/api/sellcar", sellCarRoutes);    // ✅ IMPORTANT FIX
 
 /* -------------------------------------------------
    ✅ HEALTH CHECK

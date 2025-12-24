@@ -10,9 +10,10 @@ import { createAdminUser } from "./config/createAdmin.js";
 // Routes
 import authRoutes from "./routes/auth.routes.js";
 import brandRoutes from "./routes/brand.routes.js";
-import bikeBrandRoutes from "./routes/bike.brand.routes.js"; // ✅ NEW
+import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import carRoutes from "./routes/car.routes.js";
+import bikeRoutes from "./routes/bike.routes.js";      // ✅ NEW
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import orderRoutes from "./routes/order.routes.js";
@@ -53,10 +54,15 @@ connectDB()
    ROUTES
 ========================= */
 app.use("/api/auth", authRoutes);
-app.use("/api/brands", brandRoutes);          // car brands
-app.use("/api/bike-brands", bikeBrandRoutes); // ✅ bike brands
+
+app.use("/api/brands", brandRoutes);            // 🚗 car brands
+app.use("/api/bike-brands", bikeBrandRoutes);   // 🏍️ bike brands
+
 app.use("/api/products", productRoutes);
-app.use("/api/cars", carRoutes);
+
+app.use("/api/cars", carRoutes);                // 🚗 cars
+app.use("/api/bikes", bikeRoutes);              // 🏍️ bikes ✅
+
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);

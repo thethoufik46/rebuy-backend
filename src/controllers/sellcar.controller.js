@@ -1,5 +1,5 @@
 // ======================= sellcar.controller.js =======================
-import SellCar from "../models/sellcar.model.js";
+import SellCar from "../models/sellcar_model.js";
 
 /* 🟢 ADD SELL CAR (USER) */
 export const addSellCar = async (req, res) => {

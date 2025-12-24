@@ -11,6 +11,7 @@ import {
   deleteBikeBrand,
 } from "../controllers/bike.brand.controller.js";
 import { verifyToken } from "../middleware/auth.js";
+import BikeBrand from "../models/bike_brand_model.js"; // ✅ NEW
 
 const router = express.Router();
 
@@ -38,12 +39,33 @@ router.post(
 );
 
 /* =========================
-   🔵 GET BIKE BRANDS
+   🔵 GET BIKE BRANDS (ADMIN / FULL)
 ========================= */
 router.get(
   "/",
   getBikeBrands
 );
+
+/* =========================
+   🔍 GET BIKE BRANDS (FILTER)
+   👉 name + logoUrl only
+========================= */
+router.get("/filter", async (req, res) => {
+  try {
+    const brands = await BikeBrand.find(
+      {},
+      { name: 1, logoUrl: 1 } // ✅ filter fields
+    ).sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      brands,
+    });
+  } catch (error) {
+    console.error("Bike brand filter error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 /* =========================
    🟡 UPDATE BIKE BRAND

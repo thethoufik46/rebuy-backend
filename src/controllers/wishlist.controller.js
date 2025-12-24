@@ -3,11 +3,7 @@ import Wishlist from "../models/wishlist_model.js";
 import Car from "../models/car_model.js";
 import Bike from "../models/bike_model.js";
 
-/* =================================================
-   ❤️ TOGGLE WISHLIST (CAR / BIKE)
-   POST /api/wishlist/toggle
-   body: { itemId, itemType }
-==================================================*/
+/* ❤️ TOGGLE WISHLIST */
 export const toggleWishlist = async (req, res) => {
   try {
     const { itemId, itemType } = req.body;
@@ -23,6 +19,17 @@ export const toggleWishlist = async (req, res) => {
       });
     }
 
+    // 🔍 validate item exists
+    if (itemType === "Car") {
+      const car = await Car.findById(itemId);
+      if (!car) return res.status(404).json({ message: "Car not found" });
+    }
+
+    if (itemType === "Bike") {
+      const bike = await Bike.findById(itemId);
+      if (!bike) return res.status(404).json({ message: "Bike not found" });
+    }
+
     const existing = await Wishlist.findOne({
       user: userId,
       itemId,
@@ -31,10 +38,7 @@ export const toggleWishlist = async (req, res) => {
 
     if (existing) {
       await existing.deleteOne();
-      return res.status(200).json({
-        success: true,
-        action: "removed",
-      });
+      return res.json({ success: true, action: "removed" });
     }
 
     await Wishlist.create({
@@ -43,12 +47,9 @@ export const toggleWishlist = async (req, res) => {
       itemType,
     });
 
-    res.status(200).json({
-      success: true,
-      action: "added",
-    });
-  } catch (error) {
-    console.error("Wishlist toggle error:", error);
+    res.json({ success: true, action: "added" });
+  } catch (err) {
+    console.error("🔥 Wishlist toggle error:", err);
     res.status(500).json({
       success: false,
       message: "Wishlist toggle failed",
@@ -56,46 +57,27 @@ export const toggleWishlist = async (req, res) => {
   }
 };
 
-/* =================================================
-   ❤️ GET USER WISHLIST (CAR + BIKE)
-   GET /api/wishlist
-==================================================*/
+/* ❤️ GET WISHLIST */
 export const getWishlist = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const wishlistItems = await Wishlist.find({ user: userId }).sort({
-      createdAt: -1,
-    });
+    const items = await Wishlist.find({ user: userId })
+      .populate({
+        path: "itemId",
+        populate: { path: "brand", select: "name logoUrl" },
+      })
+      .sort({ createdAt: -1 });
 
-    const carIds = wishlistItems
-      .filter((i) => i.itemType === "Car")
-      .map((i) => i.itemId);
-
-    const bikeIds = wishlistItems
-      .filter((i) => i.itemType === "Bike")
-      .map((i) => i.itemId);
-
-    const cars = await Car.find({ _id: { $in: carIds } }).populate(
-      "brand",
-      "name logoUrl"
-    );
-
-    const bikes = await Bike.find({ _id: { $in: bikeIds } }).populate(
-      "brand",
-      "name logoUrl"
-    );
-
-    // 🔥 merge both (frontend will detect)
-    const wishlist = [...cars, ...bikes];
-
-    res.status(200).json({
+    res.json({
       success: true,
-      count: wishlist.length,
-      wishlist,
+      wishlist: items.map((i) => ({
+        ...i.itemId.toObject(),
+        _wishlistType: i.itemType, // 🔥 frontend use
+      })),
     });
-  } catch (error) {
-    console.error("Get wishlist error:", error);
+  } catch (err) {
+    console.error("Get wishlist error:", err);
     res.status(500).json({
       success: false,
       message: "Failed to fetch wishlist",

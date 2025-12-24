@@ -7,10 +7,9 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-/* ❤️ GET wishlist (CAR + BIKE) */
 router.get("/", verifyToken, getWishlist);
 
-/* ❤️ TOGGLE wishlist (CAR / BIKE) */
+// 🔥 single endpoint for car + bike
 router.post("/toggle", verifyToken, toggleWishlist);
 
 export default router;

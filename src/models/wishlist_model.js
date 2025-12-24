@@ -11,19 +11,18 @@ const wishlistSchema = new mongoose.Schema(
     itemId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      refPath: "itemType", // 🔥 Car | Bike
+      refPath: "itemType",
     },
 
     itemType: {
       type: String,
-      required: true,
       enum: ["Car", "Bike"],
+      required: true,
     },
   },
   { timestamps: true }
 );
 
-// 🔒 prevent duplicates
 wishlistSchema.index(
   { user: 1, itemId: 1, itemType: 1 },
   { unique: true }

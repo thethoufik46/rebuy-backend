@@ -2,12 +2,12 @@ import SellCar from "../models/sellcar_model.js";
 
 /* =========================
    🟢 CREATE SELL CAR
+   (LOGIN USER)
 ========================= */
 export const addSellCar = async (req, res) => {
   try {
     const {
       name,
-      email,
       phone,
       location,
       brand,
@@ -20,12 +20,11 @@ export const addSellCar = async (req, res) => {
       seater,
       insuranceIdv,
       price,
+      carImages,
     } = req.body;
 
-    // ✅ basic validation
     if (
       !name ||
-      !email ||
       !phone ||
       !location ||
       !brand ||
@@ -38,14 +37,14 @@ export const addSellCar = async (req, res) => {
       !seater ||
       !price
     ) {
-      return res.status(400).json({
-        message: "All required fields must be filled",
-      });
+      return res
+        .status(400)
+        .json({ message: "All required fields must be filled" });
     }
 
     const sellCar = await SellCar.create({
+      user: req.user.id, // ✅ LOGIN USER ID
       name: name.trim(),
-      email: email.trim().toLowerCase(),
       phone: phone.trim(),
       location: location.trim(),
       brand: brand.trim(),
@@ -58,26 +57,27 @@ export const addSellCar = async (req, res) => {
       seater,
       insuranceIdv,
       price,
+      carImages,
     });
 
     res.status(201).json({
       success: true,
-      message: "Sell car request submitted successfully",
       sellCar,
     });
   } catch (error) {
-    console.error("Error adding sell car:", error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
 /* =========================
    🔵 GET ALL SELL CARS
-   (Admin)
 ========================= */
 export const getSellCars = async (req, res) => {
   try {
-    const sellCars = await SellCar.find().sort({ createdAt: -1 });
+    const sellCars = await SellCar.find()
+      .populate("user", "name phone")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -85,7 +85,7 @@ export const getSellCars = async (req, res) => {
       sellCars,
     });
   } catch (error) {
-    console.error("Error fetching sell cars:", error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -95,9 +95,11 @@ export const getSellCars = async (req, res) => {
 ========================= */
 export const getSellCarById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const sellCar = await SellCar.findById(req.params.id).populate(
+      "user",
+      "name phone"
+    );
 
-    const sellCar = await SellCar.findById(id);
     if (!sellCar) {
       return res.status(404).json({ message: "Sell car not found" });
     }
@@ -107,27 +109,23 @@ export const getSellCarById = async (req, res) => {
       sellCar,
     });
   } catch (error) {
-    console.error("Error fetching sell car:", error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
 /* =========================
    🟡 UPDATE STATUS
-   (Admin approve / reject)
 ========================= */
 export const updateSellCarStatus = async (req, res) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({
-        message: "Status is required",
-      });
+      return res.status(400).json({ message: "Status is required" });
     }
 
-    const sellCar = await SellCar.findById(id);
+    const sellCar = await SellCar.findById(req.params.id);
     if (!sellCar) {
       return res.status(404).json({ message: "Sell car not found" });
     }
@@ -137,11 +135,11 @@ export const updateSellCarStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Sell car status updated successfully",
+      message: "Status updated successfully",
       sellCar,
     });
   } catch (error) {
-    console.error("Error updating sell car status:", error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -151,9 +149,8 @@ export const updateSellCarStatus = async (req, res) => {
 ========================= */
 export const deleteSellCar = async (req, res) => {
   try {
-    const { id } = req.params;
+    const sellCar = await SellCar.findById(req.params.id);
 
-    const sellCar = await SellCar.findById(id);
     if (!sellCar) {
       return res.status(404).json({ message: "Sell car not found" });
     }
@@ -165,7 +162,7 @@ export const deleteSellCar = async (req, res) => {
       message: "Sell car deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting sell car:", error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

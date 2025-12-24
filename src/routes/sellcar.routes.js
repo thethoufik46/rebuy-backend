@@ -1,4 +1,4 @@
-    import express from "express";
+import express from "express";
 import {
   addSellCar,
   getSellCars,
@@ -12,10 +12,11 @@ const router = express.Router();
 
 /* =========================
    🟢 CREATE SELL CAR
-   (User submits form)
+   (LOGIN USER ONLY)
 ========================= */
 router.post(
   "/add",
+  verifyToken,   // ✅ login user required
   addSellCar
 );
 

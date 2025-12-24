@@ -2,17 +2,22 @@ import mongoose from "mongoose";
 
 const sellCarSchema = new mongoose.Schema(
   {
-    // Contact Info
+    /* =========================
+       🔐 LOGIN USER
+    ========================= */
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    /* =========================
+       📞 CONTACT INFO
+    ========================= */
     name: {
       type: String,
       required: true,
       trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
     },
     phone: {
       type: String,
@@ -25,7 +30,9 @@ const sellCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Vehicle Info
+    /* =========================
+       🚗 VEHICLE INFO
+    ========================= */
     brand: {
       type: String,
       required: true,
@@ -69,7 +76,19 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Admin flow
+    /* =========================
+       🖼️ CAR IMAGES
+    ========================= */
+    carImages: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+
+    /* =========================
+       🛠️ ADMIN FLOW
+    ========================= */
     status: {
       type: String,
       default: "pending",

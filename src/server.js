@@ -3,11 +3,11 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-// 🔹 DB & Admin
+// DB & Admin
 import { connectDB } from "./config/db.js";
 import { createAdminUser } from "./config/createAdmin.js";
 
-// 🔹 Routes
+// Routes
 import authRoutes from "./routes/auth.routes.js";
 import brandRoutes from "./routes/brand.routes.js";
 import productRoutes from "./routes/product.routes.js";

@@ -7,15 +7,26 @@ const wishlistSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    car: {
+
+    itemId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Car",
       required: true,
+      refPath: "itemType", // 🔥 dynamic ref
+    },
+
+    itemType: {
+      type: String,
+      required: true,
+      enum: ["Car", "Bike"], // 🔥 car + bike
     },
   },
   { timestamps: true }
 );
 
-wishlistSchema.index({ user: 1, car: 1 }, { unique: true });
+// 🔐 prevent duplicates
+wishlistSchema.index(
+  { user: 1, itemId: 1, itemType: 1 },
+  { unique: true }
+);
 
 export default mongoose.model("Wishlist", wishlistSchema);

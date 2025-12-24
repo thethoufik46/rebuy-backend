@@ -1,22 +1,32 @@
 import mongoose from "mongoose";
 import Wishlist from "../models/wishlist_model.js";
+import Car from "../models/car_model.js";
+import Bike from "../models/bike_model.js";
 
 /* =================================================
-   ❤️ TOGGLE WISHLIST (JWT USER)
-   POST /api/wishlist/toggle/:carId
+   ❤️ TOGGLE WISHLIST (CAR / BIKE)
+   POST /api/wishlist/toggle
+   body: { itemId, itemType }
 ==================================================*/
 export const toggleWishlist = async (req, res) => {
   try {
-    const { carId } = req.params;
+    const { itemId, itemType } = req.body;
     const userId = req.user._id;
 
-    if (!mongoose.Types.ObjectId.isValid(carId)) {
-      return res.status(400).json({ message: "Invalid car ID" });
+    if (
+      !mongoose.Types.ObjectId.isValid(itemId) ||
+      !["Car", "Bike"].includes(itemType)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid itemId or itemType",
+      });
     }
 
     const existing = await Wishlist.findOne({
       user: userId,
-      car: carId,
+      itemId,
+      itemType,
     });
 
     if (existing) {
@@ -29,7 +39,8 @@ export const toggleWishlist = async (req, res) => {
 
     await Wishlist.create({
       user: userId,
-      car: carId,
+      itemId,
+      itemType,
     });
 
     res.status(200).json({
@@ -46,26 +57,42 @@ export const toggleWishlist = async (req, res) => {
 };
 
 /* =================================================
-   ❤️ GET USER WISHLIST (JWT USER)
+   ❤️ GET USER WISHLIST (CAR + BIKE)
    GET /api/wishlist
 ==================================================*/
 export const getWishlist = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const items = await Wishlist.find({ user: userId })
-      .populate({
-        path: "car",
-        populate: { path: "brand", select: "name logoUrl" },
-      })
-      .sort({ createdAt: -1 });
+    const wishlistItems = await Wishlist.find({ user: userId }).sort({
+      createdAt: -1,
+    });
 
-    const cars = items.map((i) => i.car).filter(Boolean);
+    const carIds = wishlistItems
+      .filter((i) => i.itemType === "Car")
+      .map((i) => i.itemId);
+
+    const bikeIds = wishlistItems
+      .filter((i) => i.itemType === "Bike")
+      .map((i) => i.itemId);
+
+    const cars = await Car.find({ _id: { $in: carIds } }).populate(
+      "brand",
+      "name logoUrl"
+    );
+
+    const bikes = await Bike.find({ _id: { $in: bikeIds } }).populate(
+      "brand",
+      "name logoUrl"
+    );
+
+    // 🔥 merge both (frontend will detect)
+    const wishlist = [...cars, ...bikes];
 
     res.status(200).json({
       success: true,
-      count: cars.length,
-      wishlist: cars,
+      count: wishlist.length,
+      wishlist,
     });
   } catch (error) {
     console.error("Get wishlist error:", error);

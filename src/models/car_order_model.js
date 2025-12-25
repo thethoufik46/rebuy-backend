@@ -1,40 +1,40 @@
-import mongoose from "mongoose";
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { carId } = req.body;
 
-const carOrderSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    car: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Car",
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: [
-        "booking",
-        "verification",
-        "advance",
-        "delivery",
-        "cancel_requested",
-        "cancelled",
-      ],
-      default: "booking",
-    },
+    // 🔒 EXTRA SAFETY (OPTIONAL BUT NICE)
+    const exists = await Order.findOne({
+      user: req.userId,
+      car: carId,
+    });
 
-    // 🔥 IMPORTANT
-    isUserVisible: {
-      type: Boolean,
-      default: true, // user-ku kaanum
-    },
-  },
-  { timestamps: true }
-);
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "You already ordered this car",
+      });
+    }
 
-// 🔒 ONE USER → ONE CAR → ONE ORDER
-carOrderSchema.index({ user: 1, car: 1 }, { unique: true });
+    const order = await Order.create({
+      user: req.userId,
+      car: carId,
+      status: "booking",
+      isUserVisible: true,
+    });
 
-export default mongoose.model("Order", carOrderSchema);
+    res.status(201).json({ success: true, order });
+  } catch (err) {
+    // 🔥 HANDLE DUPLICATE KEY ERROR
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "You already ordered this car",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});

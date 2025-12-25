@@ -21,7 +21,7 @@ const bikeOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* 🔥 IMPORTANT: ONE USER → ONE BIKE → ONE ORDER */
+// 🔒 ONE USER → ONE BIKE → ONE ORDER
 bikeOrderSchema.index({ user: 1, bike: 1 }, { unique: true });
 
 export default mongoose.model("BikeOrder", bikeOrderSchema);

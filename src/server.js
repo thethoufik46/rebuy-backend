@@ -13,10 +13,11 @@ import brandRoutes from "./routes/brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import carRoutes from "./routes/car.routes.js";
-import bikeRoutes from "./routes/bike.routes.js";      // ✅ NEW
+import bikeRoutes from "./routes/bike.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
-import orderRoutes from "./routes/order.routes.js";
+import orderRoutes from "./routes/order.routes.js";              // 🚗 car orders
+import bikeOrderRoutes from "./routes/bike_order.routes.js";    // 🏍️ bike orders ✅
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
 dotenv.config();
@@ -55,17 +56,20 @@ connectDB()
 ========================= */
 app.use("/api/auth", authRoutes);
 
-app.use("/api/brands", brandRoutes);            // 🚗 car brands
-app.use("/api/bike-brands", bikeBrandRoutes);   // 🏍️ bike brands
+app.use("/api/brands", brandRoutes);             // 🚗 car brands
+app.use("/api/bike-brands", bikeBrandRoutes);    // 🏍️ bike brands
 
 app.use("/api/products", productRoutes);
 
-app.use("/api/cars", carRoutes);                // 🚗 cars
-app.use("/api/bikes", bikeRoutes);              // 🏍️ bikes ✅
+app.use("/api/cars", carRoutes);                 // 🚗 cars
+app.use("/api/bikes", bikeRoutes);               // 🏍️ bikes
 
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
-app.use("/api/orders", orderRoutes);
+
+app.use("/api/orders", orderRoutes);             // 🚗 car orders
+app.use("/api/bike-orders", bikeOrderRoutes);    // 🏍️ bike orders ✅
+
 app.use("/api/sellcar", sellCarRoutes);
 
 /* =========================

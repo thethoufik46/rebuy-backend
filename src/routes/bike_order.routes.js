@@ -1,34 +1,25 @@
 import express from "express";
 import BikeOrder from "../models/bike_order_model.js";
-import { verifyToken } from "../middleware/auth.js";
+import { verifyToken, isAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-/* ======================================================
-   CREATE BIKE ORDER (ONE USER → ONE BIKE → ONE ORDER)
-====================================================== */
+/* ===============================
+   CREATE ORDER (USER)
+================================ */
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { bikeId } = req.body;
 
-    if (!bikeId) {
-      return res.status(400).json({
-        success: false,
-        message: "Bike ID is required",
-      });
-    }
-
-    // 🔒 CHECK EXISTING ORDER
-    const existingOrder = await BikeOrder.findOne({
+    const exists = await BikeOrder.findOne({
       user: req.userId,
       bike: bikeId,
     });
 
-    if (existingOrder) {
+    if (exists) {
       return res.status(400).json({
         success: false,
-        message: "You have already ordered this bike",
-        order: existingOrder,
+        message: "You already ordered this bike",
       });
     }
 
@@ -38,32 +29,53 @@ router.post("/", verifyToken, async (req, res) => {
       status: "booking",
     });
 
-    res.status(201).json({
-      success: true,
-      order,
-    });
+    res.status(201).json({ success: true, order });
   } catch (err) {
-    console.error("Create Bike Order Error:", err);
-
-    // 🔐 Mongo unique index error (extra safety)
-    if (err.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "Bike already ordered by this user",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Create bike order failed",
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-/* ======================================================
-   UPDATE BIKE ORDER STATUS
-====================================================== */
-router.put("/:id/status", verifyToken, async (req, res) => {
+/* ===============================
+   USER CANCEL REQUEST
+   (ONLY SET STATUS = cancel)
+================================ */
+router.put("/:id/cancel", verifyToken, async (req, res) => {
+  try {
+    const order = await BikeOrder.findOne({
+      _id: req.params.id,
+      user: req.userId,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.status === "delivery") {
+      return res.status(400).json({
+        success: false,
+        message: "Delivered order cannot be cancelled",
+      });
+    }
+
+    order.status = "cancel"; // ❗ only request
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Cancel request sent. Waiting for admin approval",
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/* ===============================
+   ADMIN UPDATE STATUS (5 STATES)
+================================ */
+router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -82,59 +94,69 @@ router.put("/:id/status", verifyToken, async (req, res) => {
       });
     }
 
-    const order = await BikeOrder.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    )
-      .populate("user", "name phone email")
-      .populate({
-        path: "bike",
-        populate: { path: "brand", select: "name" },
-      });
+    const order = await BikeOrder.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Bike order not found",
+        message: "Order not found",
       });
     }
 
-    res.json({
-      success: true,
-      order,
-    });
+    order.status = status;
+    await order.save();
+
+    res.json({ success: true, order });
   } catch (err) {
-    console.error("Update Bike Order Error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Update bike order failed",
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-/* ======================================================
-   GET LOGGED-IN USER BIKE ORDERS
-====================================================== */
-router.get("/my", verifyToken, async (req, res) => {
+/* ===============================
+   ADMIN FINAL DELETE
+   (ONLY AFTER CANCEL)
+================================ */
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const orders = await BikeOrder.find({ user: req.userId })
-      .populate({
-        path: "bike",
-        populate: { path: "brand", select: "name" },
-      })
-      .sort({ createdAt: -1 });
+    const order = await BikeOrder.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.status !== "cancel") {
+      return res.status(400).json({
+        success: false,
+        message: "Order must be cancelled before delete",
+      });
+    }
+
+    await order.deleteOne();
 
     res.json({
       success: true,
-      orders,
+      message: "Bike order deleted permanently",
     });
   } catch (err) {
-    console.error("Get Bike Orders Error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Fetch bike orders failed",
-    });
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/* ===============================
+   USER – MY BIKE ORDERS
+================================ */
+router.get("/my", verifyToken, async (req, res) => {
+  try {
+    const orders = await BikeOrder.find({ user: req.userId })
+      .populate("bike", "brand model price bannerImage")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, orders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

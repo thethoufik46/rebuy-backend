@@ -27,6 +27,7 @@ router.post("/", verifyToken, async (req, res) => {
       user: req.userId,
       bike: bikeId,
       status: "booking",
+      isUserVisible: true,
     });
 
     res.status(201).json({ success: true, order });
@@ -36,8 +37,41 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 /* ===============================
+   USER – MY BIKE ORDERS
+================================ */
+router.get("/my", verifyToken, async (req, res) => {
+  try {
+    const orders = await BikeOrder.find({
+      user: req.userId,
+      isUserVisible: true,
+    })
+      .populate("bike", "brand model price bannerImage")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, orders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/* ===============================
+   ADMIN – GET ALL BIKE ORDERS
+================================ */
+router.get("/", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const orders = await BikeOrder.find()
+      .populate("bike", "brand model price bannerImage")
+      .populate("user", "name phone email")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, orders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/* ===============================
    USER CANCEL REQUEST
-   (ONLY SET STATUS = cancel)
 ================================ */
 router.put("/:id/cancel", verifyToken, async (req, res) => {
   try {
@@ -60,7 +94,7 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
       });
     }
 
-    order.status = "cancel"; // ❗ only request
+    order.status = "cancel_requested";
     await order.save();
 
     res.json({
@@ -73,7 +107,7 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
 });
 
 /* ===============================
-   ADMIN UPDATE STATUS (5 STATES)
+   ADMIN UPDATE STATUS
 ================================ */
 router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -84,7 +118,7 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
       "verification",
       "advance",
       "delivery",
-      "cancel",
+      "cancelled",
     ];
 
     if (!allowedStatus.includes(status)) {
@@ -104,6 +138,12 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
     }
 
     order.status = status;
+
+    // 🔥 CANCEL APPROVED → USER SIDE DELETE
+    if (status === "cancelled") {
+      order.isUserVisible = false;
+    }
+
     await order.save();
 
     res.json({ success: true, order });
@@ -113,8 +153,8 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
 });
 
 /* ===============================
-   ADMIN FINAL DELETE
-   (ONLY AFTER CANCEL)
+   ADMIN HARD DELETE (OPTIONAL)
+   ONLY AFTER CANCELLED ✅
 ================================ */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -127,10 +167,10 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    if (order.status !== "cancel") {
+    if (order.status !== "cancelled") {
       return res.status(400).json({
         success: false,
-        message: "Order must be cancelled before delete",
+        message: "Only cancelled orders can be deleted",
       });
     }
 
@@ -138,23 +178,8 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: "Bike order deleted permanently",
+      message: "Bike order permanently deleted",
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-/* ===============================
-   USER – MY BIKE ORDERS
-================================ */
-router.get("/my", verifyToken, async (req, res) => {
-  try {
-    const orders = await BikeOrder.find({ user: req.userId })
-      .populate("bike", "brand model price bannerImage")
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, orders });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

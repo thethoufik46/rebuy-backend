@@ -14,8 +14,21 @@ const bikeOrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["booking", "verification", "advance", "delivery", "cancel"],
+      enum: [
+        "booking",
+        "verification",
+        "advance",
+        "delivery",
+        "cancel_requested",
+        "cancelled",
+      ],
       default: "booking",
+    },
+
+    // 🔥 IMPORTANT
+    isUserVisible: {
+      type: Boolean,
+      default: true, // user-ku kaanum
     },
   },
   { timestamps: true }

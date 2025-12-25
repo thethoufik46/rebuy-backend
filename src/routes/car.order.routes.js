@@ -1,17 +1,18 @@
 import express from "express";
-import Order from "../models/order_model.js";
+import CarOrder from "../models/car_order_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
 /* ===============================
-   CREATE ORDER (USER)
+   CREATE CAR ORDER (USER)
 ================================ */
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { carId } = req.body;
 
-    const exists = await Order.findOne({
+    // 🔒 one user → one car → one order
+    const exists = await CarOrder.findOne({
       user: req.userId,
       car: carId,
     });
@@ -23,7 +24,7 @@ router.post("/", verifyToken, async (req, res) => {
       });
     }
 
-    const order = await Order.create({
+    const order = await CarOrder.create({
       user: req.userId,
       car: carId,
       status: "booking",
@@ -32,6 +33,14 @@ router.post("/", verifyToken, async (req, res) => {
 
     res.status(201).json({ success: true, order });
   } catch (err) {
+    // 🔥 duplicate key safety
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "You already ordered this car",
+      });
+    }
+
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -42,7 +51,7 @@ router.post("/", verifyToken, async (req, res) => {
 ================================ */
 router.get("/my", verifyToken, async (req, res) => {
   try {
-    const orders = await Order.find({
+    const orders = await CarOrder.find({
       user: req.userId,
       isUserVisible: true,
     })
@@ -60,7 +69,7 @@ router.get("/my", verifyToken, async (req, res) => {
 ================================ */
 router.get("/", verifyToken, isAdmin, async (req, res) => {
   try {
-    const orders = await Order.find()
+    const orders = await CarOrder.find()
       .populate("car", "brand model price bannerImage")
       .populate("user", "name phone email")
       .sort({ createdAt: -1 });
@@ -72,11 +81,11 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
 });
 
 /* ===============================
-   USER CANCEL REQUEST
+   USER – CANCEL REQUEST
 ================================ */
 router.put("/:id/cancel", verifyToken, async (req, res) => {
   try {
-    const order = await Order.findOne({
+    const order = await CarOrder.findOne({
       _id: req.params.id,
       user: req.userId,
     });
@@ -108,7 +117,7 @@ router.put("/:id/cancel", verifyToken, async (req, res) => {
 });
 
 /* ===============================
-   ADMIN UPDATE STATUS
+   ADMIN – UPDATE STATUS
 ================================ */
 router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -129,7 +138,7 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const order = await Order.findById(req.params.id);
+    const order = await CarOrder.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
@@ -140,7 +149,7 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
 
     order.status = status;
 
-    // 🔥 CANCEL APPROVED → USER SIDE DELETE
+    // 🔥 admin cancel approve → user side hide
     if (status === "cancelled") {
       order.isUserVisible = false;
     }
@@ -154,12 +163,12 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
 });
 
 /* ===============================
-   ADMIN HARD DELETE (OPTIONAL)
+   ADMIN – HARD DELETE (OPTIONAL)
    ONLY AFTER CANCELLED
 ================================ */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await CarOrder.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({

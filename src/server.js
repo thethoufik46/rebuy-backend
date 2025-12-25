@@ -17,9 +17,9 @@ import bikeRoutes from "./routes/bike.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 
-// ✅ ORDERS
-import orderRoutes from "./routes/order.routes.js";              // 🚗 CAR ORDERS
-import bikeOrderRoutes from "./routes/bike_order.routes.js";    // 🏍️ BIKE ORDERS
+// ✅ ORDERS (FINAL & CORRECT)
+import orderRoutes from "./routes/car.order.routes.js";       // 🚗 CAR ORDERS
+import bikeOrderRoutes from "./routes/bike_order.routes.js"; // 🏍️ BIKE ORDERS
 
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
@@ -47,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 connectDB()
   .then(() => {
     console.log("✅ MongoDB Connected");
-    createAdminUser(); // 🔥 auto-create admin if not exists
+    createAdminUser();
   })
   .catch((err) => {
     console.error("❌ MongoDB Error:", err);
@@ -60,8 +60,8 @@ connectDB()
 app.use("/api/auth", authRoutes);
 
 // 🚗 & 🏍️ BRANDS
-app.use("/api/brands", brandRoutes);             // car brands
-app.use("/api/bike-brands", bikeBrandRoutes);    // bike brands
+app.use("/api/brands", brandRoutes);
+app.use("/api/bike-brands", bikeBrandRoutes);
 
 // PRODUCTS
 app.use("/api/products", productRoutes);
@@ -74,9 +74,9 @@ app.use("/api/bikes", bikeRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
-// 🚗 & 🏍️ ORDERS (FINAL)
-app.use("/api/orders", orderRoutes);             // car orders
-app.use("/api/bike-orders", bikeOrderRoutes);    // bike orders
+// 🚗 & 🏍️ ORDERS
+app.use("/api/orders", orderRoutes);
+app.use("/api/bike-orders", bikeOrderRoutes);
 
 // SELL CAR
 app.use("/api/sellcar", sellCarRoutes);

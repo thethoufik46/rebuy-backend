@@ -16,8 +16,11 @@ import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
-import orderRoutes from "./routes/order.routes.js";              // 🚗 car orders
-import bikeOrderRoutes from "./routes/bike_order.routes.js";    // 🏍️ bike orders ✅
+
+// ✅ ORDERS
+import orderRoutes from "./routes/order.routes.js";              // 🚗 CAR ORDERS
+import bikeOrderRoutes from "./routes/bike_order.routes.js";    // 🏍️ BIKE ORDERS
+
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
 dotenv.config();
@@ -43,11 +46,11 @@ app.use(express.urlencoded({ extended: true }));
 ========================= */
 connectDB()
   .then(() => {
-    console.log("MongoDB Connected");
-    createAdminUser();
+    console.log("✅ MongoDB Connected");
+    createAdminUser(); // 🔥 auto-create admin if not exists
   })
   .catch((err) => {
-    console.error("MongoDB Error:", err);
+    console.error("❌ MongoDB Error:", err);
     process.exit(1);
   });
 
@@ -56,20 +59,26 @@ connectDB()
 ========================= */
 app.use("/api/auth", authRoutes);
 
-app.use("/api/brands", brandRoutes);             // 🚗 car brands
-app.use("/api/bike-brands", bikeBrandRoutes);    // 🏍️ bike brands
+// 🚗 & 🏍️ BRANDS
+app.use("/api/brands", brandRoutes);             // car brands
+app.use("/api/bike-brands", bikeBrandRoutes);    // bike brands
 
+// PRODUCTS
 app.use("/api/products", productRoutes);
 
-app.use("/api/cars", carRoutes);                 // 🚗 cars
-app.use("/api/bikes", bikeRoutes);               // 🏍️ bikes
+// 🚗 & 🏍️ VEHICLES
+app.use("/api/cars", carRoutes);
+app.use("/api/bikes", bikeRoutes);
 
+// SEARCH & WISHLIST
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
-app.use("/api/orders", orderRoutes);             // 🚗 car orders
-app.use("/api/bike-orders", bikeOrderRoutes);    // 🏍️ bike orders ✅
+// 🚗 & 🏍️ ORDERS (FINAL)
+app.use("/api/orders", orderRoutes);             // car orders
+app.use("/api/bike-orders", bikeOrderRoutes);    // bike orders
 
+// SELL CAR
 app.use("/api/sellcar", sellCarRoutes);
 
 /* =========================
@@ -78,7 +87,7 @@ app.use("/api/sellcar", sellCarRoutes);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "REBUY Backend API running",
+    message: "🚀 REBUY Backend API running successfully",
   });
 });
 
@@ -93,10 +102,10 @@ app.use((req, res) => {
 });
 
 /* =========================
-   ERROR HANDLER
+   GLOBAL ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
-  console.error("Server Error:", err);
+  console.error("❌ Server Error:", err);
   res.status(500).json({
     success: false,
     message: "Internal server error",
@@ -108,5 +117,5 @@ app.use((err, req, res, next) => {
 ========================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });

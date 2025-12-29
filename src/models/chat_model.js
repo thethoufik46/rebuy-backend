@@ -11,6 +11,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -32,6 +36,5 @@ const chatSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ DEFAULT EXPORT (IMPORTANT)
 const Chat = mongoose.model("Chat", chatSchema);
 export default Chat;

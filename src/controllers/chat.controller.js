@@ -1,10 +1,9 @@
 import Chat from "../models/chat_model.js";
 
-
 /* ---------------- USER SEND MESSAGE ---------------- */
 export const sendUserMessage = async (req, res) => {
   try {
-    const userId = req.userId; // 🔥 FROM TOKEN
+    const userId = req.userId;
     const { message } = req.body;
 
     if (!message) {
@@ -13,7 +12,6 @@ export const sendUserMessage = async (req, res) => {
 
     let chat = await Chat.findOne({ userId });
 
-    // 🟢 FIRST MESSAGE → AUTO WELCOME
     if (!chat) {
       chat = await Chat.create({
         userId,
@@ -21,10 +19,12 @@ export const sendUserMessage = async (req, res) => {
           {
             sender: "admin",
             message: "👋 Welcome! Our support team will reply soon.",
+            isRead: false,
           },
           {
             sender: "user",
             message,
+            isRead: true,
           },
         ],
       });
@@ -38,6 +38,7 @@ export const sendUserMessage = async (req, res) => {
     chat.messages.push({
       sender: "user",
       message,
+      isRead: true,
     });
 
     await chat.save();
@@ -68,6 +69,7 @@ export const sendAdminReply = async (req, res) => {
     chat.messages.push({
       sender: "admin",
       message,
+      isRead: false,
     });
 
     await chat.save();
@@ -85,7 +87,6 @@ export const sendAdminReply = async (req, res) => {
 export const getUserChat = async (req, res) => {
   try {
     const userId = req.userId;
-
     const chat = await Chat.findOne({ userId });
 
     res.json({
@@ -108,6 +109,53 @@ export const getAllChats = async (req, res) => {
     res.json({
       success: true,
       data: chats,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ---------------- MARK CHAT AS READ ---------------- */
+export const markChatAsRead = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const chat = await Chat.findOne({ userId });
+    if (!chat) {
+      return res.json({ success: true });
+    }
+
+    chat.messages.forEach((msg) => {
+      if (msg.sender === "admin") {
+        msg.isRead = true;
+      }
+    });
+
+    await chat.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ---------------- GET UNREAD COUNT ---------------- */
+export const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const chat = await Chat.findOne({ userId });
+    if (!chat) {
+      return res.json({ success: true, count: 0 });
+    }
+
+    const count = chat.messages.filter(
+      (msg) => msg.sender === "admin" && msg.isRead === false
+    ).length;
+
+    res.json({
+      success: true,
+      count,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

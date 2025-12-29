@@ -13,7 +13,11 @@ const messageSchema = new mongoose.Schema(
     },
     isRead: {
       type: Boolean,
-      default: false,
+      default: false, // user unread (admin → user)
+    },
+    adminRead: {
+      type: Boolean,
+      default: false, // admin unread (user → admin)
     },
     createdAt: {
       type: Date,

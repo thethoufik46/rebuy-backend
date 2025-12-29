@@ -4,9 +4,10 @@ import {
   sendUserMessage,
   sendAdminReply,
   getUserChat,
-  getAllChats,
-  markChatAsRead,
   getUnreadCount,
+  markChatAsRead,
+  getAllChats,
+  markAdminChatAsRead,
 } from "../controllers/chat.controller.js";
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.get("/user/unread-count", verifyToken, getUnreadCount);
 /* ADMIN */
 router.post("/admin/reply", verifyToken, sendAdminReply);
 router.get("/admin/chats", verifyToken, getAllChats);
+router.post("/admin/read/:chatId", verifyToken, markAdminChatAsRead);
 
 export default router;

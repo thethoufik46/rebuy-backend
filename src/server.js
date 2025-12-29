@@ -7,8 +7,10 @@ import cors from "cors";
 import { connectDB } from "./config/db.js";
 import { createAdminUser } from "./config/createAdmin.js";
 
-// Routes
+// ROUTES
 import authRoutes from "./routes/auth.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
+
 import brandRoutes from "./routes/brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 import productRoutes from "./routes/product.routes.js";
@@ -17,10 +19,8 @@ import bikeRoutes from "./routes/bike.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 
-// ✅ ORDERS (FINAL & CORRECT)
-import orderRoutes from "./routes/car.order.routes.js";       // 🚗 CAR ORDERS
-import bikeOrderRoutes from "./routes/bike_order.routes.js"; // 🏍️ BIKE ORDERS
-
+import orderRoutes from "./routes/car.order.routes.js";
+import bikeOrderRoutes from "./routes/bike_order.routes.js";
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
 dotenv.config();
@@ -47,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 connectDB()
   .then(() => {
     console.log("✅ MongoDB Connected");
-    createAdminUser();
+    createAdminUser(); // auto admin
   })
   .catch((err) => {
     console.error("❌ MongoDB Error:", err);
@@ -57,7 +57,12 @@ connectDB()
 /* =========================
    ROUTES
 ========================= */
+
+// AUTH
 app.use("/api/auth", authRoutes);
+
+// 💬 CHAT (USER ↔ ADMIN)
+app.use("/api/chat", chatRoutes);
 
 // 🚗 & 🏍️ BRANDS
 app.use("/api/brands", brandRoutes);
@@ -66,7 +71,7 @@ app.use("/api/bike-brands", bikeBrandRoutes);
 // PRODUCTS
 app.use("/api/products", productRoutes);
 
-// 🚗 & 🏍️ VEHICLES
+// VEHICLES
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
 
@@ -74,7 +79,7 @@ app.use("/api/bikes", bikeRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
-// 🚗 & 🏍️ ORDERS
+// ORDERS
 app.use("/api/orders", orderRoutes);
 app.use("/api/bike-orders", bikeOrderRoutes);
 

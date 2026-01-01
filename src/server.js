@@ -50,13 +50,28 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES (PRIVACY)
+   STATIC FILES (LEGAL PAGES)
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
+// 🔐 Privacy Policy
 app.get("/privacy-policy", (req, res) => {
   res.sendFile(
     path.join(__dirname, "../public/privacy-policy.html")
+  );
+});
+
+// 📄 Terms & Conditions
+app.get("/terms", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../public/terms-and-conditions.html")
+  );
+});
+
+// 💸 Refund & Cancellation
+app.get("/refund-policy", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../public/refund-cancellation-policy.html")
   );
 });
 

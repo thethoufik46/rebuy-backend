@@ -2,6 +2,8 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // DB & Admin
 import { connectDB } from "./config/db.js";
@@ -28,6 +30,12 @@ dotenv.config();
 const app = express();
 
 /* =========================
+   FIX __dirname (ES MODULE)
+========================= */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/* =========================
    GLOBAL MIDDLEWARE
 ========================= */
 app.use(
@@ -42,12 +50,23 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
+   STATIC FILES (PRIVACY)
+========================= */
+app.use(express.static(path.join(__dirname, "../public")));
+
+app.get("/privacy-policy", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../public/privacy-policy.html")
+  );
+});
+
+/* =========================
    DATABASE
 ========================= */
 connectDB()
   .then(() => {
     console.log("✅ MongoDB Connected");
-    createAdminUser(); // auto admin
+    createAdminUser();
   })
   .catch((err) => {
     console.error("❌ MongoDB Error:", err);
@@ -55,35 +74,25 @@ connectDB()
   });
 
 /* =========================
-   ROUTES
+   API ROUTES
 ========================= */
-
-// AUTH
 app.use("/api/auth", authRoutes);
-
-// 💬 CHAT (USER ↔ ADMIN)
 app.use("/api/chat", chatRoutes);
 
-// 🚗 & 🏍️ BRANDS
 app.use("/api/brands", brandRoutes);
 app.use("/api/bike-brands", bikeBrandRoutes);
 
-// PRODUCTS
 app.use("/api/products", productRoutes);
 
-// VEHICLES
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
 
-// SEARCH & WISHLIST
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
-// ORDERS
 app.use("/api/orders", orderRoutes);
 app.use("/api/bike-orders", bikeOrderRoutes);
 
-// SELL CAR
 app.use("/api/sellcar", sellCarRoutes);
 
 /* =========================

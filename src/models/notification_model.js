@@ -13,17 +13,13 @@ const notificationSchema = new mongoose.Schema(
       trim: true,
     },
     imageUrl: {
-      type: String, // optional
+      type: String,
       default: null,
     },
     link: {
-      type: String, // optional
+      type: String,
       default: null,
     },
-    lastNotificationSeenAt: {
-  type: Date,
-  default: null,
-},
   },
   { timestamps: true }
 );

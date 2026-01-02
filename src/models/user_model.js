@@ -50,6 +50,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    // 🔔 NOTIFICATION TRACKING (VERY IMPORTANT)
+    lastNotificationSeenAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

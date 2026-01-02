@@ -33,9 +33,9 @@ const upload = multer({ storage });
 router.post("/add", verifyToken, upload.single("image"), addNotification);
 
 /* =========================
-   🔵 GET NOTIFICATIONS
+   🔵 GET NOTIFICATIONS ✅ UPDATED HERE
 ========================= */
-router.get("/", getNotifications);
+router.get("/", verifyToken, getNotifications);
 
 /* =========================
    🔴 UNREAD COUNT (BADGE)

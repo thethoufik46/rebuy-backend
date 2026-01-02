@@ -25,6 +25,9 @@ import orderRoutes from "./routes/car.order.routes.js";
 import bikeOrderRoutes from "./routes/bike_order.routes.js";
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
+// 🔔 NOTIFICATION ROUTES
+import notificationRoutes from "./routes/notification.route.js";
+
 dotenv.config();
 
 const app = express();
@@ -109,6 +112,9 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/bike-orders", bikeOrderRoutes);
 
 app.use("/api/sellcar", sellCarRoutes);
+
+// 🔔 NOTIFICATIONS
+app.use("/api/notifications", notificationRoutes);
 
 /* =========================
    HEALTH CHECK

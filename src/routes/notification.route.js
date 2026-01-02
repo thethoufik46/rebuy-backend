@@ -7,6 +7,8 @@ import {
   getNotifications,
   updateNotification,
   deleteNotification,
+  getUnreadNotificationCount,
+  markNotificationsAsSeen,
 } from "../controllers/notification.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -28,38 +30,31 @@ const upload = multer({ storage });
 /* =========================
    🟢 CREATE NOTIFICATION
 ========================= */
-router.post(
-  "/add",
-  verifyToken,
-  upload.single("image"), // 🔔 image optional
-  addNotification
-);
+router.post("/add", verifyToken, upload.single("image"), addNotification);
 
 /* =========================
    🔵 GET NOTIFICATIONS
 ========================= */
-router.get(
-  "/",
-  getNotifications
-);
+router.get("/", getNotifications);
+
+/* =========================
+   🔴 UNREAD COUNT (BADGE)
+========================= */
+router.get("/unread-count", verifyToken, getUnreadNotificationCount);
+
+/* =========================
+   ✅ MARK AS SEEN
+========================= */
+router.post("/mark-seen", verifyToken, markNotificationsAsSeen);
 
 /* =========================
    🟡 UPDATE NOTIFICATION
 ========================= */
-router.put(
-  "/:id",
-  verifyToken,
-  upload.single("image"), // 🔔 image optional
-  updateNotification
-);
+router.put("/:id", verifyToken, upload.single("image"), updateNotification);
 
 /* =========================
    🔴 DELETE NOTIFICATION
 ========================= */
-router.delete(
-  "/:id",
-  verifyToken,
-  deleteNotification
-);
+router.delete("/:id", verifyToken, deleteNotification);
 
 export default router;

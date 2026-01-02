@@ -1,4 +1,4 @@
-// routes/auth_routes.js  ✅ FINAL (REGISTER + LOGIN + GET + UPDATE + DELETE)
+// routes/auth_routes.js
 
 import express from "express";
 import bcrypt from "bcryptjs";
@@ -25,9 +25,15 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Invalid category selected" });
     }
 
-    const existingUser = await User.findOne({ email });
+    // ✅ check email OR phone already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { phone }],
+    });
+
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({
+        message: "User already exists with this email or phone",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -35,7 +41,7 @@ router.post("/register", async (req, res) => {
     await User.create({
       name,
       phone,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       role: "user",
       category,
@@ -48,20 +54,30 @@ router.post("/register", async (req, res) => {
       message: "Registration successful",
     });
   } catch (error) {
+    console.error("❌ Register error:", error);
     res.status(500).json({ message: "Error registering user" });
   }
 });
 
-/* ---------------- LOGIN ---------------- */
+/* ---------------- LOGIN (EMAIL / PHONE) ---------------- */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+    if (!identifier || !password) {
+      return res.status(400).json({
+        message: "Email / Phone and password are required",
+      });
     }
 
-    const user = await User.findOne({ email });
+    // ✅ find by email OR phone
+    const user = await User.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { phone: identifier },
+      ],
+    });
+
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -92,6 +108,7 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("❌ Login error:", error);
     res.status(500).json({ message: "Error logging in" });
   }
 });

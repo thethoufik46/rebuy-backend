@@ -53,6 +53,44 @@ export const getNotifications = async (req, res) => {
 };
 
 /* =========================
+   🔴 UNREAD COUNT (BADGE)
+========================= */
+export const getUnreadNotificationCount = async (req, res) => {
+  try {
+    const user = req.user;
+
+    const lastSeen = user.lastNotificationSeenAt || new Date(0);
+
+    const count = await Notification.countDocuments({
+      createdAt: { $gt: lastSeen },
+    });
+
+    res.status(200).json({ count });
+  } catch (error) {
+    console.error("Unread count error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+/* =========================
+   ✅ MARK AS SEEN (CLEAR BADGE)
+========================= */
+export const markNotificationsAsSeen = async (req, res) => {
+  try {
+    req.user.lastNotificationSeenAt = new Date();
+    await req.user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Notifications marked as seen",
+    });
+  } catch (error) {
+    console.error("Mark seen error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+/* =========================
    🟡 UPDATE NOTIFICATION
 ========================= */
 export const updateNotification = async (req, res) => {
@@ -69,7 +107,6 @@ export const updateNotification = async (req, res) => {
     if (description) notification.description = description.trim();
     if (link !== undefined) notification.link = link || null;
 
-    // replace image if new image uploaded
     if (req.file) {
       if (notification.imageUrl) {
         const publicId = notification.imageUrl

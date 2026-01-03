@@ -23,9 +23,11 @@ import searchRoutes from "./routes/search.routes.js";
 
 import orderRoutes from "./routes/car.order.routes.js";
 import bikeOrderRoutes from "./routes/bike_order.routes.js";
-import sellCarRoutes from "./routes/sellcar.routes.js";
 
-// 🔔 NOTIFICATION ROUTES
+import sellCarRoutes from "./routes/sellcar.routes.js";
+import buyCarRoutes from "./routes/buycar.routes.js"; // ✅ BUY CAR
+
+// 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
 
 dotenv.config();
@@ -57,21 +59,16 @@ app.use(express.urlencoded({ extended: true }));
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
-// 🔐 Privacy Policy
 app.get("/privacy-policy", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../public/privacy-policy.html")
-  );
+  res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
 });
 
-// 📄 Terms & Conditions
 app.get("/terms", (req, res) => {
   res.sendFile(
     path.join(__dirname, "../public/terms-and-conditions.html")
   );
 });
 
-// 💸 Refund & Cancellation
 app.get("/refund-policy", (req, res) => {
   res.sendFile(
     path.join(__dirname, "../public/refund-cancellation-policy.html")
@@ -111,7 +108,9 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/bike-orders", bikeOrderRoutes);
 
+// 🚗 SELL / BUY
 app.use("/api/sellcar", sellCarRoutes);
+app.use("/api/buycar", buyCarRoutes); // ✅ BUY CAR ADDED
 
 // 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
@@ -122,7 +121,7 @@ app.use("/api/notifications", notificationRoutes);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "🚀 REBUY Backend API running successfully",
+    message: "🚀 RE2BUY Backend API running successfully",
   });
 });
 

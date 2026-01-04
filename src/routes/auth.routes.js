@@ -27,7 +27,7 @@ router.post("/register", async (req, res) => {
 
     // ✅ check email OR phone already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { phone }],
+      $or: [{ email: email.toLowerCase() }, { phone }],
     });
 
     if (existingUser) {
@@ -70,7 +70,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ✅ find by email OR phone
     const user = await User.findOne({
       $or: [
         { email: identifier.toLowerCase() },
@@ -123,28 +122,63 @@ router.get("/me", verifyToken, (req, res) => {
 
 /* ---------------- UPDATE LOGGED-IN USER ---------------- */
 router.put("/me", verifyToken, async (req, res) => {
-  const { name, phone, location, address } = req.body;
+  try {
+    const { name, phone, email, location, address } = req.body;
 
-  const user = await User.findByIdAndUpdate(
-    req.userId,
-    { name, phone, location, address },
-    { new: true }
-  ).select("-password");
+    const updateData = {};
 
-  res.json({
-    success: true,
-    user,
-  });
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (location) updateData.location = location;
+    if (address) updateData.address = address;
+
+    // ✅ EMAIL UPDATE SUPPORT
+    if (email) {
+      updateData.email = email.toLowerCase();
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select("-password");
+
+    res.json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    console.error("❌ Update user error:", error);
+
+    // duplicate email error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Email already in use",
+      });
+    }
+
+    res.status(500).json({
+      message: "Failed to update profile",
+    });
+  }
 });
 
 /* ---------------- DELETE LOGGED-IN USER ---------------- */
 router.delete("/me", verifyToken, async (req, res) => {
-  await User.findByIdAndDelete(req.userId);
+  try {
+    await User.findByIdAndDelete(req.userId);
 
-  res.json({
-    success: true,
-    message: "User profile deleted",
-  });
+    res.json({
+      success: true,
+      message: "User profile deleted",
+    });
+  } catch (error) {
+    console.error("❌ Delete user error:", error);
+    res.status(500).json({ message: "Failed to delete profile" });
+  }
 });
 
 export default router;

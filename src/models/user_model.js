@@ -51,7 +51,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // 🔔 NOTIFICATION TRACKING (VERY IMPORTANT)
+    // 🔑 FORGOT PASSWORD SUPPORT
+    resetPasswordToken: {
+      type: String,
+    },
+
+    resetPasswordExpire: {
+      type: Date,
+    },
+
+    // 🔔 NOTIFICATION TRACKING
     lastNotificationSeenAt: {
       type: Date,
       default: null,

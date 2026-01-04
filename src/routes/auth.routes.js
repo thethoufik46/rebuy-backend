@@ -55,8 +55,8 @@ router.post("/register", async (req, res) => {
       success: true,
       message: "Registration successful",
     });
-  } catch (error) {
-    console.error("❌ Register error:", error);
+  } catch (err) {
+    console.error("❌ Register error:", err);
     res.status(500).json({ success: false, message: "Register failed" });
   }
 });
@@ -69,7 +69,7 @@ router.post("/login", async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email/Phone and password required",
+        message: "Email / Phone and password required",
       });
     }
 
@@ -113,18 +113,15 @@ router.post("/login", async (req, res) => {
         address: user.address,
       },
     });
-  } catch (error) {
-    console.error("❌ Login error:", error);
+  } catch (err) {
+    console.error("❌ Login error:", err);
     res.status(500).json({ success: false, message: "Login failed" });
   }
 });
 
-/* ================= GET LOGGED-IN USER ================= */
+/* ================= GET LOGGED IN USER ================= */
 router.get("/me", verifyToken, (req, res) => {
-  res.json({
-    success: true,
-    user: req.user,
-  });
+  res.json({ success: true, user: req.user });
 });
 
 /* ================= UPDATE PROFILE ================= */
@@ -146,8 +143,8 @@ router.put("/me", verifyToken, async (req, res) => {
     ).select("-password");
 
     res.json({ success: true, user });
-  } catch (error) {
-    console.error("❌ Update error:", error);
+  } catch (err) {
+    console.error("❌ Update error:", err);
     res.status(500).json({ success: false, message: "Update failed" });
   }
 });
@@ -157,12 +154,12 @@ router.delete("/me", verifyToken, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.userId);
     res.json({ success: true, message: "Account deleted" });
-  } catch (error) {
+  } catch {
     res.status(500).json({ success: false, message: "Delete failed" });
   }
 });
 
-/* ================= FORGOT PASSWORD (EMAIL) ================= */
+/* ================= FORGOT PASSWORD ================= */
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -193,7 +190,7 @@ router.post("/forgot-password", async (req, res) => {
         <h2>Password Reset</h2>
         <p>Click the link below:</p>
         <a href="${resetLink}">${resetLink}</a>
-        <p>Link expires in 15 minutes</p>
+        <p>This link expires in 15 minutes</p>
       `,
     });
 
@@ -201,8 +198,8 @@ router.post("/forgot-password", async (req, res) => {
       success: true,
       message: "Reset link sent to email",
     });
-  } catch (error) {
-    console.error("❌ Forgot password error:", error);
+  } catch (err) {
+    console.error("❌ Forgot password error:", err);
     res.status(500).json({
       success: false,
       message: "Email send failed",
@@ -210,7 +207,7 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-/* ================= RESET PASSWORD (TOKEN) ================= */
+/* ================= RESET PASSWORD ================= */
 router.post("/reset-password/:token", async (req, res) => {
   try {
     const { password } = req.body;
@@ -241,7 +238,7 @@ router.post("/reset-password/:token", async (req, res) => {
       success: true,
       message: "Password reset successful",
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({
       success: false,
       message: "Password reset failed",
@@ -249,7 +246,7 @@ router.post("/reset-password/:token", async (req, res) => {
   }
 });
 
-/* ================= CHANGE PASSWORD (LOGGED IN USER) ================= */
+/* ================= CHANGE PASSWORD ================= */
 router.put("/change-password", verifyToken, async (req, res) => {
   try {
     const { newPassword } = req.body;
@@ -262,12 +259,6 @@ router.put("/change-password", verifyToken, async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
@@ -275,8 +266,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
       success: true,
       message: "Password updated successfully",
     });
-  } catch (error) {
-    console.error("❌ Change password error:", error);
+  } catch {
     res.status(500).json({
       success: false,
       message: "Change password failed",

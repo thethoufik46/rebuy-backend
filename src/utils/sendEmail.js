@@ -12,7 +12,7 @@ const sendEmail = async ({ to, subject, html }) => {
   });
 
   await transporter.sendMail({
-    from: `"ReBuy" <${process.env.EMAIL_USER}>`,
+    from: "Re2buy <noreply@rebuy.com>",
     to,
     subject,
     html,

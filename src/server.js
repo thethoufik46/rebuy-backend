@@ -1,23 +1,27 @@
 // ======================= server.js =======================
+
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// DB & Admin
+// ================= DATABASE & ADMIN =================
 import { connectDB } from "./config/db.js";
 import { createAdminUser } from "./config/createAdmin.js";
 
-// ROUTES
+// ================= ROUTES =================
 import authRoutes from "./routes/auth.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
+
 import productRoutes from "./routes/product.routes.js";
+
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
+
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 
@@ -25,11 +29,12 @@ import orderRoutes from "./routes/car.order.routes.js";
 import bikeOrderRoutes from "./routes/bike_order.routes.js";
 
 import sellCarRoutes from "./routes/sellcar.routes.js";
-import buyCarRoutes from "./routes/buycar.routes.js"; // ✅ BUY CAR
+import buyCarRoutes from "./routes/buycar.routes.js";
 
 // 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
 
+// ================= ENV =================
 dotenv.config();
 
 const app = express();
@@ -76,7 +81,7 @@ app.get("/refund-policy", (req, res) => {
 });
 
 /* =========================
-   DATABASE
+   DATABASE CONNECTION
 ========================= */
 connectDB()
   .then(() => {
@@ -110,7 +115,7 @@ app.use("/api/bike-orders", bikeOrderRoutes);
 
 // 🚗 SELL / BUY
 app.use("/api/sellcar", sellCarRoutes);
-app.use("/api/buycar", buyCarRoutes); // ✅ BUY CAR ADDED
+app.use("/api/buycar", buyCarRoutes);
 
 // 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);

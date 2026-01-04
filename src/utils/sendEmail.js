@@ -12,7 +12,7 @@ const sendEmail = async ({ to, subject, html }) => {
   });
 
   await transporter.sendMail({
-    from: "Re2buy <noreply@rebuy.com>",
+    from: `"Re2buy" <thethoufik4646@gmail.com>`,
     to,
     subject,
     html,

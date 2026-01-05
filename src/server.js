@@ -34,6 +34,9 @@ import buyCarRoutes from "./routes/buycar.routes.js";
 // 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
 
+// ⭐ TESTIMONIALS (NEW)
+import testimonialRoutes from "./routes/testimonial.route.js";
+
 // ================= ENV =================
 dotenv.config();
 
@@ -119,6 +122,9 @@ app.use("/api/buycar", buyCarRoutes);
 
 // 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
+
+// ⭐ TESTIMONIALS
+app.use("/api/testimonials", testimonialRoutes);
 
 /* =========================
    HEALTH CHECK

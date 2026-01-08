@@ -34,8 +34,11 @@ import buyCarRoutes from "./routes/buycar.routes.js";
 // 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
 
-// ⭐ TESTIMONIALS (NEW)
+// ⭐ TESTIMONIALS
 import testimonialRoutes from "./routes/testimonial.route.js";
+
+// ⭐ STORIES
+import storyRoutes from "./routes/story.route.js";
 
 // ================= ENV =================
 dotenv.config();
@@ -63,25 +66,9 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES (LEGAL PAGES)
+   STATIC FILES
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
-
-app.get("/privacy-policy", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
-});
-
-app.get("/terms", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../public/terms-and-conditions.html")
-  );
-});
-
-app.get("/refund-policy", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../public/refund-cancellation-policy.html")
-  );
-});
 
 /* =========================
    DATABASE CONNECTION
@@ -116,15 +103,12 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/bike-orders", bikeOrderRoutes);
 
-// 🚗 SELL / BUY
 app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
 
-// 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
-
-// ⭐ TESTIMONIALS
 app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/stories", storyRoutes);
 
 /* =========================
    HEALTH CHECK

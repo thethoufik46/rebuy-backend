@@ -30,6 +30,9 @@ const upload = multer({ storage });
 
 /* =========================
    🟢 ADD STORY (ADMIN)
+   form-data:
+   - media (file)
+   - title (text) ✅
 ========================= */
 router.post(
   "/add",
@@ -50,6 +53,9 @@ router.get(
 
 /* =========================
    🟡 UPDATE STORY (ADMIN)
+   form-data:
+   - media (optional file)
+   - title (optional text) ✅
 ========================= */
 router.put(
   "/:id",

@@ -12,10 +12,13 @@ export const addStory = async (req, res) => {
       });
     }
 
+    const { title = "" } = req.body; // ✅ TITLE
+
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
     const story = await Story.create({
+      title: title.trim(),
       media: req.file.path,
       mediaType: req.file.mimetype.startsWith("video")
         ? "video"
@@ -63,6 +66,12 @@ export const updateStory = async (req, res) => {
   try {
     const updateData = {};
 
+    // ✅ TITLE UPDATE
+    if (req.body.title !== undefined) {
+      updateData.title = req.body.title.trim();
+    }
+
+    // ✅ MEDIA UPDATE (OPTIONAL)
     if (req.file) {
       updateData.media = req.file.path;
       updateData.mediaType = req.file.mimetype.startsWith("video")

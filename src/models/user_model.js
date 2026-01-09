@@ -16,10 +16,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // ❌ EMAIL NOT REQUIRED
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true, // ✅ allows multiple users without email
       lowercase: true,
       trim: true,
     },

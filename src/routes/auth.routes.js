@@ -14,10 +14,11 @@ router.post("/register", async (req, res) => {
     const { name, phone, email, password, category, location, address } =
       req.body;
 
-    if (!name || !phone || !email || !password || !category) {
+    // ❗ EMAIL NOT REQUIRED
+    if (!name || !phone || !password || !category) {
       return res.status(400).json({
         success: false,
-        message: "Name, phone, email, password and category are required",
+        message: "Name, phone, password and category are required",
       });
     }
 
@@ -28,10 +29,10 @@ router.post("/register", async (req, res) => {
         .json({ success: false, message: "Invalid category" });
     }
 
-    const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { phone }],
-    });
+    const query = [{ phone }];
+    if (email) query.push({ email: email.toLowerCase() });
 
+    const existingUser = await User.findOne({ $or: query });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -44,7 +45,7 @@ router.post("/register", async (req, res) => {
     await User.create({
       name,
       phone,
-      email: email.toLowerCase(),
+      email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
       category,
       location,
@@ -69,15 +70,12 @@ router.post("/login", async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email / Phone and password required",
+        message: "Phone / Email and password required",
       });
     }
 
     const user = await User.findOne({
-      $or: [
-        { email: identifier.toLowerCase() },
-        { phone: identifier },
-      ],
+      $or: [{ phone: identifier }, { email: identifier.toLowerCase() }],
     });
 
     if (!user) {
@@ -163,6 +161,13 @@ router.delete("/me", verifyToken, async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required for password reset",
+      });
+    }
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {

@@ -68,11 +68,11 @@ router.put(
 /* =========================
    🔴 DELETE STORY (ADMIN)
 ========================= */
-router.delete(
+router.delete(  
   "/:id",
   verifyToken,
   isAdmin,
   deleteStory
 );
-
+ 
 export default router;

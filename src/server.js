@@ -31,6 +31,12 @@ import bikeOrderRoutes from "./routes/bike_order.routes.js";
 import sellCarRoutes from "./routes/sellcar.routes.js";
 import buyCarRoutes from "./routes/buycar.routes.js";
 
+// 🏠 REAL ESTATE
+import propertyRoutes from "./routes/property.routes.js";
+
+// 📍 LOCATION (Tamil Nadu dropdown)
+import locationRoutes from "./routes/location.routes.js";
+
 // 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
 
@@ -65,27 +71,19 @@ app.use(
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-
-
-
-
 /* =========================
-   STATIC FILES (LEGAL PAGES)
+   STATIC FILES (PUBLIC)
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
 // 🔐 Privacy Policy
 app.get("/privacy-policy", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../public/privacy-policy.html")
-  );
+  res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
 });
 
 // 📄 Terms & Conditions
 app.get("/terms", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../public/terms-and-conditions.html")
-  );
+  res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html"));
 });
 
 // 💸 Refund & Cancellation
@@ -94,12 +92,6 @@ app.get("/refund-policy", (req, res) => {
     path.join(__dirname, "../public/refund-cancellation-policy.html")
   );
 });
-
-
-/* =========================
-   STATIC FILES
-========================= */
-app.use(express.static(path.join(__dirname, "../public")));
 
 /* =========================
    DATABASE CONNECTION
@@ -137,6 +129,12 @@ app.use("/api/bike-orders", bikeOrderRoutes);
 app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
 
+// 🏠 REAL ESTATE
+app.use("/api/properties", propertyRoutes);
+
+// 📍 LOCATION DROPDOWN
+app.use("/api/locations", locationRoutes);
+
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
@@ -152,7 +150,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   404 HANDLER
+   404 HANDLER (ALWAYS LAST)
 ========================= */
 app.use((req, res) => {
   res.status(404).json({

@@ -8,20 +8,20 @@ import { verifyToken, isAdmin } from "../middleware/auth.js";
 const router = express.Router();
 
 /* -------------------------------------------------
-   ✅ Cloudinary Storage Setup
+   ☁️ CLOUDINARY + MULTER
 ---------------------------------------------------*/
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "rebuy_properties",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
   },
 });
 
 const upload = multer({ storage });
 
 /* =================================================
-   ✅ FILTER PROPERTIES
+   🔍 FILTER PROPERTIES
    GET /api/properties/filter
 ==================================================*/
 router.get("/filter", async (req, res) => {
@@ -46,9 +46,16 @@ router.get("/filter", async (req, res) => {
     if (status) query.status = status;
     if (sellerInfo) query.sellerInfo = sellerInfo;
 
-    if (district) query["location.district"] = district;
-    if (town) query["location.town"] = town;
+    // ✅ LOCATION STRING FILTER
+    if (district && town) {
+      query.location = new RegExp(`${town}.*, ${district}`, "i");
+    } else if (district) {
+      query.location = new RegExp(district, "i");
+    } else if (town) {
+      query.location = new RegExp(town, "i");
+    }
 
+    // ✅ PRICE FILTER
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
@@ -72,7 +79,7 @@ router.get("/filter", async (req, res) => {
 });
 
 /* =================================================
-   ✅ ADD PROPERTY (ADMIN)
+   ➕ ADD PROPERTY (ADMIN)
    POST /api/properties/add
 ==================================================*/
 router.post(
@@ -110,6 +117,9 @@ router.post(
         });
       }
 
+      // ✅ SINGLE LOCATION STRING
+      const location = `${town}, ${district}, Tamil Nadu`;
+
       const bannerImage = req.files.banner[0].path;
       const galleryImages = req.files.gallery
         ? req.files.gallery.map((img) => img.path)
@@ -129,11 +139,7 @@ router.post(
         seller,
         sellerInfo,
         description,
-        location: {
-          state: "Tamil Nadu",
-          district,
-          town,
-        },
+        location, // ✅ STRING
         bannerImage,
         galleryImages,
       });
@@ -149,14 +155,15 @@ router.post(
       console.error("❌ Add Property Error:", error);
       res.status(500).json({
         success: false,
-        message: error.message || "Error adding property",
+        message: error.message,
       });
     }
   }
 );
 
 /* =================================================
-   ✅ GET ALL PROPERTIES
+   📄 GET ALL PROPERTIES
+   GET /api/properties
 ==================================================*/
 router.get("/", async (req, res) => {
   try {
@@ -177,7 +184,8 @@ router.get("/", async (req, res) => {
 });
 
 /* =================================================
-   ✅ GET SINGLE PROPERTY
+   📄 GET SINGLE PROPERTY
+   GET /api/properties/:id
 ==================================================*/
 router.get("/:id", async (req, res) => {
   try {
@@ -204,7 +212,8 @@ router.get("/:id", async (req, res) => {
 });
 
 /* =================================================
-   ✅ UPDATE PROPERTY (ADMIN)
+   ✏️ UPDATE PROPERTY (ADMIN)
+   PUT /api/properties/:id
 ==================================================*/
 router.put(
   "/:id",
@@ -217,6 +226,7 @@ router.put(
   async (req, res) => {
     try {
       const property = await Property.findById(req.params.id);
+
       if (!property) {
         return res.status(404).json({
           success: false,
@@ -225,16 +235,10 @@ router.put(
       }
 
       if (req.files?.banner) {
-        const oldBanner = property.bannerImage.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(`rebuy_properties/${oldBanner}`);
         property.bannerImage = req.files.banner[0].path;
       }
 
       if (req.files?.gallery) {
-        for (const img of property.galleryImages) {
-          const imgId = img.split("/").pop().split(".")[0];
-          await cloudinary.uploader.destroy(`rebuy_properties/${imgId}`);
-        }
         property.galleryImages = req.files.gallery.map((f) => f.path);
       }
 
@@ -250,31 +254,25 @@ router.put(
       console.error("❌ Update Property Error:", error);
       res.status(500).json({
         success: false,
-        message: error.message || "Error updating property",
+        message: error.message,
       });
     }
   }
 );
 
 /* =================================================
-   ✅ DELETE PROPERTY
+   🗑️ DELETE PROPERTY (ADMIN)
+   DELETE /api/properties/:id
 ==================================================*/
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
+
     if (!property) {
       return res.status(404).json({
         success: false,
         message: "Property not found",
       });
-    }
-
-    const bannerId = property.bannerImage.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`rebuy_properties/${bannerId}`);
-
-    for (const img of property.galleryImages) {
-      const imgId = img.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`rebuy_properties/${imgId}`);
     }
 
     await property.deleteOne();

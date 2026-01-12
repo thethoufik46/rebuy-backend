@@ -15,6 +15,7 @@ const router = express.Router();
 
 /* =========================
    ☁️ CLOUDINARY STORAGE
+   (FOR LINK IMAGE)
 ========================= */
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -27,7 +28,8 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* =========================
-   ROUTES
+   🟢 ADD LINK (ADMIN)
+   TITLE + IMAGE ONLY
 ========================= */
 router.post(
   "/add",
@@ -36,8 +38,15 @@ router.post(
   addLink
 );
 
+/* =========================
+   🔵 GET LINKS (PUBLIC)
+========================= */
 router.get("/", getLinks);
 
+/* =========================
+   🟡 UPDATE LINK (ADMIN)
+   IMAGE OPTIONAL
+========================= */
 router.put(
   "/:id",
   verifyToken,
@@ -45,6 +54,9 @@ router.put(
   updateLink
 );
 
+/* =========================
+   🔴 DELETE LINK (ADMIN)
+========================= */
 router.delete(
   "/:id",
   verifyToken,

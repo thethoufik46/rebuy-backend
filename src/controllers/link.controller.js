@@ -6,11 +6,10 @@ import Link from "../models/link_model.js";
 ========================= */
 export const addLink = async (req, res) => {
   try {
-    const { title, link } = req.body;
+    const { title } = req.body;
 
     const newLink = new Link({
       title,
-      link,
       image: req.file ? req.file.path : "", // 🖼️ Cloudinary URL
     });
 
@@ -58,7 +57,6 @@ export const updateLink = async (req, res) => {
 
     const updateData = {
       title: req.body.title,
-      link: req.body.link,
     };
 
     // 🖼️ If new image uploaded → replace

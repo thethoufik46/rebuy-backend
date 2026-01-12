@@ -2,19 +2,15 @@ import mongoose from "mongoose";
 
 const linkSchema = new mongoose.Schema(
   {
+    // 🏷️ TITLE
     title: {
       type: String,
       trim: true,
     },
 
-    link: {
-      type: String,
-      trim: true,
-    },
-
-    // 🖼️ IMAGE (LIKE BRAND LOGO)
+    // 🖼️ IMAGE (Brand logo madhiri – Cloudinary URL)
     image: {
-      type: String, // Cloudinary URL
+      type: String,
       trim: true,
       default: "",
     },

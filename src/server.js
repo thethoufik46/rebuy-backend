@@ -36,6 +36,8 @@ import propertyRoutes from "./routes/property.routes.js";
 
 // 📍 LOCATION (Tamil Nadu dropdown)
 import locationRoutes from "./routes/location.routes.js";
+// 🔗 LINKS
+import linkRoutes from "./routes/link.routes.js";
 
 // 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
@@ -134,6 +136,8 @@ app.use("/api/properties", propertyRoutes);
 
 // 📍 LOCATION DROPDOWN
 app.use("/api/locations", locationRoutes);
+app.use("/api/links", linkRoutes);
+
 
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);

@@ -21,7 +21,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "links",
-    allowed_formats: ["jpg", "jpeg", "png"],
+    allowed_formats: ["jpg", "jpeg", "png", "webp"], // ✅ ADD webp
   },
 });
 

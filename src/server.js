@@ -30,6 +30,7 @@ import bikeOrderRoutes from "./routes/bike_order.routes.js";
 
 import sellCarRoutes from "./routes/sellcar.routes.js";
 import buyCarRoutes from "./routes/buycar.routes.js";
+import sellPropertyRoutes from "./routes/sellproperty.routes.js";
 
 // 🏠 REAL ESTATE
 import propertyRoutes from "./routes/property.routes.js";
@@ -130,6 +131,8 @@ app.use("/api/bike-orders", bikeOrderRoutes);
 
 app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
+
+app.use("/sellproperty", sellPropertyRoutes);
 
 // 🏠 REAL ESTATE
 app.use("/api/properties", propertyRoutes);

@@ -132,7 +132,7 @@ app.use("/api/bike-orders", bikeOrderRoutes);
 app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
 
-app.use("/sellproperty", sellPropertyRoutes);
+app.use("/api/sellproperty", sellPropertyRoutes);
 
 // 🏠 REAL ESTATE
 app.use("/api/properties", propertyRoutes);

@@ -17,16 +17,13 @@ export const addSellProperty = async (req, res) => {
 
     await property.save();
 
-    res.status(201).json({
-      success: true,
-      property,
-    });
+    res.status(201).json({ success: true, property });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* MY LIST */
+/* MY */
 export const getMySellProperties = async (req, res) => {
   const properties = await SellProperty.find({ user: req.user._id }).sort({
     createdAt: -1,
@@ -37,7 +34,6 @@ export const getMySellProperties = async (req, res) => {
 /* UPDATE */
 export const updateMySellProperty = async (req, res) => {
   const data = { ...req.body };
-  if (req.body.price) data.price = Number(req.body.price);
   if (req.file) data.image = req.file.path;
 
   const property = await SellProperty.findOneAndUpdate(
@@ -59,7 +55,7 @@ export const deleteMySellProperty = async (req, res) => {
   res.json({ success: true });
 };
 
-/* ADMIN LIST */
+/* ADMIN */
 export const getSellProperties = async (req, res) => {
   const properties = await SellProperty.find()
     .populate("user", "name email")
@@ -67,7 +63,6 @@ export const getSellProperties = async (req, res) => {
   res.json({ success: true, properties });
 };
 
-/* ADMIN SINGLE */
 export const getSellPropertyById = async (req, res) => {
   const property = await SellProperty.findById(req.params.id).populate(
     "user",
@@ -77,17 +72,15 @@ export const getSellPropertyById = async (req, res) => {
   res.json({ success: true, property });
 };
 
-/* ADMIN STATUS */
 export const updateSellPropertyStatus = async (req, res) => {
   const property = await SellProperty.findByIdAndUpdate(
     req.params.id,
-    { status: req.body.status, adminNote: req.body.adminNote },
+    { status: req.body.status },
     { new: true }
   );
   res.json({ success: true, property });
 };
 
-/* ADMIN DELETE */
 export const deleteSellProperty = async (req, res) => {
   await SellProperty.findByIdAndDelete(req.params.id);
   res.json({ success: true });

@@ -1,33 +1,23 @@
-// ======================= sellproperty.model.js =======================
 import mongoose from "mongoose";
 
 const sellPropertySchema = new mongoose.Schema(
   {
-    /* 🔐 LOGIN USER (REFERENCE) */
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
-
-    /* 🔑 LOGIN USER ID (EXPLICIT FIELD) */
     userId: {
       type: String,
       required: true,
       index: true,
     },
 
-    /* =========================
-       REQUIRED CONTACT
-    ========================= */
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true },
     location: { type: String, required: true, trim: true },
 
-    /* =========================
-       PROPERTY TYPE (DROPDOWN)
-    ========================= */
     propertyType: {
       type: String,
       required: true,
@@ -42,35 +32,12 @@ const sellPropertySchema = new mongoose.Schema(
       index: true,
     },
 
-    /* =========================
-       PROPERTY DETAILS
-    ========================= */
-    area: {
-      type: String, // sqft / cent / acre
-      required: true,
-      trim: true,
-    },
+    area: { type: String, required: true, trim: true },
+    direction: { type: String, trim: true },
+    roadAccess: { type: String, trim: true },
 
-    direction: {
-      type: String, // East / West / North / South
-      trim: true,
-    },
+    price: { type: Number, required: true, min: 0, index: true },
 
-    roadAccess: {
-      type: String, // 20ft road, 30ft road
-      trim: true,
-    },
-
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-      index: true,
-    },
-
-    /* =========================
-       SELLER TYPE
-    ========================= */
     sellerType: {
       type: String,
       required: true,
@@ -78,25 +45,10 @@ const sellPropertySchema = new mongoose.Schema(
       index: true,
     },
 
-    /* =========================
-       DESCRIPTION
-    ========================= */
-    description: {
-      type: String,
-      trim: true,
-    },
+    description: { type: String, trim: true },
 
-    /* =========================
-       REQUIRED IMAGE
-    ========================= */
-    image: {
-      type: String,
-      required: true,
-    },
+    image: { type: String, required: true },
 
-    /* =========================
-       ADMIN FLOW
-    ========================= */
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

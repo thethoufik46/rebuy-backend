@@ -1,4 +1,3 @@
-// ======================= sellproperty.routes.js =======================
 import express from "express";
 import {
   addSellProperty,
@@ -15,17 +14,13 @@ import { uploadSingle } from "../middleware/upload.js";
 
 const router = express.Router();
 
-/* =========================
-   USER ROUTES
-========================= */
+/* USER */
 router.post("/add", verifyToken, uploadSingle, addSellProperty);
 router.get("/my", verifyToken, getMySellProperties);
 router.put("/my/:id", verifyToken, uploadSingle, updateMySellProperty);
 router.delete("/my/:id", verifyToken, deleteMySellProperty);
 
-/* =========================
-   ADMIN ROUTES
-========================= */
+/* ADMIN */
 router.get("/", verifyToken, isAdmin, getSellProperties);
 router.get("/:id", verifyToken, isAdmin, getSellPropertyById);
 router.put("/:id/status", verifyToken, isAdmin, updateSellPropertyStatus);

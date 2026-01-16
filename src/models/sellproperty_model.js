@@ -1,4 +1,4 @@
-// ======================= models/sellproperty_model.js =======================
+// ======================= sellproperty.model.js =======================
 import mongoose from "mongoose";
 
 const sellPropertySchema = new mongoose.Schema(
@@ -9,6 +9,7 @@ const sellPropertySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+
     userId: {
       type: String,
       required: true,
@@ -30,25 +31,27 @@ const sellPropertySchema = new mongoose.Schema(
         "Agri Land",
         "Residential Plots",
       ],
-      index: true,
     },
 
     area: { type: String, required: true, trim: true },
     direction: { type: String, trim: true },
     roadAccess: { type: String, trim: true },
 
-    price: { type: Number, required: true, min: 0, index: true },
+    price: { type: Number, required: true, min: 0 },
 
     sellerType: {
       type: String,
       required: true,
       enum: ["Owner", "Refer", "Agency"],
-      index: true,
     },
 
     description: { type: String, trim: true },
 
-    image: { type: String, required: true },
+    /* ☁️ CLOUDINARY IMAGE */
+    image: {
+      type: String,
+      required: true,
+    },
 
     status: {
       type: String,

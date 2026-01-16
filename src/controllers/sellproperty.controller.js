@@ -1,7 +1,7 @@
-// ======================= controllers/sellproperty.controller.js =======================
+// ======================= sellproperty.controller.js =======================
 import SellProperty from "../models/sellproperty_model.js";
 
-/* ADD */
+/* 🟢 ADD SELL PROPERTY */
 export const addSellProperty = async (req, res) => {
   try {
     if (!req.file) {
@@ -13,17 +13,22 @@ export const addSellProperty = async (req, res) => {
       price: Number(req.body.price),
       user: req.user._id,
       userId: req.user._id.toString(),
-      image: `/uploads/${req.file.filename}`,
+      image: req.file.path, // ✅ CLOUDINARY URL
     });
 
     await property.save();
-    res.status(201).json({ success: true, property });
+
+    res.status(201).json({
+      success: true,
+      message: "Sell property submitted",
+      property,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* MY */
+/* 🟢 GET MY PROPERTIES */
 export const getMySellProperties = async (req, res) => {
   const properties = await SellProperty.find({ user: req.user._id }).sort({
     createdAt: -1,
@@ -31,22 +36,26 @@ export const getMySellProperties = async (req, res) => {
   res.json({ success: true, properties });
 };
 
-/* UPDATE */
+/* 🟢 UPDATE MY PROPERTY */
 export const updateMySellProperty = async (req, res) => {
-  const data = { ...req.body };
-  if (req.file) data.image = `/uploads/${req.file.filename}`;
+  const updateData = { ...req.body };
+
+  if (req.file) {
+    updateData.image = req.file.path; // ✅ CLOUDINARY URL
+  }
 
   const property = await SellProperty.findOneAndUpdate(
     { _id: req.params.id, user: req.user._id },
-    data,
+    updateData,
     { new: true }
   );
 
   if (!property) return res.status(404).json({ message: "Not found" });
+
   res.json({ success: true, property });
 };
 
-/* DELETE */
+/* 🟢 DELETE MY PROPERTY */
 export const deleteMySellProperty = async (req, res) => {
   await SellProperty.findOneAndDelete({
     _id: req.params.id,
@@ -55,7 +64,7 @@ export const deleteMySellProperty = async (req, res) => {
   res.json({ success: true });
 };
 
-/* ADMIN */
+/* 🔵 ADMIN */
 export const getSellProperties = async (req, res) => {
   const properties = await SellProperty.find()
     .populate("user", "name email")

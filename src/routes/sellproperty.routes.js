@@ -1,4 +1,4 @@
-// ======================= routes/sellproperty.routes.js =======================
+// ======================= sellproperty.routes.js =======================
 import express from "express";
 import {
   addSellProperty,
@@ -10,15 +10,16 @@ import {
   updateSellPropertyStatus,
   deleteSellProperty,
 } from "../controllers/sellproperty.controller.js";
+
 import { verifyToken, isAdmin } from "../middleware/auth.js";
-import { uploadSingle } from "../middleware/upload.js";
+import { uploadPropertyImage } from "../middleware/uploadProperty.js";
 
 const router = express.Router();
 
 /* USER */
-router.post("/add", verifyToken, uploadSingle, addSellProperty);
+router.post("/add", verifyToken, uploadPropertyImage, addSellProperty);
 router.get("/my", verifyToken, getMySellProperties);
-router.put("/my/:id", verifyToken, uploadSingle, updateMySellProperty);
+router.put("/my/:id", verifyToken, uploadPropertyImage, updateMySellProperty);
 router.delete("/my/:id", verifyToken, deleteMySellProperty);
 
 /* ADMIN */

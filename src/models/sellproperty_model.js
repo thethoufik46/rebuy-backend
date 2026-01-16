@@ -1,3 +1,4 @@
+// ======================= models/sellproperty_model.js =======================
 import mongoose from "mongoose";
 
 const sellPropertySchema = new mongoose.Schema(

@@ -1,3 +1,4 @@
+// ======================= controllers/sellproperty.controller.js =======================
 import SellProperty from "../models/sellproperty_model.js";
 
 /* ADD */
@@ -12,11 +13,10 @@ export const addSellProperty = async (req, res) => {
       price: Number(req.body.price),
       user: req.user._id,
       userId: req.user._id.toString(),
-      image: req.file.path,
+      image: `/uploads/${req.file.filename}`,
     });
 
     await property.save();
-
     res.status(201).json({ success: true, property });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -34,7 +34,7 @@ export const getMySellProperties = async (req, res) => {
 /* UPDATE */
 export const updateMySellProperty = async (req, res) => {
   const data = { ...req.body };
-  if (req.file) data.image = req.file.path;
+  if (req.file) data.image = `/uploads/${req.file.filename}`;
 
   const property = await SellProperty.findOneAndUpdate(
     { _id: req.params.id, user: req.user._id },

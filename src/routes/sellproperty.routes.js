@@ -1,3 +1,4 @@
+// ======================= routes/sellproperty.routes.js =======================
 import express from "express";
 import {
   addSellProperty,
@@ -10,15 +11,14 @@ import {
   deleteSellProperty,
 } from "../controllers/sellproperty.controller.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
-import multer from "multer";
+import { uploadSingle } from "../middleware/upload.js";
 
-const upload = multer({ dest: "uploads/" });
 const router = express.Router();
 
 /* USER */
-router.post("/add", verifyToken, upload.single("image"), addSellProperty);
+router.post("/add", verifyToken, uploadSingle, addSellProperty);
 router.get("/my", verifyToken, getMySellProperties);
-router.put("/my/:id", verifyToken, upload.single("image"), updateMySellProperty);
+router.put("/my/:id", verifyToken, uploadSingle, updateMySellProperty);
 router.delete("/my/:id", verifyToken, deleteMySellProperty);
 
 /* ADMIN */

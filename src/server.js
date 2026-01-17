@@ -30,13 +30,16 @@ import bikeOrderRoutes from "./routes/bike_order.routes.js";
 
 import sellCarRoutes from "./routes/sellcar.routes.js";
 import buyCarRoutes from "./routes/buycar.routes.js";
+
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
+import buyPropertyRoutes from "./routes/buyproperty.routes.js"; // ✅ ADDED
 
 // 🏠 REAL ESTATE
 import propertyRoutes from "./routes/property.routes.js";
 
-// 📍 LOCATION (Tamil Nadu dropdown)
+// 📍 LOCATION
 import locationRoutes from "./routes/location.routes.js";
+
 // 🔗 LINKS
 import linkRoutes from "./routes/link.routes.js";
 
@@ -75,7 +78,7 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES (PUBLIC)
+   STATIC FILES
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
@@ -84,12 +87,12 @@ app.get("/privacy-policy", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
 });
 
-// 📄 Terms & Conditions
+// 📄 Terms
 app.get("/terms", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html"));
 });
 
-// 💸 Refund & Cancellation
+// 💸 Refund
 app.get("/refund-policy", (req, res) => {
   res.sendFile(
     path.join(__dirname, "../public/refund-cancellation-policy.html")
@@ -97,7 +100,7 @@ app.get("/refund-policy", (req, res) => {
 });
 
 /* =========================
-   DATABASE CONNECTION
+   DATABASE
 ========================= */
 connectDB()
   .then(() => {
@@ -133,17 +136,24 @@ app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
 
 app.use("/api/sellproperty", sellPropertyRoutes);
+app.use("/api/buyproperty", buyPropertyRoutes); // ✅ FINAL ADD
 
 // 🏠 REAL ESTATE
 app.use("/api/properties", propertyRoutes);
 
-// 📍 LOCATION DROPDOWN
+// 📍 LOCATION
 app.use("/api/locations", locationRoutes);
+
+// 🔗 LINKS
 app.use("/api/links", linkRoutes);
 
-
+// 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
+
+// ⭐ TESTIMONIALS
 app.use("/api/testimonials", testimonialRoutes);
+
+// ⭐ STORIES
 app.use("/api/stories", storyRoutes);
 
 /* =========================
@@ -157,7 +167,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   404 HANDLER (ALWAYS LAST)
+   404 HANDLER
 ========================= */
 app.use((req, res) => {
   res.status(404).json({
@@ -181,6 +191,7 @@ app.use((err, req, res, next) => {
    START SERVER
 ========================= */
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });

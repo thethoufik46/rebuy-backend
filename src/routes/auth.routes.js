@@ -2,9 +2,9 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+
 import User from "../models/user_model.js";
 import { verifyToken } from "../middleware/auth.js";
-import sendEmail from "../utils/sendEmail.js";
 
 const router = express.Router();
 
@@ -14,19 +14,11 @@ router.post("/register", async (req, res) => {
     const { name, phone, email, password, category, location, address } =
       req.body;
 
-    // ❗ EMAIL NOT REQUIRED
     if (!name || !phone || !password || !category) {
       return res.status(400).json({
         success: false,
-        message: "Name, phone, password and category are required",
+        message: "Required fields missing",
       });
-    }
-
-    const allowedCategories = ["buyer", "seller", "driver"];
-    if (!allowedCategories.includes(category)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid category" });
     }
 
     const query = [{ phone }];
@@ -56,9 +48,11 @@ router.post("/register", async (req, res) => {
       success: true,
       message: "Registration successful",
     });
-  } catch (err) {
-    console.error("❌ Register error:", err);
-    res.status(500).json({ success: false, message: "Register failed" });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Registration failed",
+    });
   }
 });
 
@@ -70,7 +64,7 @@ router.post("/login", async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: "Phone / Email and password required",
+        message: "Credentials required",
       });
     }
 
@@ -78,18 +72,16 @@ router.post("/login", async (req, res) => {
       $or: [{ phone: identifier }, { email: identifier.toLowerCase() }],
     });
 
-    if (!user) {
+    if (!user)
       return res
         .status(400)
         .json({ success: false, message: "Invalid credentials" });
-    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res
         .status(400)
         .json({ success: false, message: "Invalid credentials" });
-    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -109,15 +101,15 @@ router.post("/login", async (req, res) => {
         category: user.category,
         location: user.location,
         address: user.address,
+        profileImage: user.profileImage,
       },
     });
-  } catch (err) {
-    console.error("❌ Login error:", err);
+  } catch {
     res.status(500).json({ success: false, message: "Login failed" });
   }
 });
 
-/* ================= GET LOGGED IN USER ================= */
+/* ================= GET ME ================= */
 router.get("/me", verifyToken, (req, res) => {
   res.json({ success: true, user: req.user });
 });
@@ -127,33 +119,20 @@ router.put("/me", verifyToken, async (req, res) => {
   try {
     const { name, phone, email, location, address } = req.body;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (phone) updateData.phone = phone;
-    if (email) updateData.email = email.toLowerCase();
-    if (location) updateData.location = location;
-    if (address) updateData.address = address;
+    const update = {};
+    if (name) update.name = name;
+    if (phone) update.phone = phone;
+    if (email) update.email = email.toLowerCase();
+    if (location) update.location = location;
+    if (address) update.address = address;
 
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      updateData,
-      { new: true, runValidators: true }
-    ).select("-password");
+    const user = await User.findByIdAndUpdate(req.userId, update, {
+      new: true,
+    }).select("-password");
 
     res.json({ success: true, user });
-  } catch (err) {
-    console.error("❌ Update error:", err);
-    res.status(500).json({ success: false, message: "Update failed" });
-  }
-});
-
-/* ================= DELETE ACCOUNT ================= */
-router.delete("/me", verifyToken, async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.userId);
-    res.json({ success: true, message: "Account deleted" });
   } catch {
-    res.status(500).json({ success: false, message: "Delete failed" });
+    res.status(500).json({ success: false, message: "Update failed" });
   }
 });
 
@@ -162,52 +141,35 @@ router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required for password reset",
-      });
-    }
-
     const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
+    if (!user)
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
-    }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto
+
+    user.resetPasswordToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordToken = hashedToken;
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+
     await user.save();
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    await sendEmail({
-      to: user.email,
-      subject: "Reset your password",
-      html: `
-        <h2>Password Reset</h2>
-        <p>Click the link below:</p>
-        <a href="${resetLink}">${resetLink}</a>
-        <p>This link expires in 15 minutes</p>
-      `,
-    });
+    console.log("RESET LINK:", resetLink);
 
     res.json({
       success: true,
-      message: "Reset link sent to email",
+      message: "Reset link generated",
     });
-  } catch (err) {
-    console.error("❌ Forgot password error:", err);
+  } catch {
     res.status(500).json({
       success: false,
-      message: "Email send failed",
+      message: "Forgot password failed",
     });
   }
 });
@@ -215,8 +177,6 @@ router.post("/forgot-password", async (req, res) => {
 /* ================= RESET PASSWORD ================= */
 router.post("/reset-password/:token", async (req, res) => {
   try {
-    const { password } = req.body;
-
     const hashedToken = crypto
       .createHash("sha256")
       .update(req.params.token)
@@ -227,16 +187,15 @@ router.post("/reset-password/:token", async (req, res) => {
       resetPasswordExpire: { $gt: Date.now() },
     });
 
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-    }
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "Token invalid or expired" });
 
-    user.password = await bcrypt.hash(password, 10);
+    user.password = await bcrypt.hash(req.body.password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
+
     await user.save();
 
     res.json({
@@ -246,7 +205,7 @@ router.post("/reset-password/:token", async (req, res) => {
   } catch {
     res.status(500).json({
       success: false,
-      message: "Password reset failed",
+      message: "Reset failed",
     });
   }
 });
@@ -259,7 +218,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message: "Password too short",
       });
     }
 
@@ -269,12 +228,12 @@ router.put("/change-password", verifyToken, async (req, res) => {
 
     res.json({
       success: true,
-      message: "Password updated successfully",
+      message: "Password updated",
     });
   } catch {
     res.status(500).json({
       success: false,
-      message: "Change password failed",
+      message: "Change failed",
     });
   }
 });

@@ -1,5 +1,3 @@
-// models/user_model.js
-
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
@@ -16,12 +14,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ❌ EMAIL NOT REQUIRED
     email: {
       type: String,
-      required: false,
       unique: true,
-      sparse: true, // ✅ allows multiple users without email
+      sparse: true,
       lowercase: true,
       trim: true,
     },
@@ -47,27 +43,22 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    
-profileImage: {
-  type: String,
-  default: "",
-},
 
     address: {
       type: String,
       trim: true,
     },
 
-    // 🔑 FORGOT PASSWORD SUPPORT
-    resetPasswordToken: {
+    // ✅ PROFILE IMAGE (Backblaze filename)
+    profileImage: {
       type: String,
+      default: "",
     },
 
-    resetPasswordExpire: {
-      type: Date,
-    },
+    // 🔐 PASSWORD RESET
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
 
-    // 🔔 NOTIFICATION TRACKING
     lastNotificationSeenAt: {
       type: Date,
       default: null,

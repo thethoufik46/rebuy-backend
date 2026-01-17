@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user_model.js";
 
+/* ---------------- VERIFY TOKEN ---------------- */
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -35,4 +36,15 @@ export const verifyToken = async (req, res, next) => {
       message: "Invalid or expired token",
     });
   }
+};
+
+/* ---------------- ADMIN ONLY ---------------- */
+export const isAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admins only",
+    });
+  }
+  next();
 };

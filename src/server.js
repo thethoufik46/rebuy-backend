@@ -17,7 +17,6 @@ import chatRoutes from "./routes/chat.routes.js";
 import brandRoutes from "./routes/brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 
-import productRoutes from "./routes/product.routes.js";
 
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
@@ -121,7 +120,6 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/bike-brands", bikeBrandRoutes);
 
-app.use("/api/products", productRoutes);
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);

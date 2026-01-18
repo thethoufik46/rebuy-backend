@@ -8,13 +8,16 @@ import { verifyToken } from "../middleware/auth.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+/* ======================================================
+   BACKBLAZE INIT
+====================================================== */
 const b2 = new B2({
   applicationKeyId: process.env.B2_KEY_ID,
   applicationKey: process.env.B2_APP_KEY,
 });
 
 /* ======================================================
-   USER → SEND REPORT
+   USER → SEND REPORT (UPLOAD IMAGE)
 ====================================================== */
 router.post(
   "/",
@@ -22,7 +25,6 @@ router.post(
   upload.single("image"),
   async (req, res) => {
     try {
-      let imageUrl = "";
       let fileName = "";
 
       if (req.file) {
@@ -39,27 +41,25 @@ router.post(
           uploadAuthToken: data.authorizationToken,
           fileName,
           data: req.file.buffer,
+          contentType: req.file.mimetype,
         });
-
-        imageUrl = `https://f003.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${fileName}`;
       }
 
       const report = await Report.create({
         user: req.userId,
         message: req.body.message,
-        image: imageUrl,
-        fileName, // 🔥 store for delete
+        fileName, // ✅ ONLY STORE FILENAME
       });
 
       res.json({
         success: true,
         report,
       });
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       res.status(500).json({
         success: false,
-        message: "Report failed",
+        message: "Report upload failed",
       });
     }
   }
@@ -80,7 +80,7 @@ router.get("/my", verifyToken, async (req, res) => {
 });
 
 /* ======================================================
-   ADMIN → VIEW ALL
+   ADMIN → VIEW ALL REPORTS
 ====================================================== */
 router.get("/admin/all", verifyToken, async (req, res) => {
   if (req.user.role !== "admin") {
@@ -98,23 +98,40 @@ router.get("/admin/all", verifyToken, async (req, res) => {
 });
 
 /* ======================================================
-   ADMIN → UPDATE STATUS
+   🔐 SIGNED IMAGE URL (PRIVATE VIEW)
 ====================================================== */
-router.put("/admin/:id/status", verifyToken, async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
+router.get("/image/:fileName", verifyToken, async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+
+    if (!fileName) {
+      return res.status(400).json({ message: "File name missing" });
+    }
+
+    await b2.authorize();
+
+    const { data } = await b2.getDownloadAuthorization({
+      bucketId: process.env.B2_BUCKET_ID,
+      fileNamePrefix: fileName,
+      validDurationInSeconds: 300, // 5 minutes
+    });
+
+    const signedUrl =
+      `${process.env.B2_DOWNLOAD_URL}/file/` +
+      `${process.env.B2_BUCKET_NAME}/` +
+      `${fileName}?Authorization=${data.authorizationToken}`;
+
+    res.json({
+      success: true,
+      url: signedUrl,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Signed URL generation failed",
+    });
   }
-
-  const report = await Report.findByIdAndUpdate(
-    req.params.id,
-    { status: req.body.status },
-    { new: true }
-  );
-
-  res.json({
-    success: true,
-    report,
-  });
 });
 
 /* ======================================================
@@ -132,17 +149,16 @@ router.delete("/admin/:id", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Report not found" });
     }
 
-    // 🔥 DELETE IMAGE FROM B2
     if (report.fileName) {
       await b2.authorize();
 
-      const fileList = await b2.listFileNames({
+      const list = await b2.listFileNames({
         bucketId: process.env.B2_BUCKET_ID,
         startFileName: report.fileName,
         maxFileCount: 1,
       });
 
-      const file = fileList.data.files[0];
+      const file = list.data.files[0];
 
       if (file) {
         await b2.deleteFileVersion({
@@ -152,12 +168,11 @@ router.delete("/admin/:id", verifyToken, async (req, res) => {
       }
     }
 
-    // 🔥 DELETE FROM DB
     await report.deleteOne();
 
     res.json({
       success: true,
-      message: "Report deleted from DB & Backblaze",
+      message: "Report deleted successfully",
     });
   } catch (err) {
     console.error(err);

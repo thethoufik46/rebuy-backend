@@ -1,5 +1,3 @@
-// ======================= routes/report.routes.js =======================
-
 import express from "express";
 import multer from "multer";
 import B2 from "backblaze-b2";
@@ -16,9 +14,7 @@ const b2 = new B2({
 });
 
 
-// ======================================================================
-// USER → SEND REPORT
-// ======================================================================
+// ================= USER SEND REPORT =================
 router.post(
   "/",
   verifyToken,
@@ -26,7 +22,6 @@ router.post(
   async (req, res) => {
     try {
       let imageUrl = "";
-      let b2FileId = "";
 
       if (req.file) {
         await b2.authorize();
@@ -35,9 +30,10 @@ router.post(
           bucketId: process.env.B2_BUCKET_ID,
         });
 
-        const fileName = `reports/${req.userId}-${Date.now()}.jpg`;
+        const fileName =
+          `reports/${req.userId}-${Date.now()}.jpg`;
 
-        const uploadRes = await b2.uploadFile({
+        await b2.uploadFile({
           uploadUrl: data.uploadUrl,
           uploadAuthToken: data.authorizationToken,
           fileName,
@@ -46,15 +42,12 @@ router.post(
 
         imageUrl =
           `https://f003.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${fileName}`;
-
-        b2FileId = uploadRes.data.fileId;
       }
 
       const report = await Report.create({
         user: req.userId,
         message: req.body.message,
         image: imageUrl,
-        b2FileId,
       });
 
       res.json({
@@ -62,7 +55,6 @@ router.post(
         report,
       });
     } catch (e) {
-      console.error(e);
       res.status(500).json({
         success: false,
         message: "Report failed",
@@ -72,88 +64,59 @@ router.post(
 );
 
 
-// ======================================================================
-// USER → VIEW MY REPORTS
-// ======================================================================
+// ================= USER VIEW MY REPORTS =================
 router.get("/my", verifyToken, async (req, res) => {
-  try {
-    const reports = await Report.find({ user: req.userId })
-      .sort({ createdAt: -1 });
+  const reports = await Report.find({ user: req.userId })
+    .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      reports,
-    });
-  } catch (e) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch reports",
-    });
-  }
+  res.json({
+    success: true,
+    reports,
+  });
 });
 
 
-// ======================================================================
-// ADMIN → VIEW ALL REPORTS
-// ======================================================================
+// ================= ADMIN VIEW ALL =================
 router.get("/admin/all", verifyToken, async (req, res) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin only" });
-    }
-
-    const reports = await Report.find()
-      .populate("user", "name phone")
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      reports,
-    });
-  } catch (e) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch admin reports",
-    });
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ message: "Admin only" });
   }
+
+  const reports = await Report.find()
+    .populate("user", "name phone")
+    .sort({ createdAt: -1 });
+
+  res.json({
+    success: true,
+    reports,
+  });
 });
 
 
-// ======================================================================
-// ADMIN → UPDATE STATUS
-// ======================================================================
+// ================= ADMIN UPDATE STATUS =================
 router.put(
   "/admin/:id/status",
   verifyToken,
   async (req, res) => {
-    try {
-      if (req.user.role !== "admin") {
-        return res.status(403).json({ message: "Admin only" });
-      }
-
-      const report = await Report.findByIdAndUpdate(
-        req.params.id,
-        { status: req.body.status },
-        { new: true }
-      );
-
-      res.json({
-        success: true,
-        report,
-      });
-    } catch (e) {
-      res.status(500).json({
-        success: false,
-        message: "Status update failed",
-      });
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin only" });
     }
+
+    const report = await Report.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      report,
+    });
   }
 );
 
 
-// ======================================================================
-// ADMIN → DELETE REPORT + BACKBLAZE IMAGE
-// ======================================================================
+// ================= ADMIN DELETE REPORT + B2 IMAGE =================
 router.delete(
   "/admin/:id",
   verifyToken,
@@ -163,29 +126,52 @@ router.delete(
         return res.status(403).json({ message: "Admin only" });
       }
 
+      // 🔍 find report
       const report = await Report.findById(req.params.id);
 
       if (!report) {
-        return res.status(404).json({ message: "Report not found" });
-      }
-
-      // 🔥 DELETE IMAGE FROM BACKBLAZE
-      if (report.b2FileId && report.image) {
-        await b2.authorize();
-
-        const fileName = report.image.split("/file/")[1];
-
-        await b2.deleteFileVersion({
-          fileId: report.b2FileId,
-          fileName,
+        return res.status(404).json({
+          success: false,
+          message: "Report not found",
         });
       }
 
-      await Report.findByIdAndDelete(req.params.id);
+      // ================= DELETE IMAGE FROM B2 =================
+      if (report.image) {
+        try {
+          await b2.authorize();
+
+          // image url example:
+          // https://f003.backblazeb2.com/file/re2buy/reports/USERID-123.jpg
+
+          const fileName = report.image.split("/file/")[1];
+
+          // 🔍 get file id
+          const list = await b2.listFileNames({
+            bucketId: process.env.B2_BUCKET_ID,
+            startFileName: fileName,
+            maxFileCount: 1,
+          });
+
+          if (list.data.files.length > 0) {
+            const fileId = list.data.files[0].fileId;
+
+            await b2.deleteFileVersion({
+              fileId,
+              fileName,
+            });
+          }
+        } catch (err) {
+          console.log("⚠️ B2 image delete failed:", err.message);
+        }
+      }
+
+      // ================= DELETE MONGO DATA =================
+      await report.deleteOne();
 
       res.json({
         success: true,
-        message: "Report & image deleted successfully",
+        message: "Report + image deleted successfully",
       });
     } catch (e) {
       console.error(e);
@@ -196,5 +182,6 @@ router.delete(
     }
   }
 );
+
 
 export default router;

@@ -11,11 +11,15 @@ const reportSchema = new mongoose.Schema(
     message: {
       type: String,
       required: true,
-      trim: true,
     },
 
     image: {
-      type: String, // Backblaze 
+      type: String, // public url
+      default: "",
+    },
+
+    fileId: {
+      type: String, // backblaze fileId
       default: "",
     },
 

@@ -67,7 +67,7 @@ router.post(
       });
 
       const imageUrl =
-        `https://f000.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${newFileName}`;
+        `https://f003.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${newFileName}`;
 
       /* ================= UPDATE DB ================= */
       const user = await User.findByIdAndUpdate(

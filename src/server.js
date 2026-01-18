@@ -12,6 +12,9 @@ import { createAdminUser } from "./config/createAdmin.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import reportRoutes from "./routes/report.routes.js";
+
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/brand.routes.js";
@@ -50,9 +53,6 @@ import testimonialRoutes from "./routes/testimonial.route.js";
 // ⭐ STORIES
 import storyRoutes from "./routes/story.route.js";
 
-// 👤 PROFILE IMAGE
-import userRoutes from "./routes/user.routes.js";
-
 // ================= ENV =================
 dotenv.config();
 
@@ -79,29 +79,22 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES (IMAGE ACCESS)
+   STATIC FILES
 ========================= */
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "../uploads"))
-);
-
-/* =========================
-   PUBLIC FILES
-========================= */
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(express.static(path.join(__dirname, "../public")));
 
-// 🔐 Privacy Policy
+/* =========================
+   LEGAL PAGES
+========================= */
 app.get("/privacy-policy", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
 });
 
-// 📄 Terms
 app.get("/terms", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html"));
 });
 
-// 💸 Refund
 app.get("/refund-policy", (req, res) => {
   res.sendFile(
     path.join(__dirname, "../public/refund-cancellation-policy.html")
@@ -125,7 +118,8 @@ connectDB()
    API ROUTES
 ========================= */
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes); // ✅ PROFILE IMAGE
+app.use("/api/users", userRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use("/api/chat", chatRoutes);
 

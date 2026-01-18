@@ -17,7 +17,6 @@ import chatRoutes from "./routes/chat.routes.js";
 import brandRoutes from "./routes/brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 
-
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
 
@@ -31,7 +30,7 @@ import sellCarRoutes from "./routes/sellcar.routes.js";
 import buyCarRoutes from "./routes/buycar.routes.js";
 
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
-import buyPropertyRoutes from "./routes/buyproperty.routes.js"; // ✅ ADDED
+import buyPropertyRoutes from "./routes/buyproperty.routes.js";
 
 // 🏠 REAL ESTATE
 import propertyRoutes from "./routes/property.routes.js";
@@ -50,6 +49,9 @@ import testimonialRoutes from "./routes/testimonial.route.js";
 
 // ⭐ STORIES
 import storyRoutes from "./routes/story.route.js";
+
+// 👤 PROFILE IMAGE
+import userRoutes from "./routes/user.routes.js";
 
 // ================= ENV =================
 dotenv.config();
@@ -77,7 +79,15 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES
+   STATIC FILES (IMAGE ACCESS)
+========================= */
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "../uploads"))
+);
+
+/* =========================
+   PUBLIC FILES
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
@@ -115,11 +125,12 @@ connectDB()
    API ROUTES
 ========================= */
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes); // ✅ PROFILE IMAGE
+
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
 app.use("/api/bike-brands", bikeBrandRoutes);
-
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
@@ -134,7 +145,7 @@ app.use("/api/sellcar", sellCarRoutes);
 app.use("/api/buycar", buyCarRoutes);
 
 app.use("/api/sellproperty", sellPropertyRoutes);
-app.use("/api/buyproperty", buyPropertyRoutes); // ✅ FINAL ADD
+app.use("/api/buyproperty", buyPropertyRoutes);
 
 // 🏠 REAL ESTATE
 app.use("/api/properties", propertyRoutes);

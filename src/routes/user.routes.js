@@ -22,27 +22,67 @@ router.post(
 
       const bucketId = process.env.B2_BUCKET_ID;
 
+      /* ================= GET OLD IMAGE ================= */
+      const existingUser = await User.findById(req.userId);
+
+      let oldFileName = null;
+      let oldFileId = null;
+
+      if (
+        existingUser?.profileImage &&
+        existingUser.profileImage.includes("/file/")
+      ) {
+        const match =
+          existingUser.profileImage.split(
+            `/file/${process.env.B2_BUCKET_NAME}/`
+          );
+
+        if (match.length === 2) {
+          oldFileName = match[1];
+
+          const list = await b2.listFileNames({
+            bucketId,
+            startFileName: oldFileName,
+            maxFileCount: 1,
+          });
+
+          if (list.data.files.length > 0) {
+            oldFileId = list.data.files[0].fileId;
+          }
+        }
+      }
+
+      /* ================= UPLOAD NEW IMAGE ================= */
       const { data: uploadUrlData } =
         await b2.getUploadUrl({ bucketId });
 
-      const fileName =
+      const newFileName =
         `profile/${req.userId}-${Date.now()}.png`;
 
-      const uploadRes = await b2.uploadFile({
+      await b2.uploadFile({
         uploadUrl: uploadUrlData.uploadUrl,
         uploadAuthToken: uploadUrlData.authorizationToken,
-        fileName,
+        fileName: newFileName,
         data: req.file.buffer,
       });
 
       const imageUrl =
-        `https://f000.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${fileName}`;
+        `https://f000.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${newFileName}`;
 
+      /* ================= UPDATE DB ================= */
       const user = await User.findByIdAndUpdate(
         req.userId,
         { profileImage: imageUrl },
         { new: true }
       ).select("-password");
+
+      /* ================= DELETE OLD IMAGE ================= */
+      if (oldFileId && oldFileName) {
+        await b2.deleteFileVersion({
+          fileId: oldFileId,
+          fileName: oldFileName,
+        });
+      }
 
       res.json({
         success: true,
@@ -50,10 +90,10 @@ router.post(
         user,
       });
     } catch (err) {
-      console.error(err);
+      console.error("❌ Profile upload error:", err);
       res.status(500).json({
         success: false,
-        message: "Backblaze upload failed",
+        message: "Profile image update failed",
       });
     }
   }

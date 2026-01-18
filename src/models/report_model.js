@@ -11,10 +11,14 @@ const reportSchema = new mongoose.Schema(
     message: {
       type: String,
       required: true,
-      trim: true,
     },
 
     image: {
+      type: String,
+      default: "",
+    },
+
+    b2FileId: {
       type: String,
       default: "",
     },

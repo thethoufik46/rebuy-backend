@@ -7,6 +7,7 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "backblaze-b2": "^1.7.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",

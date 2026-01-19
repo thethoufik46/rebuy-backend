@@ -17,29 +17,21 @@ const r2 = new S3Client({
 });
 
 /* =================================================
-   ✅ CONSTANTS (🔥 SAME AS PROFILE IMAGE)
+   ✅ CONSTANT
 ==================================================*/
-const BUCKET = process.env.R2_BUCKET; // ✅ IMPORTANT
-const PUBLIC_URL = process.env.R2_PUBLIC_URL;
+const BUCKET = process.env.R2_BUCKET;
 
-/* =================================================
-   ✅ SAFETY CHECK
-==================================================*/
 if (!BUCKET) {
   throw new Error("❌ R2_BUCKET missing in environment variables");
 }
 
-if (!PUBLIC_URL) {
-  throw new Error("❌ R2_PUBLIC_URL missing in environment variables");
-}
-
 /* =================================================
-   ✅ UPLOAD IMAGE TO R2 (PUBLIC)
+   ✅ UPLOAD IMAGE → RETURN ONLY KEY
 ==================================================*/
 export const uploadCarImage = async (file, folder = "cars") => {
   try {
-    const fileName = `${Date.now()}-${file.originalname}`;
-    const key = `${folder}/${fileName}`;
+    const ext = file.mimetype?.split("/")[1] || "jpg";
+    const key = `${folder}/${Date.now()}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
@@ -50,8 +42,8 @@ export const uploadCarImage = async (file, folder = "cars") => {
       })
     );
 
-    // ✅ store full public URL in MongoDB
-    return `${PUBLIC_URL}/${key}`;
+    // ✅ ONLY KEY
+    return key;
   } catch (error) {
     console.error("❌ R2 Upload Error:", error);
     throw new Error("Image upload failed");
@@ -59,14 +51,11 @@ export const uploadCarImage = async (file, folder = "cars") => {
 };
 
 /* =================================================
-   ✅ DELETE IMAGE FROM R2
+   ✅ DELETE IMAGE (KEY ONLY)
 ==================================================*/
-export const deleteCarImage = async (imageUrl) => {
+export const deleteCarImage = async (key) => {
   try {
-    if (!imageUrl) return;
-
-    // convert full URL → key
-    const key = imageUrl.replace(`${PUBLIC_URL}/`, "");
+    if (!key) return;
 
     await r2.send(
       new DeleteObjectCommand({

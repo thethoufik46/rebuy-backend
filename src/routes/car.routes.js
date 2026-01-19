@@ -1,8 +1,8 @@
 import express from "express";
-import multer from "multer";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 
+import upload from "../middleware/upload.js";
 import {
   uploadCarImage,
   deleteCarImage,
@@ -11,15 +11,7 @@ import {
 const router = express.Router();
 
 /* =================================================
-   ✅ MULTER (MEMORY STORAGE)
-==================================================*/
-const upload = multer({
-  storage: multer.memoryStorage(),
-});
-
-/* =================================================
    ✅ FILTER CARS
-   GET /api/cars/filter
 ==================================================*/
 router.get("/filter", async (req, res) => {
   try {
@@ -70,8 +62,7 @@ router.get("/filter", async (req, res) => {
       count: cars.length,
       cars,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "Filter failed",
@@ -99,12 +90,14 @@ router.post(
         });
       }
 
-      const bannerImage = await uploadCarImage(
+      // upload banner
+      const bannerKey = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
       );
 
-      const galleryImages = req.files.gallery
+      // upload gallery
+      const galleryKeys = req.files.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
               uploadCarImage(img, "cars/gallery")
@@ -112,21 +105,19 @@ router.post(
           )
         : [];
 
-      const car = new Car({
+      const car = await Car.create({
         ...req.body,
-        bannerImage,
-        galleryImages,
+        bannerImage: bannerKey,
+        galleryImages: galleryKeys,
       });
-
-      await car.save();
 
       res.status(201).json({
         success: true,
         message: "✅ Car added successfully",
         car,
       });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("CAR ADD ERROR:", err);
       res.status(500).json({
         success: false,
         message: "Car upload failed",
@@ -139,55 +130,41 @@ router.post(
    ✅ GET ALL CARS
 ==================================================*/
 router.get("/", async (req, res) => {
-  try {
-    const cars = await Car.find()
-      .populate("brand", "name logoUrl")
-      .sort({ createdAt: -1 });
+  const cars = await Car.find()
+    .populate("brand", "name logoUrl")
+    .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      count: cars.length,
-      cars,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Fetch failed",
-    });
-  }
+  res.json({
+    success: true,
+    count: cars.length,
+    cars,
+  });
 });
 
 /* =================================================
    ✅ GET SINGLE CAR
 ==================================================*/
 router.get("/:id", async (req, res) => {
-  try {
-    const car = await Car.findById(req.params.id).populate(
-      "brand",
-      "name logoUrl"
-    );
+  const car = await Car.findById(req.params.id).populate(
+    "brand",
+    "name logoUrl"
+  );
 
-    if (!car) {
-      return res.status(404).json({
-        success: false,
-        message: "Car not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      car,
-    });
-  } catch (error) {
-    res.status(500).json({
+  if (!car) {
+    return res.status(404).json({
       success: false,
-      message: "Fetch failed",
+      message: "Car not found",
     });
   }
+
+  res.json({
+    success: true,
+    car,
+  });
 });
 
 /* =================================================
-   ✅ UPDATE CAR (ADMIN)
+   ✅ UPDATE CAR
 ==================================================*/
 router.put(
   "/:id",
@@ -205,7 +182,6 @@ router.put(
 
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
-
         car.bannerImage = await uploadCarImage(
           req.files.banner[0],
           "cars/banner"
@@ -232,8 +208,7 @@ router.put(
         message: "✅ Car updated successfully",
         car,
       });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
       res.status(500).json({
         message: "Update failed",
       });
@@ -242,12 +217,11 @@ router.put(
 );
 
 /* =================================================
-   ✅ DELETE CAR (ADMIN)
+   ✅ DELETE CAR
 ==================================================*/
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
-
     if (!car)
       return res.status(404).json({ message: "Car not found" });
 
@@ -263,7 +237,7 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: "🗑️ Car deleted successfully",
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       message: "Delete failed",
     });

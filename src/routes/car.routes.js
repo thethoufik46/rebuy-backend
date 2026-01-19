@@ -72,6 +72,31 @@ router.post(
   }
 );
 
+
+
+/* ======================
+   GET ALL CARS
+====================== */
+router.get("/", async (req, res) => {
+  try {
+    const cars = await Car.find()
+      .populate("brand", "name logoUrl")
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      count: cars.length,
+      cars,
+    });
+  } catch (err) {
+    console.error("GET CARS ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch cars",
+    });
+  }
+});
+
 /* ======================
    UPDATE CAR
 ====================== */

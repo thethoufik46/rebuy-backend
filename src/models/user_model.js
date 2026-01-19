@@ -49,11 +49,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
- profileImage: {
-  type: String,
-  default: "",
-},
-
+    // ✅ PROFILE IMAGE (Backblaze filename)
+    profileImage: {
+      type: String,
+      default: "",
+    },
 
     // 🔐 PASSWORD RESET
     resetPasswordToken: String,

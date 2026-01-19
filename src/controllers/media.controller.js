@@ -1,17 +1,13 @@
-// ======================= src/controllers/media.controller.js =======================
-
 import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import r2 from "../config/r2.js";
 import User from "../models/user_model.js";
 
-/* ===============================
-   UPLOAD PROFILE IMAGE
-================================ */
 export const uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
@@ -39,7 +35,7 @@ export const uploadProfileImage = async (req, res) => {
       );
     }
 
-    const key = `profile/${req.userId}-${Date.now()}.jpg`;
+    const key = `profile/${req.userId}-${Date.now()}.png`;
 
     await r2.send(
       new PutObjectCommand({
@@ -58,7 +54,7 @@ export const uploadProfileImage = async (req, res) => {
       key,
     });
   } catch (err) {
-    console.error("R2 upload error:", err);
+    console.error("❌ R2 UPLOAD ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Upload failed",
@@ -66,19 +62,9 @@ export const uploadProfileImage = async (req, res) => {
   }
 };
 
-/* ===============================
-   GET SIGNED IMAGE URL
-================================ */
 export const getSignedMediaUrl = async (req, res) => {
   try {
     const { key } = req.query;
-
-    if (!key) {
-      return res.status(400).json({
-        success: false,
-        message: "Key required",
-      });
-    }
 
     const url = await getSignedUrl(
       r2,
@@ -94,10 +80,10 @@ export const getSignedMediaUrl = async (req, res) => {
       url,
     });
   } catch (err) {
-    console.error("Signed URL error:", err);
+    console.error("❌ SIGNED URL ERROR:", err);
     res.status(500).json({
       success: false,
-      message: "Failed",
+      message: "Signed URL failed",
     });
   }
 };

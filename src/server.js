@@ -75,11 +75,11 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   STATIC FILES (ONLY LEGAL PAGES)
+   STATIC FILES
 ========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
@@ -140,22 +140,11 @@ app.use("/api/buycar", buyCarRoutes);
 app.use("/api/sellproperty", sellPropertyRoutes);
 app.use("/api/buyproperty", buyPropertyRoutes);
 
-// 🏠 REAL ESTATE
 app.use("/api/properties", propertyRoutes);
-
-// 📍 LOCATION
 app.use("/api/locations", locationRoutes);
-
-// 🔗 LINKS
 app.use("/api/links", linkRoutes);
-
-// 🔔 NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
-
-// ⭐ TESTIMONIALS
 app.use("/api/testimonials", testimonialRoutes);
-
-// ⭐ STORIES
 app.use("/api/stories", storyRoutes);
 
 /* =========================

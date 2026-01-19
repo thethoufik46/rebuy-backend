@@ -10,13 +10,6 @@ const storage = multer.diskStorage({
       dir = "uploads/profile";
     }
 
-    if (file.fieldname === "banner") {
-      dir = "uploads/cars/banner";
-    }
-
-    if (file.fieldname === "gallery") {
-      dir = "uploads/cars/gallery";
-    }
 
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);

@@ -1,54 +1,50 @@
 import express from "express";
 import multer from "multer";
-import B2 from "backblaze-b2";
+import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
+import r2 from "../config/r2.js";
 import Report from "../models/report_model.js";
 import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-/* ================= B2 INIT ================= */
-const b2 = new B2({
-  applicationKeyId: process.env.B2_KEY_ID,
-  applicationKey: process.env.B2_APP_KEY,
-});
-
 /* ======================================================
    USER → SEND REPORT
 ====================================================== */
 router.post("/", verifyToken, upload.single("image"), async (req, res) => {
   try {
-    let fileName = "";
+    let imageUrl = "";
 
     if (req.file) {
-      await b2.authorize();
+      const fileName = `reports/${req.userId}-${Date.now()}.jpg`;
 
-      const { data } = await b2.getUploadUrl({
-        bucketId: process.env.B2_BUCKET_ID,
-      });
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET,
+          Key: fileName,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype,
+        })
+      );
 
-      fileName = `reports/${req.userId}-${Date.now()}.jpg`;
-
-      await b2.uploadFile({
-        uploadUrl: data.uploadUrl,
-        uploadAuthToken: data.authorizationToken,
-        fileName,
-        data: req.file.buffer,
-        contentType: req.file.mimetype,
-      });
+      // 🔥 R2 PUBLIC URL
+      imageUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
     }
 
     const report = await Report.create({
       user: req.userId,
-      message: req.body.message,
-      fileName, // 🔐 only filename
+      message: req.body.message || "",
+      image: imageUrl,
       status: "PENDING",
     });
 
-    res.json({ success: true, report });
+    res.json({
+      success: true,
+      report,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("❌ REPORT UPLOAD ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Report upload failed",
@@ -68,32 +64,12 @@ router.get("/my", verifyToken, async (req, res) => {
 });
 
 /* ======================================================
-   🔥 IMAGE VIEW PROXY (WEB SAFE)
-====================================================== */
-router.get("/image-view/:fileName", verifyToken, async (req, res) => {
-  try {
-    await b2.authorize();
-
-    const result = await b2.downloadFileByName({
-      bucketName: process.env.B2_BUCKET_NAME,
-      fileName: req.params.fileName,
-      responseType: "stream",
-    });
-
-    res.setHeader("Content-Type", "image/jpeg");
-    result.data.pipe(res);
-  } catch (err) {
-    console.error("IMAGE VIEW ERROR:", err);
-    res.status(404).send("Image not found");
-  }
-});
-
-/* ======================================================
    ADMIN → ALL REPORTS
 ====================================================== */
 router.get("/admin/all", verifyToken, async (req, res) => {
-  if (req.user.role !== "admin")
+  if (req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin only" });
+  }
 
   const reports = await Report.find()
     .populate("user", "name phone")
@@ -106,8 +82,9 @@ router.get("/admin/all", verifyToken, async (req, res) => {
    ADMIN → UPDATE STATUS
 ====================================================== */
 router.put("/admin/:id/status", verifyToken, async (req, res) => {
-  if (req.user.role !== "admin")
+  if (req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin only" });
+  }
 
   const report = await Report.findByIdAndUpdate(
     req.params.id,
@@ -119,32 +96,32 @@ router.put("/admin/:id/status", verifyToken, async (req, res) => {
 });
 
 /* ======================================================
-   ADMIN → DELETE REPORT (DB + B2)
+   ADMIN → DELETE REPORT (R2 + DB)
 ====================================================== */
 router.delete("/admin/:id", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "admin")
+    if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin only" });
+    }
 
     const report = await Report.findById(req.params.id);
-    if (!report) return res.status(404).json({ message: "Not found" });
+    if (!report) {
+      return res.status(404).json({ message: "Not found" });
+    }
 
-    if (report.fileName) {
-      await b2.authorize();
+    // 🔥 DELETE IMAGE FROM R2
+    if (report.image) {
+      const fileKey = report.image.replace(
+        `${process.env.R2_PUBLIC_URL}/`,
+        ""
+      );
 
-      const list = await b2.listFileNames({
-        bucketId: process.env.B2_BUCKET_ID,
-        startFileName: report.fileName,
-        maxFileCount: 1,
-      });
-
-      const file = list.data.files[0];
-      if (file) {
-        await b2.deleteFileVersion({
-          fileId: file.fileId,
-          fileName: file.fileName,
-        });
-      }
+      await r2.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET,
+          Key: fileKey,
+        })
+      );
     }
 
     await report.deleteOne();
@@ -154,6 +131,7 @@ router.delete("/admin/:id", verifyToken, async (req, res) => {
       message: "Report deleted",
     });
   } catch (err) {
+    console.error("❌ DELETE REPORT ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Delete failed",

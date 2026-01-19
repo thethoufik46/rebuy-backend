@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ✅ PROFILE IMAGE (Backblaze filename)
+
     profileImage: {
       type: String,
       default: "",

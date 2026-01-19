@@ -28,11 +28,13 @@ router.post(
 /* ==================================================
    IMAGE VIEW (WEB + ANDROID SAFE)
 ================================================== */
-router.get("/image/:key", verifyToken, async (req, res) => {
+router.get("/image/*", verifyToken, async (req, res) => {
   try {
+    const key = req.params[0]; // 🔥 important
+
     const command = new GetObjectCommand({
       Bucket: process.env.R2_BUCKET,
-      Key: req.params.key,
+      Key: key,
     });
 
     const data = await r2.send(command);
@@ -43,5 +45,6 @@ router.get("/image/:key", verifyToken, async (req, res) => {
     res.status(404).end();
   }
 });
+
 
 export default router;

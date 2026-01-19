@@ -11,16 +11,15 @@ import {
   deleteSellCar,
 } from "../controllers/sellcar.controller.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
-import { uploadSingle } from "../middleware/upload.js";
 
 const router = express.Router();
 
 /* =========================
    USER ROUTES
 ========================= */
-router.post("/add", verifyToken, uploadSingle, addSellCar);
+router.post("/add", verifyToken, addSellCar);
 router.get("/my", verifyToken, getMySellCars);
-router.put("/my/:id", verifyToken, uploadSingle, updateMySellCar);
+router.put("/my/:id", verifyToken, updateMySellCar);
 router.delete("/my/:id", verifyToken, deleteMySellCar);
 
 /* =========================

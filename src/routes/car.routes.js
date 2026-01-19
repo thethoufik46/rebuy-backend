@@ -1,7 +1,6 @@
 import express from "express";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
-
 import upload from "../middleware/upload.js";
 import {
   uploadCarImage,
@@ -11,7 +10,7 @@ import {
 const router = express.Router();
 
 /* =================================================
-   ✅ FILTER CARS
+   FILTER CARS
 ==================================================*/
 router.get("/filter", async (req, res) => {
   try {
@@ -71,7 +70,7 @@ router.get("/filter", async (req, res) => {
 });
 
 /* =================================================
-   ✅ ADD CAR (ADMIN)
+   ADD CAR
 ==================================================*/
 router.post(
   "/add",
@@ -90,13 +89,11 @@ router.post(
         });
       }
 
-      // upload banner
       const bannerKey = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
       );
 
-      // upload gallery
       const galleryKeys = req.files.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
@@ -127,7 +124,7 @@ router.post(
 );
 
 /* =================================================
-   ✅ GET ALL CARS
+   GET ALL CARS
 ==================================================*/
 router.get("/", async (req, res) => {
   const cars = await Car.find()
@@ -142,7 +139,7 @@ router.get("/", async (req, res) => {
 });
 
 /* =================================================
-   ✅ GET SINGLE CAR
+   GET SINGLE CAR
 ==================================================*/
 router.get("/:id", async (req, res) => {
   const car = await Car.findById(req.params.id).populate(
@@ -164,7 +161,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* =================================================
-   ✅ UPDATE CAR
+   UPDATE CAR
 ==================================================*/
 router.put(
   "/:id",
@@ -217,7 +214,7 @@ router.put(
 );
 
 /* =================================================
-   ✅ DELETE CAR
+   DELETE CAR
 ==================================================*/
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {

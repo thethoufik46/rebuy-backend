@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 
 /* =================================================
    ✅ CLOUDFARE R2 CLIENT
@@ -13,10 +17,21 @@ const r2 = new S3Client({
 });
 
 /* =================================================
-   ✅ CONSTANTS
+   ✅ CONSTANTS (🔥 SAME AS PROFILE IMAGE)
 ==================================================*/
-const BUCKET = process.env.R2_BUCKET_NAME;
+const BUCKET = process.env.R2_BUCKET; // ✅ IMPORTANT
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
+
+/* =================================================
+   ✅ SAFETY CHECK
+==================================================*/
+if (!BUCKET) {
+  throw new Error("❌ R2_BUCKET missing in environment variables");
+}
+
+if (!PUBLIC_URL) {
+  throw new Error("❌ R2_PUBLIC_URL missing in environment variables");
+}
 
 /* =================================================
    ✅ UPLOAD IMAGE TO R2 (PUBLIC)
@@ -35,6 +50,7 @@ export const uploadCarImage = async (file, folder = "cars") => {
       })
     );
 
+    // ✅ store full public URL in MongoDB
     return `${PUBLIC_URL}/${key}`;
   } catch (error) {
     console.error("❌ R2 Upload Error:", error);
@@ -49,6 +65,7 @@ export const deleteCarImage = async (imageUrl) => {
   try {
     if (!imageUrl) return;
 
+    // convert full URL → key
     const key = imageUrl.replace(`${PUBLIC_URL}/`, "");
 
     await r2.send(

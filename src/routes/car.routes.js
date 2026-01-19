@@ -1,5 +1,5 @@
-// src/routes/car.routes.js
 import express from "express";
+import mongoose from "mongoose";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import uploadCar from "../middleware/uploadCar.js";
@@ -10,6 +10,9 @@ import {
 
 const router = express.Router();
 
+/* ======================
+   ADD CAR
+====================== */
 router.post(
   "/add",
   verifyToken,
@@ -24,6 +27,13 @@ router.post(
         return res.status(400).json({
           success: false,
           message: "Banner image required",
+        });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(req.body.brand)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
         });
       }
 
@@ -46,7 +56,7 @@ router.post(
         galleryImages,
       });
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: "✅ Car added successfully",
         car,
@@ -54,7 +64,7 @@ router.post(
     } catch (err) {
       console.error("ADD CAR ERROR:", err);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: err.message || "Car upload failed",
       });
@@ -62,7 +72,9 @@ router.post(
   }
 );
 
-
+/* ======================
+   UPDATE CAR
+====================== */
 router.put(
   "/:id",
   verifyToken,
@@ -72,47 +84,80 @@ router.put(
     { name: "gallery", maxCount: 10 },
   ]),
   async (req, res) => {
-    const car = await Car.findById(req.params.id);
-
-    if (req.files?.banner) {
-      await deleteCarImage(car.bannerImage);
-      car.bannerImage = await uploadCarImage(
-        req.files.banner[0],
-        "cars/banner"
-      );
-    }
-
-    if (req.files?.gallery) {
-      for (const img of car.galleryImages) {
-        await deleteCarImage(img);
+    try {
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({ message: "Invalid car id" });
       }
 
-      car.galleryImages = await Promise.all(
-        req.files.gallery.map((img) =>
-          uploadCarImage(img, "cars/gallery")
-        )
-      );
+      const car = await Car.findById(req.params.id);
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+
+      if (req.files?.banner) {
+        await deleteCarImage(car.bannerImage);
+        car.bannerImage = await uploadCarImage(
+          req.files.banner[0],
+          "cars/banner"
+        );
+      }
+
+      if (req.files?.gallery) {
+        for (const img of car.galleryImages) {
+          await deleteCarImage(img);
+        }
+
+        car.galleryImages = await Promise.all(
+          req.files.gallery.map((img) =>
+            uploadCarImage(img, "cars/gallery")
+          )
+        );
+      }
+
+      Object.assign(car, req.body);
+      await car.save();
+
+      return res.json({ success: true, car });
+    } catch (err) {
+      console.error("UPDATE CAR ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Update failed",
+      });
     }
-
-    Object.assign(car, req.body);
-    await car.save();
-
-    res.json({ success: true, car });
   }
 );
 
+/* ======================
+   DELETE CAR
+====================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
-  const car = await Car.findById(req.params.id);
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid car id" });
+    }
 
-  await deleteCarImage(car.bannerImage);
+    const car = await Car.findById(req.params.id);
+    if (!car) {
+      return res.status(404).json({ message: "Car not found" });
+    }
 
-  for (const img of car.galleryImages) {
-    await deleteCarImage(img);
+    await deleteCarImage(car.bannerImage);
+
+    for (const img of car.galleryImages) {
+      await deleteCarImage(img);
+    }
+
+    await car.deleteOne();
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE CAR ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Delete failed",
+    });
   }
-
-  await car.deleteOne();
-
-  res.json({ success: true });
 });
 
 export default router;

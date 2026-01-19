@@ -19,28 +19,37 @@ router.post(
     { name: "gallery", maxCount: 10 },
   ]),
   async (req, res) => {
-    const bannerImage = await uploadCarImage(
-      req.files.banner[0],
-      "cars/banner"
-    );
+    try {
+      const bannerImage = await uploadCarImage(
+        req.files.banner[0],
+        "cars/banner"
+      );
 
-    const galleryImages = req.files.gallery
-      ? await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadCarImage(img, "cars/gallery")
+      const galleryImages = req.files.gallery
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadCarImage(img, "cars/gallery")
+            )
           )
-        )
-      : [];
+        : [];
 
-    const car = await Car.create({
-      ...req.body,
-      bannerImage,
-      galleryImages,
-    });
+      const car = await Car.create({
+        ...req.body,
+        bannerImage,
+        galleryImages,
+      });
 
-    res.json({ success: true, car });
+      res.status(201).json({ success: true, car });
+    } catch (err) {
+      console.error("ADD CAR ERROR:", err);
+      res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
   }
 );
+
 
 router.put(
   "/:id",

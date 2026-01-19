@@ -28,9 +28,10 @@ router.post(
 /* ==================================================
    IMAGE VIEW (WEB + ANDROID SAFE)
 ================================================== */
-router.get("/image/*", verifyToken, async (req, res) => {
+// ❌ DON'T use verifyToken here
+router.get("/image/*", async (req, res) => {
   try {
-    const key = req.params[0]; // 🔥 important
+    const key = req.params[0];
 
     const command = new GetObjectCommand({
       Bucket: process.env.R2_BUCKET,

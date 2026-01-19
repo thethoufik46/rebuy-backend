@@ -1,3 +1,5 @@
+// ======================= src/routes/user.routes.js =======================
+
 import express from "express";
 import multer from "multer";
 import { verifyToken } from "../middleware/auth.js";
@@ -7,9 +9,12 @@ import {
 } from "../controllers/media.controller.js";
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
 
-// 🔐 login user only
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 router.post(
   "/upload-profile",
   verifyToken,
@@ -17,11 +22,6 @@ router.post(
   uploadProfileImage
 );
 
-// 🔐 private image view
-router.get(
-  "/media-url",
-  verifyToken,
-  getSignedMediaUrl
-);
+router.get("/media-url", verifyToken, getSignedMediaUrl);
 
 export default router;

@@ -1,3 +1,5 @@
+// ======================= src/controllers/media.controller.js =======================
+
 import {
   PutObjectCommand,
   DeleteObjectCommand,
@@ -20,7 +22,6 @@ export const uploadProfileImage = async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -38,7 +39,7 @@ export const uploadProfileImage = async (req, res) => {
       );
     }
 
-    const key = `profile/${req.userId}-${Date.now()}.png`;
+    const key = `profile/${req.userId}-${Date.now()}.jpg`;
 
     await r2.send(
       new PutObjectCommand({
@@ -55,7 +56,6 @@ export const uploadProfileImage = async (req, res) => {
     res.json({
       success: true,
       key,
-      message: "Profile image uploaded",
     });
   } catch (err) {
     console.error("R2 upload error:", err);
@@ -67,7 +67,7 @@ export const uploadProfileImage = async (req, res) => {
 };
 
 /* ===============================
-   GET PRIVATE IMAGE URL
+   GET SIGNED IMAGE URL
 ================================ */
 export const getSignedMediaUrl = async (req, res) => {
   try {
@@ -97,7 +97,7 @@ export const getSignedMediaUrl = async (req, res) => {
     console.error("Signed URL error:", err);
     res.status(500).json({
       success: false,
-      message: "Signed URL failed",
+      message: "Failed",
     });
   }
 };

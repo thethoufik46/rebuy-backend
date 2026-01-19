@@ -20,8 +20,9 @@ const carSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // ✅ NUMBER (important for filter & sort)
     year: {
-      type: String,
+      type: Number,
       required: true,
     },
 
@@ -85,7 +86,7 @@ const carSchema = new mongoose.Schema(
     },
 
     /* -------------------------------------------------
-       🧑 Seller Details (✅ NEW)
+       🧑 Seller Details
     ---------------------------------------------------*/
     seller: {
       type: String,
@@ -114,7 +115,7 @@ const carSchema = new mongoose.Schema(
     },
 
     /* -------------------------------------------------
-       🖼️ Images
+       🖼️ Images (Cloudflare R2 PUBLIC URLs)
     ---------------------------------------------------*/
     bannerImage: {
       type: String,
@@ -133,14 +134,15 @@ const carSchema = new mongoose.Schema(
 );
 
 /* -------------------------------------------------
-   ⚡ Indexes
+   ⚡ INDEXES (FAST FILTER)
 ---------------------------------------------------*/
 carSchema.index({ brand: 1 });
 carSchema.index({ model: 1 });
 carSchema.index({ price: 1 });
 carSchema.index({ year: 1 });
+carSchema.index({ fuel: 1 });
+carSchema.index({ transmission: 1 });
 carSchema.index({ status: 1 });
-carSchema.index({ seller: 1 });
 carSchema.index({ location: 1 });
 carSchema.index({ sellerinfo: 1 });
 

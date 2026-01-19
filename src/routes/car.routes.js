@@ -1,28 +1,24 @@
 import express from "express";
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../config/cloudinary.js";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 
+import {
+  uploadCarImage,
+  deleteCarImage,
+} from "../utils/carUpload.js";
+
 const router = express.Router();
 
-/* -------------------------------------------------
-   ✅ Cloudinary Storage Setup
----------------------------------------------------*/
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "rebuy_cars",
-      allowed_formats: ["jpg", "png", "jpeg", "webp"], // ✅ ADD WEBP
-  },
+/* =================================================
+   ✅ MULTER (MEMORY STORAGE)
+==================================================*/
+const upload = multer({
+  storage: multer.memoryStorage(),
 });
 
-const upload = multer({ storage });
-
-
 /* =================================================
-   ✅ FILTER CARS (UPDATED)
+   ✅ FILTER CARS
    GET /api/cars/filter
 ==================================================*/
 router.get("/filter", async (req, res) => {
@@ -33,7 +29,7 @@ router.get("/filter", async (req, res) => {
       fuel,
       transmission,
       owner,
-      board,        // ✅ ADD THIS
+      board,
       sellerinfo,
       location,
       minPrice,
@@ -49,7 +45,7 @@ router.get("/filter", async (req, res) => {
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
-    if (board) query.board = board; // ✅ ADD THIS
+    if (board) query.board = board;
     if (sellerinfo) query.sellerinfo = sellerinfo;
     if (location) query.location = { $regex: location, $options: "i" };
 
@@ -69,23 +65,22 @@ router.get("/filter", async (req, res) => {
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       count: cars.length,
       cars,
     });
   } catch (error) {
-    console.error("❌ Filter Error:", error);
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: "Error filtering cars",
+      message: "Filter failed",
     });
   }
 });
 
 /* =================================================
-   ✅ ADD CAR (ADMIN) — UPDATED
-   POST /api/cars/add
+   ✅ ADD CAR (ADMIN)
 ==================================================*/
 router.post(
   "/add",
@@ -97,54 +92,28 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      const {
-        brand,
-        model,
-        year,
-        price,
-        km,
-        color,
-        fuel,
-        transmission,
-        owner,
-        board,
-        description,
-        insurance,
-        status,
-        seller,        // ✅ NEW
-        location,      // ✅ NEW
-        sellerinfo,    // ✅ NEW
-      } = req.body;
-
       if (!req.files?.banner) {
         return res.status(400).json({
           success: false,
-          message: "Banner image is required",
+          message: "Banner image required",
         });
       }
 
-      const bannerImage = req.files.banner[0].path;
+      const bannerImage = await uploadCarImage(
+        req.files.banner[0],
+        "cars/banner"
+      );
+
       const galleryImages = req.files.gallery
-        ? req.files.gallery.map((img) => img.path)
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadCarImage(img, "cars/gallery")
+            )
+          )
         : [];
 
       const car = new Car({
-        brand,
-        model,
-        year,
-        price,
-        km,
-        color,
-        fuel,
-        transmission,
-        owner,
-        board,
-        description,
-        insurance,
-        status,
-        seller,        // ✅
-        location,      // ✅
-        sellerinfo,    // ✅
+        ...req.body,
         bannerImage,
         galleryImages,
       });
@@ -157,10 +126,10 @@ router.post(
         car,
       });
     } catch (error) {
-      console.error("❌ Add Car Error:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
-        message: error.message || "Error adding car",
+        message: "Car upload failed",
       });
     }
   }
@@ -175,16 +144,15 @@ router.get("/", async (req, res) => {
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       count: cars.length,
       cars,
     });
   } catch (error) {
-    console.error("❌ Fetch Cars Error:", error);
     res.status(500).json({
       success: false,
-      message: "Error fetching cars",
+      message: "Fetch failed",
     });
   }
 });
@@ -206,21 +174,20 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
       car,
     });
   } catch (error) {
-    console.error("❌ Single Car Error:", error);
     res.status(500).json({
       success: false,
-      message: "Error fetching car",
+      message: "Fetch failed",
     });
   }
 });
 
 /* =================================================
-   ✅ UPDATE CAR (ADMIN) — UPDATED
+   ✅ UPDATE CAR (ADMIN)
 ==================================================*/
 router.put(
   "/:id",
@@ -233,78 +200,72 @@ router.put(
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
+      if (!car)
+        return res.status(404).json({ message: "Car not found" });
 
       if (req.files?.banner) {
-        const oldBanner = car.bannerImage.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(`rebuy_cars/${oldBanner}`);
-        car.bannerImage = req.files.banner[0].path;
+        await deleteCarImage(car.bannerImage);
+
+        car.bannerImage = await uploadCarImage(
+          req.files.banner[0],
+          "cars/banner"
+        );
       }
 
       if (req.files?.gallery) {
         for (const img of car.galleryImages) {
-          const imgId = img.split("/").pop().split(".")[0];
-          await cloudinary.uploader.destroy(`rebuy_cars/${imgId}`);
+          await deleteCarImage(img);
         }
-        car.galleryImages = req.files.gallery.map((f) => f.path);
+
+        car.galleryImages = await Promise.all(
+          req.files.gallery.map((img) =>
+            uploadCarImage(img, "cars/gallery")
+          )
+        );
       }
 
-      // ✅ allows seller, location, sellerinfo update
       Object.assign(car, req.body);
       await car.save();
 
-      res.status(200).json({
+      res.json({
         success: true,
-        message: "📝 Car updated successfully",
+        message: "✅ Car updated successfully",
         car,
       });
     } catch (error) {
-      console.error("❌ Update Car Error:", error);
+      console.error(error);
       res.status(500).json({
-        success: false,
-        message: error.message || "Error updating car",
+        message: "Update failed",
       });
     }
   }
 );
 
 /* =================================================
-   ✅ DELETE CAR
+   ✅ DELETE CAR (ADMIN)
 ==================================================*/
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
-    if (!car) {
-      return res.status(404).json({
-        success: false,
-        message: "Car not found",
-      });
-    }
 
-    const bannerId = car.bannerImage.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`rebuy_cars/${bannerId}`);
+    if (!car)
+      return res.status(404).json({ message: "Car not found" });
+
+    await deleteCarImage(car.bannerImage);
 
     for (const img of car.galleryImages) {
-      const imgId = img.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`rebuy_cars/${imgId}`);
+      await deleteCarImage(img);
     }
 
     await car.deleteOne();
 
-    res.status(200).json({
+    res.json({
       success: true,
       message: "🗑️ Car deleted successfully",
     });
   } catch (error) {
-    console.error("❌ Delete Car Error:", error);
     res.status(500).json({
-      success: false,
-      message: "Error deleting car",
+      message: "Delete failed",
     });
   }
 });

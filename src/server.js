@@ -65,15 +65,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /* =========================
-   GLOBAL MIDDLEWARE
+   GLOBAL MIDDLEWARE (FIXED FOR WEB)
 ========================= */
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ✅ REQUIRED FOR FLUTTER WEB PREFLIGHT
+app.options("*", cors());
 
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));

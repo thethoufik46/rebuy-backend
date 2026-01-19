@@ -20,6 +20,13 @@ router.post(
   ]),
   async (req, res) => {
     try {
+      if (!req.files?.banner) {
+        return res.status(400).json({
+          success: false,
+          message: "Banner image required",
+        });
+      }
+
       const bannerImage = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
@@ -39,12 +46,17 @@ router.post(
         galleryImages,
       });
 
-      res.status(201).json({ success: true, car });
+      res.status(201).json({
+        success: true,
+        message: "✅ Car added successfully",
+        car,
+      });
     } catch (err) {
       console.error("ADD CAR ERROR:", err);
+
       res.status(500).json({
         success: false,
-        message: err.message,
+        message: err.message || "Car upload failed",
       });
     }
   }

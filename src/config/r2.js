@@ -4,13 +4,12 @@ const r2 = new S3Client({
   region: "auto",
   endpoint: process.env.R2_ENDPOINT,
 
-  // 🔥 REQUIRED FOR CLOUDFLARE R2
-  forcePathStyle: true,
-
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY,
     secretAccessKey: process.env.R2_SECRET_KEY,
   },
+
+  forcePathStyle: true, // ✅ VERY IMPORTANT FOR CLOUDFLARE R2
 });
 
 export default r2;

@@ -79,7 +79,41 @@ router.post(
 ====================== */
 router.get("/", async (req, res) => {
   try {
-    const cars = await Car.find()
+    const {
+      brand,
+      fuel,
+      transmission,
+      owner,
+      board,
+      minPrice,
+      maxPrice,
+      minYear,
+      maxYear,
+    } = req.query;
+
+    const query = {};
+
+    // ✅ BRAND FILTER (IMPORTANT)
+    if (brand) query.brand = brand;
+
+    if (fuel) query.fuel = fuel;
+    if (transmission) query.transmission = transmission;
+    if (owner) query.owner = owner;
+    if (board) query.board = board;
+
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    if (minYear || maxYear) {
+      query.year = {};
+      if (minYear) query.year.$gte = Number(minYear);
+      if (maxYear) query.year.$lte = Number(maxYear);
+    }
+
+    const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 });
 
@@ -89,13 +123,14 @@ router.get("/", async (req, res) => {
       cars,
     });
   } catch (err) {
-    console.error("GET CARS ERROR:", err);
+    console.error("FILTER ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
     });
   }
 });
+
 
 /* ======================
    UPDATE CAR

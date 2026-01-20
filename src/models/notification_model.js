@@ -7,18 +7,21 @@ const notificationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     description: {
       type: String,
       required: true,
       trim: true,
     },
+
     imageUrl: {
       type: String,
-      default: null,
+      default: "",
     },
+
     link: {
       type: String,
-      default: null,
+      default: "",
     },
   },
   { timestamps: true }

@@ -1,7 +1,9 @@
+// ======================= notification.routes.js =======================
+
 import express from "express";
-import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../config/cloudinary.js";
+import { verifyToken } from "../middleware/auth.js";
+import uploadNotification from "../middleware/uploadNotification.js";
+
 import {
   addNotification,
   getNotifications,
@@ -10,51 +12,59 @@ import {
   getUnreadNotificationCount,
   markNotificationsAsSeen,
 } from "../controllers/notification.controller.js";
-import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
 /* =========================
-   ☁️ CLOUDINARY STORAGE
-========================= */
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "notifications",
-    allowed_formats: ["jpg", "jpeg", "png"],
-  },
-});
-
-const upload = multer({ storage });
-
-/* =========================
    🟢 CREATE NOTIFICATION
 ========================= */
-router.post("/add", verifyToken, upload.single("image"), addNotification);
+router.post(
+  "/add",
+  verifyToken,
+  uploadNotification.single("image"),
+  addNotification
+);
 
 /* =========================
-   🔵 GET NOTIFICATIONS ✅ UPDATED HERE
+   🔵 GET NOTIFICATIONS
 ========================= */
 router.get("/", verifyToken, getNotifications);
 
 /* =========================
    🔴 UNREAD COUNT (BADGE)
 ========================= */
-router.get("/unread-count", verifyToken, getUnreadNotificationCount);
+router.get(
+  "/unread-count",
+  verifyToken,
+  getUnreadNotificationCount
+);
 
 /* =========================
    ✅ MARK AS SEEN
 ========================= */
-router.post("/mark-seen", verifyToken, markNotificationsAsSeen);
+router.post(
+  "/mark-seen",
+  verifyToken,
+  markNotificationsAsSeen
+);
 
 /* =========================
    🟡 UPDATE NOTIFICATION
 ========================= */
-router.put("/:id", verifyToken, upload.single("image"), updateNotification);
+router.put(
+  "/:id",
+  verifyToken,
+  uploadNotification.single("image"),
+  updateNotification
+);
 
 /* =========================
    🔴 DELETE NOTIFICATION
 ========================= */
-router.delete("/:id", verifyToken, deleteNotification);
+router.delete(
+  "/:id",
+  verifyToken,
+  deleteNotification
+);
 
 export default router;

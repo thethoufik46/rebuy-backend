@@ -17,7 +17,7 @@ import reportRoutes from "./routes/report.routes.js";
 
 import chatRoutes from "./routes/chat.routes.js";
 
-import brandRoutes from "./routes/brand.routes.js";
+import brandRoutes from "./routes/car_brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
 
 import carRoutes from "./routes/car.routes.js";

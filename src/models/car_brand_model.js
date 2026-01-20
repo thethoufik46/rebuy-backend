@@ -8,6 +8,7 @@ const brandSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+
     logoUrl: {
       type: String,
       required: true,

@@ -145,15 +145,10 @@ router.put(
   ]),
   async (req, res) => {
     try {
-      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ message: "Invalid car id" });
-      }
-
       const car = await Car.findById(req.params.id);
-      if (!car) {
-        return res.status(404).json({ message: "Car not found" });
-      }
+      if (!car) return res.status(404).json({ message: "Car not found" });
 
+      // ✅ banner
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -162,31 +157,46 @@ router.put(
         );
       }
 
-      if (req.files?.gallery) {
-        for (const img of car.galleryImages) {
+      // ✅ gallery FINAL FIX
+      let existingGallery = [];
+
+      if (req.body.existingGallery) {
+        existingGallery = Array.isArray(req.body.existingGallery)
+          ? req.body.existingGallery
+          : JSON.parse(req.body.existingGallery);
+      }
+
+      for (const img of car.galleryImages) {
+        if (!existingGallery.includes(img)) {
           await deleteCarImage(img);
         }
+      }
 
-        car.galleryImages = await Promise.all(
+      let newGallery = [];
+
+      if (req.files?.gallery) {
+        newGallery = await Promise.all(
           req.files.gallery.map((img) =>
             uploadCarImage(img, "cars/gallery")
           )
         );
       }
 
+      car.galleryImages = [...existingGallery, ...newGallery];
+
       Object.assign(car, req.body);
       await car.save();
 
-      return res.json({ success: true, car });
+      res.json({ success: true, car });
     } catch (err) {
       console.error("UPDATE CAR ERROR:", err);
-      return res.status(500).json({
-        success: false,
-        message: "Update failed",
-      });
+      res.status(500).json({ success: false });
     }
   }
 );
+
+    
+  
 
 /* ======================
    DELETE CAR

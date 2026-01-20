@@ -35,22 +35,13 @@ import buyCarRoutes from "./routes/buycar.routes.js";
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
 import buyPropertyRoutes from "./routes/buyproperty.routes.js";
 
-// 🏠 REAL ESTATE
 import propertyRoutes from "./routes/property.routes.js";
-
-// 📍 LOCATION
 import locationRoutes from "./routes/location.routes.js";
 
-// 🔗 LINKS
 import linkRoutes from "./routes/link.routes.js";
 
-// 🔔 NOTIFICATIONS
 import notificationRoutes from "./routes/notification.route.js";
-
-// ⭐ TESTIMONIALS
 import testimonialRoutes from "./routes/testimonial.route.js";
-
-// ⭐ STORIES
 import storyRoutes from "./routes/story.route.js";
 
 // ================= ENV =================
@@ -65,7 +56,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /* =========================
-   GLOBAL MIDDLEWARE (FIXED FOR WEB)
+   CORS
 ========================= */
 app.use(
   cors({
@@ -75,9 +66,11 @@ app.use(
   })
 );
 
-// ✅ REQUIRED FOR FLUTTER WEB PREFLIGHT
 app.options("*", cors());
 
+/* =========================
+   ⚠️ IMPORTANT ORDER (MULTER FIX)
+========================= */
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -145,7 +138,9 @@ app.use("/api/buyproperty", buyPropertyRoutes);
 
 app.use("/api/properties", propertyRoutes);
 app.use("/api/locations", locationRoutes);
+
 app.use("/api/links", linkRoutes);
+
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
@@ -156,7 +151,7 @@ app.use("/api/stories", storyRoutes);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "🚀 RE2BUY Backend API running successfully",
+    message: "🚀 REBUY Backend API running successfully",
   });
 });
 

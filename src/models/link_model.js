@@ -2,13 +2,12 @@ import mongoose from "mongoose";
 
 const linkSchema = new mongoose.Schema(
   {
-    // 🏷️ TITLE
     title: {
       type: String,
       trim: true,
+      required: true,
     },
 
-    // 🖼️ IMAGE (Brand logo madhiri – Cloudinary URL)
     image: {
       type: String,
       trim: true,

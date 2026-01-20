@@ -1,105 +1,126 @@
 import Link from "../models/link_model.js";
+import {
+  uploadLinkImage,
+  deleteLinkImage,
+} from "../utils/sendLink.js";
 
-/* =========================
-   🟢 ADD LINK (ADMIN)
-   IMAGE OPTIONAL
-========================= */
+/* =====================================================
+   CREATE LINK
+===================================================== */
 export const addLink = async (req, res) => {
   try {
     const { title } = req.body;
 
-    const newLink = new Link({
-      title,
-      image: req.file ? req.file.path : "", // 🖼️ Cloudinary URL
-    });
+    if (!title || !req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and image required",
+      });
+    }
 
-    await newLink.save();
+    const imageUrl = await uploadLinkImage(req.file);
+
+    const link = await Link.create({
+      title: title.trim(),
+      image: imageUrl,
+    });
 
     res.status(201).json({
       success: true,
-      message: "Link added successfully",
-      data: newLink,
+      link,
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: err.message,
     });
   }
 };
 
-/* =========================
-   🔵 GET ALL LINKS (USER)
-========================= */
+/* =====================================================
+   GET LINKS
+===================================================== */
 export const getLinks = async (req, res) => {
   try {
     const links = await Link.find().sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
-      data: links,
+      links,
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: err.message,
     });
   }
 };
 
-/* =========================
-   🟡 UPDATE LINK (ADMIN)
-   IMAGE OPTIONAL
-========================= */
+/* =====================================================
+   UPDATE LINK
+===================================================== */
 export const updateLink = async (req, res) => {
   try {
     const { id } = req.params;
+    const { title } = req.body;
 
-    const updateData = {
-      title: req.body.title,
-    };
+    const link = await Link.findById(id);
 
-    // 🖼️ If new image uploaded → replace
-    if (req.file) {
-      updateData.image = req.file.path;
+    if (!link) {
+      return res.status(404).json({
+        success: false,
+        message: "Link not found",
+      });
     }
 
-    const updatedLink = await Link.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    );
+    if (title) link.title = title.trim();
+
+    if (req.file) {
+      await deleteLinkImage(link.image);
+      link.image = await uploadLinkImage(req.file);
+    }
+
+    await link.save();
 
     res.status(200).json({
       success: true,
-      message: "Link updated successfully",
-      data: updatedLink,
+      link,
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: err.message,
     });
   }
 };
 
-/* =========================
-   🔴 DELETE LINK (ADMIN)
-========================= */
+/* =====================================================
+   DELETE LINK
+===================================================== */
 export const deleteLink = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await Link.findByIdAndDelete(id);
+    const link = await Link.findById(id);
+
+    if (!link) {
+      return res.status(404).json({
+        success: false,
+        message: "Link not found",
+      });
+    }
+
+    await deleteLinkImage(link.image);
+    await link.deleteOne();
 
     res.status(200).json({
       success: true,
       message: "Link deleted successfully",
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: err.message,
     });
   }
 };

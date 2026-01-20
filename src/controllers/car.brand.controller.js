@@ -3,8 +3,8 @@
 
 import Brand from "../models/car_brand_model.js";
 import {
-  uploadBrandLogo,
-  deleteBrandLogo,
+  uploadCarImage,
+  deleteCarImage,
 } from "../utils/carBrand.js";
 
 /* =====================================================
@@ -22,7 +22,7 @@ export const addBrand = async (req, res) => {
     }
 
     const existing = await Brand.findOne({
-      name: new RegExp(`^${name}$`, "i"),
+      name: new RegExp(`^${name.trim()}$`, "i"),
     });
 
     if (existing) {
@@ -32,7 +32,7 @@ export const addBrand = async (req, res) => {
       });
     }
 
-    const logoUrl = await uploadBrandLogo(req.file);
+    const logoUrl = await uploadCarImage(req.file, "brands");
 
     const brand = await Brand.create({
       name: name.trim(),
@@ -52,7 +52,7 @@ export const addBrand = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL BRANDS
+   GET BRANDS
 ===================================================== */
 export const getBrands = async (req, res) => {
   try {
@@ -87,13 +87,13 @@ export const updateBrand = async (req, res) => {
       });
     }
 
-    if (name) {
+    if (name && name.trim()) {
       brand.name = name.trim();
     }
 
     if (req.file) {
-      await deleteBrandLogo(brand.logoUrl);
-      brand.logoUrl = await uploadBrandLogo(req.file);
+      await deleteCarImage(brand.logoUrl);
+      brand.logoUrl = await uploadCarImage(req.file, "brands");
     }
 
     await brand.save();
@@ -126,7 +126,7 @@ export const deleteBrand = async (req, res) => {
       });
     }
 
-    await deleteBrandLogo(brand.logoUrl);
+    await deleteCarImage(brand.logoUrl);
     await brand.deleteOne();
 
     return res.status(200).json({

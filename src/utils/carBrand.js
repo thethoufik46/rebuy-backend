@@ -4,13 +4,17 @@ import r2 from "../config/r2.js";
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-/* ===========================
-   UPLOAD BRAND LOGO
-=========================== */
-export const uploadBrandLogo = async (file) => {
-  const ext = file.mimetype.split("/")[1] || "png";
+/* =====================================================
+   UPLOAD BRAND LOGO (R2)
+===================================================== */
+export const uploadCarImage = async (file, folder = "brands") => {
+  if (!file || !file.buffer) {
+    throw new Error("File buffer missing");
+  }
 
-  const key = `brands/${Date.now()}-${Math.random()
+  const ext = file.mimetype.split("/")[1] || "jpg";
+
+  const key = `${folder}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 
@@ -26,10 +30,10 @@ export const uploadBrandLogo = async (file) => {
   return `${PUBLIC_URL}/${key}`;
 };
 
-/* ===========================
-   DELETE BRAND LOGO
-=========================== */
-export const deleteBrandLogo = async (url) => {
+/* =====================================================
+   DELETE IMAGE FROM R2
+===================================================== */
+export const deleteCarImage = async (url) => {
   if (!url) return;
 
   const key = url.replace(`${PUBLIC_URL}/`, "");

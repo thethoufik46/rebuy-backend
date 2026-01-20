@@ -1,3 +1,6 @@
+// ======================= car_brand.routes.js =======================
+// C:\flutter_projects\rebuy-backend\src\routes\car_brand.routes.js
+
 import express from "express";
 import { verifyToken } from "../middleware/auth.js";
 import uploadCarBrand from "../middleware/uploadCarbrand.js";
@@ -11,9 +14,6 @@ import {
 
 const router = express.Router();
 
-/* =========================
-   CREATE BRAND
-========================= */
 router.post(
   "/add",
   verifyToken,
@@ -21,14 +21,8 @@ router.post(
   addBrand
 );
 
-/* =========================
-   GET BRANDS
-========================= */
 router.get("/", getBrands);
 
-/* =========================
-   UPDATE BRAND
-========================= */
 router.put(
   "/:id",
   verifyToken,
@@ -36,9 +30,6 @@ router.put(
   updateBrand
 );
 
-/* =========================
-   DELETE BRAND
-========================= */
 router.delete(
   "/:id",
   verifyToken,

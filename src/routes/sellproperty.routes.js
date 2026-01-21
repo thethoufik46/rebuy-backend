@@ -113,6 +113,47 @@ router.put(
     }
   }
 );
+/* ======================
+   ADMIN – UPDATE STATUS
+====================== */
+router.put(
+  "/:id/status",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { status } = req.body;
+
+      if (!["pending", "approved", "rejected"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status",
+        });
+      }
+
+      const property = await SellProperty.findById(req.params.id);
+
+      if (!property) {
+        return res.status(404).json({
+          success: false,
+          message: "Property not found",
+        });
+      }
+
+      property.status = status;
+      await property.save();
+
+      return res.json({
+        success: true,
+        property,
+      });
+    } catch (err) {
+      console.error("ADMIN STATUS UPDATE ERROR:", err);
+      return res.status(500).json({ success: false });
+    }
+  }
+);
+
 
 /* ======================
    DELETE SELL PROPERTY

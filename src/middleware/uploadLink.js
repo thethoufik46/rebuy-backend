@@ -13,7 +13,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const uploadLink = multer({
+const uploadNotification = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
@@ -21,5 +21,4 @@ const uploadLink = multer({
   fileFilter,
 });
 
-// ✅ VERY IMPORTANT
-export default uploadLink;
+export default uploadNotification;

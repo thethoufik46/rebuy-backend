@@ -4,20 +4,10 @@ import r2 from "../config/r2.js";
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-/* =====================================================
-   UPLOAD NOTIFICATION IMAGE
-===================================================== */
-export const uploadNotificationImage = async (
-  file,
-  folder = "notifications"
-) => {
-  if (!file || !file.buffer) {
-    throw new Error("File buffer missing");
-  }
-
+export const uploadNotificationImage = async (file) => {
   const ext = file.mimetype.split("/")[1] || "jpg";
 
-  const key = `${folder}/${Date.now()}-${Math.random()
+  const key = `notifications/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 
@@ -33,9 +23,6 @@ export const uploadNotificationImage = async (
   return `${PUBLIC_URL}/${key}`;
 };
 
-/* =====================================================
-   DELETE IMAGE
-===================================================== */
 export const deleteNotificationImage = async (url) => {
   if (!url) return;
 

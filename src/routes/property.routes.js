@@ -46,7 +46,27 @@ router.post(
         : [];
 
       const property = await Property.create({
-        ...req.body,
+        mainType: req.body.mainType,
+        category: req.body.category,
+
+        price: req.body.price,
+        yearBuilt: req.body.yearBuilt,
+        bedrooms: req.body.bedrooms,
+
+        landArea: req.body.landArea,
+        homeArea: req.body.homeArea,
+
+        roadAccess: req.body.roadAccess,
+        direction: req.body.direction,
+
+        location: req.body.location,
+
+        status: req.body.status,
+        seller: req.body.seller,
+        sellerInfo: req.body.sellerInfo,
+
+        description: req.body.description,
+
         bannerImage,
         galleryImages,
       });
@@ -134,7 +154,6 @@ router.put(
         return res.status(404).json({ success: false });
       }
 
-      // banner
       if (req.files?.banner) {
         await deletePropertyImage(property.bannerImage);
         property.bannerImage = await uploadPropertyImage(
@@ -143,7 +162,6 @@ router.put(
         );
       }
 
-      // existing gallery
       let existingGallery = [];
 
       if (req.body.existingGallery) {
@@ -158,8 +176,8 @@ router.put(
         }
       }
 
-      // new gallery
       let newGallery = [];
+
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>

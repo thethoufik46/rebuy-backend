@@ -1,15 +1,12 @@
-// ======================= middleware/uploadProperty.js =======================
-import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../config/cloudinary.js";
+// ======================= src/middleware/uploadProperty.js =======================
 
-/* ☁️ CLOUDINARY STORAGE – PROPERTY */
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "sellproperty",
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
-  },
+import multer from "multer";
+
+const storage = multer.memoryStorage();
+
+const uploadProperty = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-export const uploadPropertyImage = multer({ storage }).single("image");
+export default uploadProperty;

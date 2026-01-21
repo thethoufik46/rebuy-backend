@@ -146,9 +146,15 @@ router.put(
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
-      if (!car) return res.status(404).json({ message: "Car not found" });
+      if (!car)
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
 
-      // ✅ banner
+      /* ======================
+         BANNER
+      ====================== */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -157,7 +163,9 @@ router.put(
         );
       }
 
-      // ✅ gallery FINAL FIX
+      /* ======================
+         EXISTING GALLERY
+      ====================== */
       let existingGallery = [];
 
       if (req.body.existingGallery) {
@@ -166,12 +174,16 @@ router.put(
           : JSON.parse(req.body.existingGallery);
       }
 
+      // delete removed images
       for (const img of car.galleryImages) {
         if (!existingGallery.includes(img)) {
           await deleteCarImage(img);
         }
       }
 
+      /* ======================
+         NEW GALLERY
+      ====================== */
       let newGallery = [];
 
       if (req.files?.gallery) {
@@ -184,18 +196,35 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      Object.assign(car, req.body);
+      /* ======================
+         SAFE BODY UPDATE
+      ====================== */
+      const {
+        existingGallery: eg,
+        banner,
+        gallery,
+        ...safeBody
+      } = req.body;
+
+      Object.assign(car, safeBody);
+
       await car.save();
 
-      res.json({ success: true, car });
+      return res.status(200).json({
+        success: true,
+        message: "Car updated successfully",
+        car,
+      });
     } catch (err) {
       console.error("UPDATE CAR ERROR:", err);
-      res.status(500).json({ success: false });
+      return res.status(500).json({
+        success: false,
+        message: "Car update failed",
+      });
     }
   }
 );
 
-    
   
 
 /* ======================

@@ -25,13 +25,6 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      if (!req.files?.banner) {
-        return res.status(400).json({
-          success: false,
-          message: "Banner image required",
-        });
-      }
-
       const bannerImage = await uploadPropertyImage(
         req.files.banner[0],
         "property/banner"
@@ -46,27 +39,9 @@ router.post(
         : [];
 
       const property = await Property.create({
-        mainType: req.body.mainType,
-        category: req.body.category,
-
-        price: req.body.price,
-        yearBuilt: req.body.yearBuilt,
-        bedrooms: req.body.bedrooms,
-
-        landArea: req.body.landArea,
-        homeArea: req.body.homeArea,
-
-        roadAccess: req.body.roadAccess,
-        direction: req.body.direction,
-
-        location: req.body.location,
-
-        status: req.body.status,
-        seller: req.body.seller,
-        sellerInfo: req.body.sellerInfo,
-
-        description: req.body.description,
-
+        ...req.body,
+        // ✅ FINAL FIX
+        location: `${req.body.district}, ${req.body.town}`,
         bannerImage,
         galleryImages,
       });
@@ -76,11 +51,8 @@ router.post(
         property,
       });
     } catch (err) {
-      console.error("ADD PROPERTY ERROR:", err);
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      console.log("ADD PROPERTY ERROR:", err);
+      return res.status(500).json({ success: false });
     }
   }
 );
@@ -146,22 +118,37 @@ router.put(
   async (req, res) => {
     try {
       if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ success: false });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid property id",
+        });
       }
 
       const property = await Property.findById(req.params.id);
       if (!property) {
-        return res.status(404).json({ success: false });
+        return res.status(404).json({
+          success: false,
+          message: "Property not found",
+        });
       }
 
+      /* ======================
+         BANNER UPDATE
+      ====================== */
       if (req.files?.banner) {
-        await deletePropertyImage(property.bannerImage);
+        if (property.bannerImage) {
+          await deletePropertyImage(property.bannerImage);
+        }
+
         property.bannerImage = await uploadPropertyImage(
           req.files.banner[0],
           "property/banner"
         );
       }
 
+      /* ======================
+         EXISTING GALLERY
+      ====================== */
       let existingGallery = [];
 
       if (req.body.existingGallery) {
@@ -170,12 +157,16 @@ router.put(
           : JSON.parse(req.body.existingGallery);
       }
 
+      // delete removed images
       for (const img of property.galleryImages) {
         if (!existingGallery.includes(img)) {
           await deletePropertyImage(img);
         }
       }
 
+      /* ======================
+         NEW GALLERY
+      ====================== */
       let newGallery = [];
 
       if (req.files?.gallery) {
@@ -188,8 +179,11 @@ router.put(
 
       property.galleryImages = [...existingGallery, ...newGallery];
 
+      /* ======================
+         SAFE BODY UPDATE
+      ====================== */
       const {
-        existingGallery: eg,
+        existingGallery: _eg,
         banner,
         gallery,
         ...safeBody
@@ -199,13 +193,16 @@ router.put(
 
       await property.save();
 
-      return res.json({
+      return res.status(200).json({
         success: true,
         property,
       });
     } catch (err) {
       console.error("UPDATE PROPERTY ERROR:", err);
-      return res.status(500).json({ success: false });
+      return res.status(500).json({
+        success: false,
+        message: "Property update failed",
+      });
     }
   }
 );

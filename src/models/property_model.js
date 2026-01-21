@@ -1,3 +1,5 @@
+// ======================= src/models/property_model.js =======================
+
 import mongoose from "mongoose";
 
 const propertySchema = new mongoose.Schema(
@@ -20,21 +22,10 @@ const propertySchema = new mongoose.Schema(
       min: 0,
     },
 
-    yearBuilt: {
-      type: Number,
-    },
-
-    bedrooms: {
-      type: Number,
-    },
-
-    landArea: {
-      type: Number,
-    },
-
-    homeArea: {
-      type: Number,
-    },
+    yearBuilt: Number,
+    bedrooms: Number,
+    landArea: Number,
+    homeArea: Number,
 
     roadAccess: {
       type: String,
@@ -46,6 +37,7 @@ const propertySchema = new mongoose.Schema(
       trim: true,
     },
 
+    // ✅ FINAL FIX
     location: {
       type: String,
       required: true,
@@ -86,17 +78,7 @@ const propertySchema = new mongoose.Schema(
       },
     ],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
-propertySchema.index({ mainType: 1 });
-propertySchema.index({ category: 1 });
-propertySchema.index({ price: 1 });
-propertySchema.index({ location: 1 });
-propertySchema.index({ status: 1 });
-propertySchema.index({ sellerInfo: 1 });
-propertySchema.index({ bedrooms: 1 });
 
 export default mongoose.model("Property", propertySchema);

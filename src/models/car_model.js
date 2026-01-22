@@ -127,9 +127,14 @@ const carSchema = new mongoose.Schema(
    🔐 ENCRYPT SELLER BEFORE SAVE
 ================================================== */
 carSchema.pre("save", function (next) {
-  if (this.isModified("seller")) {
-    this.seller = encryptSeller(this.seller);
-  }
+ if (
+  this.isModified("seller") &&
+  typeof this.seller === "string" &&
+  this.seller.trim() !== ""
+) {
+  this.seller = encryptSeller(this.seller);
+}
+
   next();
 });
 

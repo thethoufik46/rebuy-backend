@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Counter from "./counter_model.js";
+import { encryptSeller } from "../utils/sellerCrypto.js";
 
 const carSchema = new mongoose.Schema(
   {
@@ -82,6 +83,9 @@ const carSchema = new mongoose.Schema(
       default: "available",
     },
 
+    /* -------------------------------------------------
+       🔐 SELLER (ENCRYPTED)
+    ---------------------------------------------------*/
     seller: {
       type: String,
       required: true,
@@ -120,6 +124,16 @@ const carSchema = new mongoose.Schema(
 );
 
 /* =================================================
+   🔐 ENCRYPT SELLER BEFORE SAVE
+================================================== */
+carSchema.pre("save", function (next) {
+  if (this.isModified("seller")) {
+    this.seller = encryptSeller(this.seller);
+  }
+  next();
+});
+
+/* =================================================
    🔥 AUTO INCREMENT CAR ID
 ================================================== */
 carSchema.pre("save", async function (next) {
@@ -136,7 +150,7 @@ carSchema.pre("save", async function (next) {
 });
 
 /* =================================================
-   INDEXES
+   ⚡ INDEXES
 ================================================== */
 carSchema.index({ brand: 1 });
 carSchema.index({ model: 1 });

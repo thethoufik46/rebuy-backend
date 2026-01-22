@@ -10,9 +10,6 @@ const carSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* -------------------------------------------------
-       🔗 Brand Reference
-    ---------------------------------------------------*/
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Brand",
@@ -83,9 +80,6 @@ const carSchema = new mongoose.Schema(
       default: "available",
     },
 
-    /* -------------------------------------------------
-       🔐 SELLER (ENCRYPTED)
-    ---------------------------------------------------*/
     seller: {
       type: String,
       required: true,
@@ -123,24 +117,21 @@ const carSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* =================================================
-   🔐 ENCRYPT SELLER BEFORE SAVE
-================================================== */
+/* ===============================
+   ENCRYPT SELLER
+================================ */
 carSchema.pre("save", function (next) {
- if (
-  this.isModified("seller") &&
-  typeof this.seller === "string" &&
-  this.seller.trim() !== ""
-) {
-  this.seller = encryptSeller(this.seller);
-}
-
+  if (typeof this.seller === "string" && this.seller.trim()) {
+    if (!this.seller.includes(":")) {
+      this.seller = encryptSeller(this.seller);
+    }
+  }
   next();
 });
 
-/* =================================================
-   🔥 AUTO INCREMENT CAR ID
-================================================== */
+/* ===============================
+   AUTO INCREMENT CAR ID
+================================ */
 carSchema.pre("save", async function (next) {
   if (this.carId) return next();
 
@@ -153,18 +144,5 @@ carSchema.pre("save", async function (next) {
   this.carId = counter.seq;
   next();
 });
-
-/* =================================================
-   ⚡ INDEXES
-================================================== */
-carSchema.index({ brand: 1 });
-carSchema.index({ model: 1 });
-carSchema.index({ price: 1 });
-carSchema.index({ year: 1 });
-carSchema.index({ fuel: 1 });
-carSchema.index({ transmission: 1 });
-carSchema.index({ status: 1 });
-carSchema.index({ location: 1 });
-carSchema.index({ sellerinfo: 1 });
 
 export default mongoose.model("Car", carSchema);

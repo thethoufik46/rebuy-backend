@@ -1,8 +1,12 @@
 import crypto from "crypto";
 
 const ALGO = "aes-256-cbc";
-const KEY = Buffer.from(process.env.SELLER_SECRET_KEY);
 const IV_LEN = 16;
+
+const KEY = crypto
+  .createHash("sha256")
+  .update(String(process.env.SELLER_SECRET_KEY || "rebuy-secret-key"))
+  .digest();
 
 export const encryptSeller = (text) => {
   if (!text) return text;

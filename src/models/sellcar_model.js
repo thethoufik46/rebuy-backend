@@ -1,9 +1,16 @@
-// ======================= sellcar.model.js =======================
+// ======================= models/sellcar_model.js =======================
 import mongoose from "mongoose";
+import Counter from "./counter_model.js";
+import { encryptSeller } from "../utils/sellerCrypto.js";
 
 const sellCarSchema = new mongoose.Schema(
   {
-    /* 🔐 LOGIN USER (REFERENCE) */
+    sellCarId: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
+
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -11,82 +18,100 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* 🔑 LOGIN USER ID (EXPLICIT FIELD) */
     userId: {
       type: String,
       required: true,
       index: true,
     },
 
-    /* =========================
-       REQUIRED CONTACT
-    ========================= */
-    name: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, trim: true },
-    location: { type: String, required: true, trim: true },
-
-    /* =========================
-       REQUIRED VEHICLE
-    ========================= */
-    model: { type: String, required: true, trim: true },
-    year: { type: Number, required: true, min: 1980 },
-    fuelType: {
-      type: String,
+    brand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
       required: true,
-      enum: ["Petrol", "Diesel", "Electric", "CNG", "Hybrid"],
     },
+
+    model: { type: String, required: true, trim: true },
+
+    year: { type: Number, required: true },
+
+    price: { type: Number, required: true, min: 0 },
+
+    km: { type: Number, required: true, min: 0 },
+
+    color: { type: String, required: true, trim: true },
+
+    fuel: {
+      type: String,
+      enum: ["petrol", "diesel", "cng", "lpg", "electric"],
+      required: true,
+    },
+
     transmission: {
       type: String,
-      required: true,
-      enum: ["Manual", "Automatic"],
-    },
-    kmsDriven: { type: Number, required: true, min: 0 },
-
-    /* =========================
-       REQUIRED IMAGE
-    ========================= */
-    image: {
-      type: String,
+      enum: ["manual", "automatic"],
       required: true,
     },
 
-    /* =========================
-       CATEGORY (DROPDOWN)
-    ========================= */
-    category: {
+    owner: { type: String, required: true },
+
+    board: {
       type: String,
+      enum: ["own", "t board"],
       required: true,
-      enum: ["RC Owner", "Mediator", "Refer", "Dealer"],
     },
 
-    /* =========================
-       DESCRIPTION
-    ========================= */
-    description: {
+    insurance: {
       type: String,
-      trim: true,
+      enum: ["comprehensive", "thirdparty", "no insurance"],
+      required: true,
     },
 
-    /* =========================
-       OPTIONAL
-    ========================= */
-    brand: { type: String, trim: true },
-    variant: { type: String, trim: true },
-    seater: { type: Number, min: 2, max: 10 },
-    insuranceIdv: { type: String, trim: true },
-    price: { type: Number, min: 0 },
+    seller: { type: String, required: true, trim: true },
 
-    /* =========================
-       ADMIN FLOW
-    ========================= */
+    sellerinfo: {
+      type: String,
+      enum: ["Rc owner", "Dealer", "Verified"],
+      required: true,
+    },
+
+    location: { type: String, required: true, trim: true },
+
+    description: { type: String, trim: true },
+
+    bannerImage: { type: String, required: true },
+
+    galleryImages: [{ type: String }],
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
       index: true,
     },
+
+    adminNote: { type: String, trim: true },
   },
   { timestamps: true }
 );
+
+sellCarSchema.pre("save", function (next) {
+  if (this.seller && !this.seller.includes(":")) {
+    this.seller = encryptSeller(this.seller);
+  }
+  next();
+});
+
+sellCarSchema.pre("save", async function (next) {
+  if (this.sellCarId) return next();
+
+  const counter = await Counter.findByIdAndUpdate(
+    { _id: "sellCarId" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  this.sellCarId = counter.seq;
+  next();
+});
 
 export default mongoose.model("SellCar", sellCarSchema);

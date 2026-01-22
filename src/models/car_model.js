@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
+import Counter from "./counter_model.js";
 
 const carSchema = new mongoose.Schema(
   {
+    carId: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
+
     /* -------------------------------------------------
        🔗 Brand Reference
     ---------------------------------------------------*/
@@ -11,16 +18,12 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* -------------------------------------------------
-       🚗 Basic Details
-    ---------------------------------------------------*/
     model: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // ✅ NUMBER (important for filter & sort)
     year: {
       type: Number,
       required: true,
@@ -44,9 +47,6 @@ const carSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* -------------------------------------------------
-       ⛽ Engine & Drive
-    ---------------------------------------------------*/
     fuel: {
       type: String,
       enum: ["petrol", "diesel", "cng", "lpg", "electric"],
@@ -70,9 +70,6 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* -------------------------------------------------
-       🛡️ Insurance & Status
-    ---------------------------------------------------*/
     insurance: {
       type: String,
       enum: ["comprehensive", "thirdparty", "no insurance"],
@@ -85,9 +82,6 @@ const carSchema = new mongoose.Schema(
       default: "available",
     },
 
-    /* -------------------------------------------------
-       🧑 Seller Details
-    ---------------------------------------------------*/
     seller: {
       type: String,
       required: true,
@@ -106,17 +100,11 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* -------------------------------------------------
-       📝 Description
-    ---------------------------------------------------*/
     description: {
       type: String,
       trim: true,
     },
 
-    /* -------------------------------------------------
-       🖼️ Images (Cloudflare R2 PUBLIC URLs)
-    ---------------------------------------------------*/
     bannerImage: {
       type: String,
       required: true,
@@ -128,14 +116,28 @@ const carSchema = new mongoose.Schema(
       },
     ],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* -------------------------------------------------
-   ⚡ INDEXES (FAST FILTER)
----------------------------------------------------*/
+/* =================================================
+   🔥 AUTO INCREMENT CAR ID
+================================================== */
+carSchema.pre("save", async function (next) {
+  if (this.carId) return next();
+
+  const counter = await Counter.findByIdAndUpdate(
+    { _id: "carId" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  this.carId = counter.seq;
+  next();
+});
+
+/* =================================================
+   INDEXES
+================================================== */
 carSchema.index({ brand: 1 });
 carSchema.index({ model: 1 });
 carSchema.index({ price: 1 });

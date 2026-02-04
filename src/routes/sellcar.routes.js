@@ -69,7 +69,7 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
 
 /* ADMIN APPROVE / REJECT */
 router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
-  const { status, adminNote } = req.body;
+  const { status, adminNote, brandId } = req.body;
 
   if (!["approved", "rejected"].includes(status))
     return res.status(400).json({ success: false });
@@ -77,10 +77,16 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   const sellCar = await SellCar.findById(req.params.id);
   if (!sellCar) return res.status(404).json({ success: false });
 
+  if (sellCar.status === "approved")
+    return res.status(400).json({ success: false });
+
   if (status === "approved") {
+    if (!mongoose.Types.ObjectId.isValid(brandId))
+      return res.status(400).json({ success: false });
+
     await Car.create({
-      brand: sellCar.brand,
-      model: sellCar.model,
+      brand: brandId,
+      model: sellCar.userModel,
       year: sellCar.year,
       price: sellCar.price,
       km: sellCar.km,
@@ -97,6 +103,9 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
       bannerImage: sellCar.bannerImage,
       galleryImages: sellCar.galleryImages,
     });
+
+    sellCar.brand = brandId;
+    sellCar.model = sellCar.userModel;
   }
 
   sellCar.status = status;

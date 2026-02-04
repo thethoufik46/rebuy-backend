@@ -24,20 +24,31 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
+    userBrand: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    userModel: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Brand",
-      required: true,
     },
 
-    model: { type: String, required: true, trim: true },
+    model: {
+      type: String,
+      trim: true,
+    },
 
     year: { type: Number, required: true },
-
     price: { type: Number, required: true, min: 0 },
-
     km: { type: Number, required: true, min: 0 },
-
     color: { type: String, required: true, trim: true },
 
     fuel: {
@@ -75,11 +86,9 @@ const sellCarSchema = new mongoose.Schema(
     },
 
     location: { type: String, required: true, trim: true },
-
     description: { type: String, trim: true },
 
     bannerImage: { type: String, required: true },
-
     galleryImages: [{ type: String }],
 
     status: {

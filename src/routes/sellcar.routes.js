@@ -2,7 +2,6 @@
 import express from "express";
 import mongoose from "mongoose";
 import SellCar from "../models/sellcar_model.js";
-import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import uploadSellcar from "../middleware/uploadSellcar.js";
 import {
@@ -67,9 +66,9 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
   res.json({ success: true, cars });
 });
 
-/* ADMIN APPROVE / REJECT */
+/* ADMIN APPROVE / REJECT  (NO Car.create HERE) */
 router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
-  const { status, adminNote, brandId } = req.body;
+  const { status, adminNote } = req.body;
 
   if (!["approved", "rejected"].includes(status))
     return res.status(400).json({ success: false });
@@ -80,36 +79,10 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   if (sellCar.status === "approved")
     return res.status(400).json({ success: false });
 
-  if (status === "approved") {
-    if (!mongoose.Types.ObjectId.isValid(brandId))
-      return res.status(400).json({ success: false });
-
-    await Car.create({
-      brand: brandId,
-      model: sellCar.userModel,
-      year: sellCar.year,
-      price: sellCar.price,
-      km: sellCar.km,
-      color: sellCar.color,
-      fuel: sellCar.fuel,
-      transmission: sellCar.transmission,
-      owner: sellCar.owner,
-      board: sellCar.board,
-      insurance: sellCar.insurance,
-      seller: sellCar.seller,
-      sellerinfo: sellCar.sellerinfo,
-      location: sellCar.location,
-      description: sellCar.description,
-      bannerImage: sellCar.bannerImage,
-      galleryImages: sellCar.galleryImages,
-    });
-
-    sellCar.brand = brandId;
-    sellCar.model = sellCar.userModel;
-  }
-
+  // ❌ NO Car.create here
   sellCar.status = status;
   sellCar.adminNote = adminNote;
+
   await sellCar.save();
 
   res.json({ success: true });

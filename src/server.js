@@ -14,11 +14,11 @@ import { createAdminUser } from "./config/createAdmin.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
-
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/car_brand.routes.js";
 import bikeBrandRoutes from "./routes/bike.brand.routes.js";
+import variantRoutes from "./routes/car_variant.routes.js"; // ✅ ADDED
 
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
@@ -39,7 +39,6 @@ import propertyRoutes from "./routes/property.routes.js";
 import locationRoutes from "./routes/location.routes.js";
 
 import linkRoutes from "./routes/link.routes.js";
-
 import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
@@ -69,7 +68,7 @@ app.use(
 app.options("*", cors());
 
 /* =========================
-   ⚠️ IMPORTANT ORDER (MULTER FIX)
+   BODY PARSER (MULTER SAFE)
 ========================= */
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -119,6 +118,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
+app.use("/api/variants", variantRoutes); // ✅ CAR VARIANTS
 app.use("/api/bike-brands", bikeBrandRoutes);
 
 app.use("/api/cars", carRoutes);
@@ -175,7 +175,6 @@ app.use((err, req, res, next) => {
     message: err.message || "Internal server error",
   });
 });
-
 
 /* =========================
    START SERVER

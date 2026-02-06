@@ -9,7 +9,6 @@ import { verifyToken } from "../middleware/auth.js";
 const router = express.Router();
 
 /* ================= REGISTER ================= */
-/* ================= REGISTER (FIXED) ================= */
 router.post("/register", async (req, res) => {
   try {
     const { name, phone, email, password, category, location, address } =
@@ -40,12 +39,17 @@ router.post("/register", async (req, res) => {
       phone,
       email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
+
+      // 🔐 ALWAYS DEFAULT
+      role: "user",
+
+      // 👥 buyer / seller / driver
       category,
-      location,
-      address,
+
+      location: location || "NA",
+      address: address || "NA",
     });
 
-    // ✅ TOKEN GENERATE (SAME AS LOGIN)
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -66,7 +70,7 @@ router.post("/register", async (req, res) => {
         address: user.address,
       },
     });
-  } catch (e) {
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "Registration failed",
@@ -87,7 +91,10 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await User.findOne({
-      $or: [{ phone: identifier }, { email: identifier.toLowerCase() }],
+      $or: [
+        { phone: identifier },
+        { email: identifier?.toLowerCase() },
+      ],
     });
 
     if (!user)
@@ -129,7 +136,10 @@ router.post("/login", async (req, res) => {
 
 /* ================= GET ME ================= */
 router.get("/me", verifyToken, (req, res) => {
-  res.json({ success: true, user: req.user });
+  res.json({
+    success: true,
+    user: req.user,
+  });
 });
 
 /* ================= UPDATE PROFILE ================= */
@@ -151,6 +161,34 @@ router.put("/me", verifyToken, async (req, res) => {
     res.json({ success: true, user });
   } catch {
     res.status(500).json({ success: false, message: "Update failed" });
+  }
+});
+
+/* ================= CHANGE PASSWORD ================= */
+router.put("/change-password", verifyToken, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password too short",
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password updated",
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Change failed",
+    });
   }
 });
 
@@ -176,9 +214,10 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-    console.log("RESET LINK:", resetLink);
+    console.log(
+      "RESET LINK:",
+      `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+    );
 
     res.json({
       success: true,
@@ -224,34 +263,6 @@ router.post("/reset-password/:token", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Reset failed",
-    });
-  }
-});
-
-/* ================= CHANGE PASSWORD ================= */
-router.put("/change-password", verifyToken, async (req, res) => {
-  try {
-    const { newPassword } = req.body;
-
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password too short",
-      });
-    }
-
-    const user = await User.findById(req.userId);
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password updated",
-    });
-  } catch {
-    res.status(500).json({
-      success: false,
-      message: "Change failed",
     });
   }
 });

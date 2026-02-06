@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user_model.js";
 
-/* ---------------- VERIFY TOKEN ---------------- */
+/* ================= VERIFY TOKEN ================= */
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -28,7 +28,6 @@ export const verifyToken = async (req, res, next) => {
 
     req.user = user;
     req.userId = user._id;
-
     next();
   } catch (err) {
     return res.status(401).json({
@@ -38,7 +37,7 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
-/* ---------------- ADMIN ONLY ---------------- */
+/* ================= ADMIN ONLY ================= */
 export const isAdmin = (req, res, next) => {
   if (req.user?.role !== "admin") {
     return res.status(403).json({

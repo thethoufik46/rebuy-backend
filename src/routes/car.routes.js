@@ -4,7 +4,6 @@
 // 🔹 Brand → Variant supported
 // 🔹 Banner + Gallery upload
 // 🔹 Admin protected
-// 🔹 Seller DECRYPTED while listing
 
 import express from "express";
 import mongoose from "mongoose";
@@ -15,7 +14,6 @@ import {
   uploadCarImage,
   deleteCarImage,
 } from "../utils/carUpload.js";
-import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
 
@@ -89,7 +87,7 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (FILTER + POPULATE + SELLER DECRYPT)
+   GET ALL CARS (FILTER + POPULATE)
 ===================================================== */
 router.get("/", async (req, res) => {
   try {
@@ -130,18 +128,12 @@ router.get("/", async (req, res) => {
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const formattedCars = cars.map((car) => ({
-      ...car,
-      seller: decryptSeller(car.seller),
-    }));
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
-      count: formattedCars.length,
-      cars: formattedCars,
+      count: cars.length,
+      cars,
     });
   } catch (err) {
     return res.status(500).json({
@@ -172,6 +164,7 @@ router.put(
         });
       }
 
+      /* ---------- BANNER ---------- */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -180,6 +173,7 @@ router.put(
         );
       }
 
+      /* ---------- EXISTING GALLERY ---------- */
       let existingGallery = [];
 
       if (req.body.existingGallery) {
@@ -194,6 +188,7 @@ router.put(
         }
       }
 
+      /* ---------- NEW GALLERY ---------- */
       let newGallery = [];
 
       if (req.files?.gallery) {
@@ -206,6 +201,7 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
+      /* ---------- SAFE BODY UPDATE ---------- */
       const {
         existingGallery: eg,
         banner,
@@ -252,6 +248,7 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     await deleteCarImage(car.bannerImage);
+
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }
@@ -270,4 +267,4 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-export default router;
+export default router;  

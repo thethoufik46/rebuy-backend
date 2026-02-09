@@ -11,13 +11,19 @@ export const verifyTokenOptional = async (req, res, next) => {
     return next(); // PUBLIC USER
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 FETCH FULL USER (IMPORTANT)
-    const user = await User.findById(decoded.id).select("role email");
+    // ✅ SUPPORT BOTH id / _id
+    const userId = decoded.id || decoded._id;
+
+    if (!userId) {
+      req.user = null;
+      return next();
+    }
+
+    const user = await User.findById(userId).select("role email");
 
     if (user) {
       req.user = user; // { role: "admin" }

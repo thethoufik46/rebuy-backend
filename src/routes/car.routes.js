@@ -136,11 +136,11 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const isAdmin = req.user?.role === "admin";
+    const isAdminUser = req.user?.role === "admin";
 
     const finalCars = cars.map((car) => ({
       ...car,
-      seller: isAdmin ? decryptSeller(car.seller) : car.seller,
+      seller: isAdminUser ? decryptSeller(car.seller) : car.seller,
     }));
 
     return res.status(200).json({

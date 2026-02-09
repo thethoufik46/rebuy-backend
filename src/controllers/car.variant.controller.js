@@ -1,4 +1,5 @@
 // ======================= car.variant.controller.js =======================
+// C:\flutter_projects\rebuy-backend\src\controllers\car.variant.controller.js
 
 import Variant from "../models/car_variant_model.js";
 import Brand from "../models/car_brand_model.js";
@@ -9,8 +10,6 @@ import {
 
 /* =====================================================
    ADD VARIANT
-   body: brandId, title
-   file: image
 ===================================================== */
 export const addVariant = async (req, res) => {
   try {
@@ -23,7 +22,6 @@ export const addVariant = async (req, res) => {
       });
     }
 
-    // ✅ Check brand exists
     const brand = await Brand.findById(brandId);
     if (!brand) {
       return res.status(404).json({
@@ -32,7 +30,6 @@ export const addVariant = async (req, res) => {
       });
     }
 
-    // ✅ Prevent duplicate variant under same brand
     const existing = await Variant.findOne({
       brand: brandId,
       title: new RegExp(`^${title.trim()}$`, "i"),
@@ -45,10 +42,8 @@ export const addVariant = async (req, res) => {
       });
     }
 
-    // ✅ Upload image
     const imageUrl = await uploadVariantImage(req.file);
 
-    // ✅ Create variant
     const variant = await Variant.create({
       brand: brandId,
       title: title.trim(),
@@ -58,6 +53,27 @@ export const addVariant = async (req, res) => {
     return res.status(201).json({
       success: true,
       variant,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
+   GET ALL VARIANTS
+===================================================== */
+export const getAllVariants = async (req, res) => {
+  try {
+    const variants = await Variant.find()
+      .sort({ createdAt: -1 })
+      .populate("brand", "name");
+
+    return res.status(200).json({
+      success: true,
+      variants,
     });
   } catch (err) {
     return res.status(500).json({
@@ -92,8 +108,6 @@ export const getVariantsByBrand = async (req, res) => {
 
 /* =====================================================
    UPDATE VARIANT
-   body: title (optional)
-   file: image (optional)
 ===================================================== */
 export const updateVariant = async (req, res) => {
   try {
@@ -108,12 +122,10 @@ export const updateVariant = async (req, res) => {
       });
     }
 
-    // ✅ Update title
     if (title && title.trim()) {
       variant.title = title.trim();
     }
 
-    // ✅ Update image
     if (req.file) {
       await deleteVariantImage(variant.imageUrl);
       variant.imageUrl = await uploadVariantImage(req.file);

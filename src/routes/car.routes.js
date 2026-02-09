@@ -3,22 +3,25 @@
 // ✅ FINAL FULL CAR ROUTES – ADD / VIEW / UPDATE / DELETE
 // 🔹 Brand → Variant supported
 // 🔹 Banner + Gallery upload
-// 🔹 Admin protected
+// 🔹 Admin-only seller decrypt on GET
+// 🔹 Admin protected (add / update / delete)
 
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
+import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
 import {
   uploadCarImage,
   deleteCarImage,
 } from "../utils/carUpload.js";
+import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
 
 /* =====================================================
-   ADD CAR
+   ADD CAR (ADMIN)
 ===================================================== */
 router.post(
   "/add",
@@ -33,30 +36,18 @@ router.post(
       const { brand, variant } = req.body;
 
       if (!req.files?.banner) {
-        return res.status(400).json({
-          success: false,
-          message: "Banner image required",
-        });
+        return res.status(400).json({ success: false, message: "Banner image required" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid brand id",
-        });
+        return res.status(400).json({ success: false, message: "Invalid brand id" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(variant)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid variant id",
-        });
+        return res.status(400).json({ success: false, message: "Invalid variant id" });
       }
 
-      const bannerImage = await uploadCarImage(
-        req.files.banner[0],
-        "cars/banner"
-      );
+      const bannerImage = await uploadCarImage(req.files.banner[0], "cars/banner");
 
       const galleryImages = req.files.gallery
         ? await Promise.all(
@@ -78,18 +69,16 @@ router.post(
         car,
       });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 );
 
 /* =====================================================
-   GET ALL CARS (FILTER + POPULATE)
+   GET ALL CARS (PUBLIC + ADMIN)
+   🔐 Admin → seller decrypted
 ===================================================== */
-router.get("/", async (req, res) => {
+router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
       brand,
@@ -128,12 +117,23 @@ router.get("/", async (req, res) => {
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const isAdminUser = req.user && req.user.role === "admin";
+
+    const finalCars = cars.map((car) => ({
+      ...car,
+      seller:
+        isAdminUser && typeof car.seller === "string" && car.seller.includes(":")
+          ? decryptSeller(car.seller)
+          : car.seller,
+    }));
 
     return res.status(200).json({
       success: true,
-      count: cars.length,
-      cars,
+      count: finalCars.length,
+      cars: finalCars,
     });
   } catch (err) {
     return res.status(500).json({
@@ -144,7 +144,7 @@ router.get("/", async (req, res) => {
 });
 
 /* =====================================================
-   UPDATE CAR
+   UPDATE CAR (ADMIN)
 ===================================================== */
 router.put(
   "/:id",
@@ -158,13 +158,9 @@ router.put(
     try {
       const car = await Car.findById(req.params.id);
       if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
+        return res.status(404).json({ success: false, message: "Car not found" });
       }
 
-      /* ---------- BANNER ---------- */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -173,9 +169,7 @@ router.put(
         );
       }
 
-      /* ---------- EXISTING GALLERY ---------- */
       let existingGallery = [];
-
       if (req.body.existingGallery) {
         existingGallery = Array.isArray(req.body.existingGallery)
           ? req.body.existingGallery
@@ -188,9 +182,7 @@ router.put(
         }
       }
 
-      /* ---------- NEW GALLERY ---------- */
       let newGallery = [];
-
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -201,14 +193,7 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      /* ---------- SAFE BODY UPDATE ---------- */
-      const {
-        existingGallery: eg,
-        banner,
-        gallery,
-        ...safeBody
-      } = req.body;
-
+      const { existingGallery: eg, banner, gallery, ...safeBody } = req.body;
       Object.assign(car, safeBody);
 
       await car.save();
@@ -228,27 +213,20 @@ router.put(
 );
 
 /* =====================================================
-   DELETE CAR
+   DELETE CAR (ADMIN)
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid car id",
-      });
+      return res.status(400).json({ success: false, message: "Invalid car id" });
     }
 
     const car = await Car.findById(req.params.id);
     if (!car) {
-      return res.status(404).json({
-        success: false,
-        message: "Car not found",
-      });
+      return res.status(404).json({ success: false, message: "Car not found" });
     }
 
     await deleteCarImage(car.bannerImage);
-
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }
@@ -267,4 +245,4 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-export default router;  
+export default router;

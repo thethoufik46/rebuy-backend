@@ -91,8 +91,6 @@ router.post(
 
 /* =====================================================
    GET ALL CARS (PUBLIC + ADMIN)
-   🔐 Admin → seller decrypted
-   🔒 Others → seller encrypted
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {

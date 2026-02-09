@@ -1,5 +1,6 @@
 // ======================= car.variant.controller.js =======================
-// C:\flutter_projects\rebuy-backend\src\controllers\car.variant.controller.js
+// 📁 C:\flutter_projects\rebuy-backend\src\controllers\car.variant.controller.js
+// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE (WITH BRAND CHANGE) / DELETE
 
 import Variant from "../models/car_variant_model.js";
 import Brand from "../models/car_brand_model.js";
@@ -10,6 +11,8 @@ import {
 
 /* =====================================================
    ADD VARIANT
+   body: brandId, title
+   file: image
 ===================================================== */
 export const addVariant = async (req, res) => {
   try {
@@ -63,7 +66,7 @@ export const addVariant = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL VARIANTS (FINAL – 4 FIELDS)
+   GET ALL VARIANTS (4 FIELDS)
    brandName, brandLogo, variantName, variantImage
 ===================================================== */
 export const getAllVariants = async (req, res) => {
@@ -93,7 +96,7 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VARIANTS BY BRAND (FINAL – 4 FIELDS)
+   GET VARIANTS BY BRAND (4 FIELDS)
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -125,11 +128,13 @@ export const getVariantsByBrand = async (req, res) => {
 
 /* =====================================================
    UPDATE VARIANT
+   body: title (optional), brandId (optional)
+   file: image (optional)
 ===================================================== */
 export const updateVariant = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, brandId } = req.body;
 
     const variant = await Variant.findById(id);
     if (!variant) {
@@ -141,6 +146,17 @@ export const updateVariant = async (req, res) => {
 
     if (title && title.trim()) {
       variant.title = title.trim();
+    }
+
+    if (brandId) {
+      const brand = await Brand.findById(brandId);
+      if (!brand) {
+        return res.status(404).json({
+          success: false,
+          message: "Brand not found",
+        });
+      }
+      variant.brand = brandId;
     }
 
     if (req.file) {

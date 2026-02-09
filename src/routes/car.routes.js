@@ -3,22 +3,25 @@
 // ✅ FINAL FULL CAR ROUTES – ADD / VIEW / UPDATE / DELETE
 // 🔹 Brand → Variant supported
 // 🔹 Banner + Gallery upload
-// 🔹 Admin protected
+// 🔹 Admin-only seller decrypt on GET
+// 🔹 Admin protected (add / update / delete)
 
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
+import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
 import {
   uploadCarImage,
   deleteCarImage,
 } from "../utils/carUpload.js";
+import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
 
 /* =====================================================
-   ADD CAR
+   ADD CAR (ADMIN)
 ===================================================== */
 router.post(
   "/add",
@@ -87,9 +90,11 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (FILTER + POPULATE)
+   GET ALL CARS (PUBLIC + ADMIN)
+   🔐 Admin → seller decrypted
+   🔒 Others → seller encrypted
 ===================================================== */
-router.get("/", async (req, res) => {
+router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
       brand,
@@ -128,12 +133,20 @@ router.get("/", async (req, res) => {
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const isAdmin = req.user?.role === "admin";
+
+    const finalCars = cars.map((car) => ({
+      ...car,
+      seller: isAdmin ? decryptSeller(car.seller) : car.seller,
+    }));
 
     return res.status(200).json({
       success: true,
-      count: cars.length,
-      cars,
+      count: finalCars.length,
+      cars: finalCars,
     });
   } catch (err) {
     return res.status(500).json({
@@ -144,7 +157,7 @@ router.get("/", async (req, res) => {
 });
 
 /* =====================================================
-   UPDATE CAR
+   UPDATE CAR (ADMIN)
 ===================================================== */
 router.put(
   "/:id",
@@ -164,7 +177,6 @@ router.put(
         });
       }
 
-      /* ---------- BANNER ---------- */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -173,9 +185,7 @@ router.put(
         );
       }
 
-      /* ---------- EXISTING GALLERY ---------- */
       let existingGallery = [];
-
       if (req.body.existingGallery) {
         existingGallery = Array.isArray(req.body.existingGallery)
           ? req.body.existingGallery
@@ -188,9 +198,7 @@ router.put(
         }
       }
 
-      /* ---------- NEW GALLERY ---------- */
       let newGallery = [];
-
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -201,7 +209,6 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      /* ---------- SAFE BODY UPDATE ---------- */
       const {
         existingGallery: eg,
         banner,
@@ -210,7 +217,6 @@ router.put(
       } = req.body;
 
       Object.assign(car, safeBody);
-
       await car.save();
 
       return res.status(200).json({
@@ -228,7 +234,7 @@ router.put(
 );
 
 /* =====================================================
-   DELETE CAR
+   DELETE CAR (ADMIN)
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -248,7 +254,6 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     await deleteCarImage(car.bannerImage);
-
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }
@@ -267,4 +272,4 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-export default router;  
+export default router;

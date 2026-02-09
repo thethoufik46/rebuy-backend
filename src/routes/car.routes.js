@@ -36,30 +36,18 @@ router.post(
       const { brand, variant } = req.body;
 
       if (!req.files?.banner) {
-        return res.status(400).json({
-          success: false,
-          message: "Banner image required",
-        });
+        return res.status(400).json({ success: false, message: "Banner image required" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid brand id",
-        });
+        return res.status(400).json({ success: false, message: "Invalid brand id" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(variant)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid variant id",
-        });
+        return res.status(400).json({ success: false, message: "Invalid variant id" });
       }
 
-      const bannerImage = await uploadCarImage(
-        req.files.banner[0],
-        "cars/banner"
-      );
+      const bannerImage = await uploadCarImage(req.files.banner[0], "cars/banner");
 
       const galleryImages = req.files.gallery
         ? await Promise.all(
@@ -81,16 +69,14 @@ router.post(
         car,
       });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 );
 
 /* =====================================================
    GET ALL CARS (PUBLIC + ADMIN)
+   🔐 Admin → seller decrypted
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -129,17 +115,41 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     }
 
     const cars = await Car.find(query)
-      .populate("brand", "name logoUrl")
-      .populate("variant", "title imageUrl")
+      .populate({
+        path: "brand",
+        select: "name logoUrl",
+        options: { strictPopulate: false },
+      })
+      .populate({
+        path: "variant",
+        select: "title imageUrl",
+        options: { strictPopulate: false },
+      })
       .sort({ createdAt: -1 })
       .lean();
 
     const isAdminUser = req.user?.role === "admin";
 
-    const finalCars = cars.map((car) => ({
-      ...car,
-      seller: isAdminUser ? decryptSeller(car.seller) : car.seller,
-    }));
+    const finalCars = cars.map((car) => {
+      let seller = car.seller;
+
+      if (
+        isAdminUser &&
+        typeof seller === "string" &&
+        seller.includes(":")
+      ) {
+        try {
+          seller = decryptSeller(seller);
+        } catch (_) {
+          seller = car.seller;
+        }
+      }
+
+      return {
+        ...car,
+        seller,
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -147,6 +157,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       cars: finalCars,
     });
   } catch (err) {
+    console.error("GET /cars error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
@@ -169,10 +180,7 @@ router.put(
     try {
       const car = await Car.findById(req.params.id);
       if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
+        return res.status(404).json({ success: false, message: "Car not found" });
       }
 
       if (req.files?.banner) {
@@ -207,14 +215,9 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      const {
-        existingGallery: eg,
-        banner,
-        gallery,
-        ...safeBody
-      } = req.body;
-
+      const { existingGallery: eg, banner, gallery, ...safeBody } = req.body;
       Object.assign(car, safeBody);
+
       await car.save();
 
       return res.status(200).json({
@@ -237,18 +240,12 @@ router.put(
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid car id",
-      });
+      return res.status(400).json({ success: false, message: "Invalid car id" });
     }
 
     const car = await Car.findById(req.params.id);
     if (!car) {
-      return res.status(404).json({
-        success: false,
-        message: "Car not found",
-      });
+      return res.status(404).json({ success: false, message: "Car not found" });
     }
 
     await deleteCarImage(car.bannerImage);

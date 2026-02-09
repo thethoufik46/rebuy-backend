@@ -2,18 +2,21 @@
 // 📁 src/routes/car.routes.js
 // ✅ FINAL FULL CAR ROUTES – ADD / VIEW / UPDATE / DELETE
 // 🔹 Brand → Variant supported
+// 🔹 Seller encryption/decryption fixed
 // 🔹 Banner + Gallery upload
 // 🔹 Admin protected
 
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
+import Variant from "../models/car_variant_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import uploadCar from "../middleware/uploadCar.js";
 import {
   uploadCarImage,
   deleteCarImage,
 } from "../utils/carUpload.js";
+import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
 
@@ -53,6 +56,15 @@ router.post(
         });
       }
 
+      // ✅ ENSURE VARIANT BELONGS TO BRAND
+      const variantDoc = await Variant.findById(variant);
+      if (!variantDoc || String(variantDoc.brand) !== brand) {
+        return res.status(400).json({
+          success: false,
+          message: "Variant does not belong to selected brand",
+        });
+      }
+
       const bannerImage = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
@@ -87,7 +99,7 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (FILTER + POPULATE)
+   GET ALL CARS (FILTER + POPULATE + DECRYPT)
 ===================================================== */
 router.get("/", async (req, res) => {
   try {
@@ -127,13 +139,20 @@ router.get("/", async (req, res) => {
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
-      .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 });
+      .populate("variant", "title imageUrl variantName")
+      .sort({ createdAt: -1 })
+      .lean(); // 🔥 REQUIRED FOR MUTATION
+
+    // ✅ DECRYPT SELLER NAME
+    const formattedCars = cars.map((car) => ({
+      ...car,
+      seller: decryptSeller(car.seller),
+    }));
 
     return res.status(200).json({
       success: true,
-      count: cars.length,
-      cars,
+      count: formattedCars.length,
+      cars: formattedCars,
     });
   } catch (err) {
     return res.status(500).json({
@@ -201,7 +220,7 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      /* ---------- SAFE BODY UPDATE ---------- */
+      /* ---------- SAFE UPDATE ---------- */
       const {
         existingGallery: eg,
         banner,
@@ -248,7 +267,6 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     await deleteCarImage(car.bannerImage);
-
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }

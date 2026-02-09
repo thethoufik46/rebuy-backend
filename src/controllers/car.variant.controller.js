@@ -63,17 +63,26 @@ export const addVariant = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL VARIANTS
+   GET ALL VARIANTS (FINAL – 4 FIELDS)
+   brandName, brandLogo, variantName, variantImage
 ===================================================== */
 export const getAllVariants = async (req, res) => {
   try {
     const variants = await Variant.find()
       .sort({ createdAt: -1 })
-      .populate("brand", "name");
+      .populate("brand", "name logoUrl");
+
+    const data = variants.map((v) => ({
+      _id: v._id,
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
 
     return res.status(200).json({
       success: true,
-      variants,
+      variants: data,
     });
   } catch (err) {
     return res.status(500).json({
@@ -84,7 +93,7 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VARIANTS BY BRAND
+   GET VARIANTS BY BRAND (FINAL – 4 FIELDS)
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -92,11 +101,19 @@ export const getVariantsByBrand = async (req, res) => {
 
     const variants = await Variant.find({ brand: brandId })
       .sort({ title: 1 })
-      .populate("brand", "name");
+      .populate("brand", "name logoUrl");
+
+    const data = variants.map((v) => ({
+      _id: v._id,
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
 
     return res.status(200).json({
       success: true,
-      variants,
+      variants: data,
     });
   } catch (err) {
     return res.status(500).json({

@@ -15,6 +15,12 @@ const carSchema = new mongoose.Schema(
       ref: "Brand",
       required: true,
     },
+    variant: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Variant",
+  required: true,
+},
+
 
     model: {
       type: String,

@@ -1,24 +1,24 @@
-// ======================= verifyTokenOptional.js =======================
-// 🔓 Optional auth middleware
-// - Token irundha decode pannum
-// - Token illatti error podama next() pogum
+// 📁 src/middleware/verifyTokenOptional.js
 
 import jwt from "jsonwebtoken";
+import User from "../models/user_model.js";
 
-export const verifyTokenOptional = (req, res, next) => {
+export const verifyTokenOptional = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(); // ✅ NO TOKEN → PUBLIC USER
+    req.user = null;
+    return next();
   }
 
   const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, role, email ... }
+
+    const user = await User.findById(decoded.id).select("-password");
+    req.user = user || null; // 🔥 ROLE available now
   } catch (err) {
-    // ❌ Invalid token → still allow public access
     req.user = null;
   }
 

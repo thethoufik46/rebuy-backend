@@ -18,7 +18,7 @@ const carSchema = new mongoose.Schema(
     variant: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "Variant",
-  required: true,
+  required: false,
 },
 
 

@@ -1,16 +1,14 @@
 // ======================= car.routes.js =======================
 // 📁 src/routes/car.routes.js
-// ✅ FINAL FULL WORKING CODE – ADD / VIEW / UPDATE / DELETE
+// ✅ FINAL FULL CAR ROUTES – ADD / VIEW / UPDATE / DELETE
 // 🔹 Brand → Variant supported
-// 🔹 Seller encrypted in DB, decrypted on GET
 // 🔹 Banner + Gallery upload
 // 🔹 Admin protected
-// 🔹 GET works correctly (no body, only query)
+// 🔹 Seller DECRYPTED while listing
 
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
-import Variant from "../models/car_variant_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import uploadCar from "../middleware/uploadCar.js";
 import {
@@ -23,7 +21,6 @@ const router = express.Router();
 
 /* =====================================================
    ADD CAR
-   POST /api/cars/add
 ===================================================== */
 router.post(
   "/add",
@@ -55,15 +52,6 @@ router.post(
         return res.status(400).json({
           success: false,
           message: "Invalid variant id",
-        });
-      }
-
-      // 🔐 Ensure variant belongs to brand
-      const variantDoc = await Variant.findById(variant);
-      if (!variantDoc || String(variantDoc.brand) !== brand) {
-        return res.status(400).json({
-          success: false,
-          message: "Variant does not belong to selected brand",
         });
       }
 
@@ -101,9 +89,7 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS
-   GET /api/cars
-   ⚠️ NO BODY – ONLY QUERY PARAMS
+   GET ALL CARS (FILTER + POPULATE + SELLER DECRYPT)
 ===================================================== */
 router.get("/", async (req, res) => {
   try {
@@ -143,11 +129,10 @@ router.get("/", async (req, res) => {
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
-      .populate("variant", "title variantName imageUrl")
+      .populate("variant", "title imageUrl")
       .sort({ createdAt: -1 })
-      .lean(); // 🔥 required for mutation
+      .lean();
 
-    // 🔓 Decrypt seller before sending to frontend
     const formattedCars = cars.map((car) => ({
       ...car,
       seller: decryptSeller(car.seller),
@@ -168,7 +153,6 @@ router.get("/", async (req, res) => {
 
 /* =====================================================
    UPDATE CAR
-   PUT /api/cars/:id
 ===================================================== */
 router.put(
   "/:id",
@@ -188,7 +172,6 @@ router.put(
         });
       }
 
-      // ---------- BANNER ----------
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
         car.bannerImage = await uploadCarImage(
@@ -197,8 +180,8 @@ router.put(
         );
       }
 
-      // ---------- EXISTING GALLERY ----------
       let existingGallery = [];
+
       if (req.body.existingGallery) {
         existingGallery = Array.isArray(req.body.existingGallery)
           ? req.body.existingGallery
@@ -211,8 +194,8 @@ router.put(
         }
       }
 
-      // ---------- NEW GALLERY ----------
       let newGallery = [];
+
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -223,7 +206,6 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      // ---------- SAFE UPDATE ----------
       const {
         existingGallery: eg,
         banner,
@@ -251,7 +233,6 @@ router.put(
 
 /* =====================================================
    DELETE CAR
-   DELETE /api/cars/:id
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {

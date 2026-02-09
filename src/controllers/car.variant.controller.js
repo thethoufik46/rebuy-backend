@@ -1,6 +1,6 @@
 // ======================= car.variant.controller.js =======================
-// 📁 C:\flutter_projects\rebuy-backend\src\controllers\car.variant.controller.js
-// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE (WITH BRAND CHANGE) / DELETE
+// 📁 src/controllers/car.variant.controller.js
+// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE / DELETE (EDIT BRAND SUPPORT)
 
 import Variant from "../models/car_variant_model.js";
 import Brand from "../models/car_brand_model.js";
@@ -11,8 +11,6 @@ import {
 
 /* =====================================================
    ADD VARIANT
-   body: brandId, title
-   file: image
 ===================================================== */
 export const addVariant = async (req, res) => {
   try {
@@ -66,8 +64,7 @@ export const addVariant = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL VARIANTS (4 FIELDS)
-   brandName, brandLogo, variantName, variantImage
+   GET ALL VARIANTS ✅ (brandId INCLUDED)
 ===================================================== */
 export const getAllVariants = async (req, res) => {
   try {
@@ -77,6 +74,7 @@ export const getAllVariants = async (req, res) => {
 
     const data = variants.map((v) => ({
       _id: v._id,
+      brandId: v.brand?._id,              // ✅ IMPORTANT
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -96,7 +94,7 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VARIANTS BY BRAND (4 FIELDS)
+   GET VARIANTS BY BRAND ✅ (brandId INCLUDED)
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -108,6 +106,7 @@ export const getVariantsByBrand = async (req, res) => {
 
     const data = variants.map((v) => ({
       _id: v._id,
+      brandId: v.brand?._id,              // ✅ IMPORTANT
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -127,9 +126,7 @@ export const getVariantsByBrand = async (req, res) => {
 };
 
 /* =====================================================
-   UPDATE VARIANT
-   body: title (optional), brandId (optional)
-   file: image (optional)
+   UPDATE VARIANT (TITLE + BRAND + IMAGE)
 ===================================================== */
 export const updateVariant = async (req, res) => {
   try {

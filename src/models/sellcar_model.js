@@ -11,6 +11,7 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
+    // 🔐 USER
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -24,6 +25,7 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
+    // 👤 USER SELECTED (DISPLAY)
     userBrand: {
       type: String,
       required: true,
@@ -36,20 +38,48 @@ const sellCarSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // 🔗 USER SELECTED (ID – FROM DROPDOWN)
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Brand",
+      required: true,
+    },
+
+    variant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Variant",
+      required: true,
     },
 
     model: {
       type: String,
+      required: true,
       trim: true,
     },
 
-    year: { type: Number, required: true },
-    price: { type: Number, required: true, min: 0 },
-    km: { type: Number, required: true, min: 0 },
-    color: { type: String, required: true, trim: true },
+    // 🚗 CAR DETAILS
+    year: {
+      type: Number,
+      required: true,
+    },
+
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    km: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    color: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
     fuel: {
       type: String,
@@ -63,7 +93,10 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    owner: { type: String, required: true },
+    owner: {
+      type: String,
+      required: true,
+    },
 
     board: {
       type: String,
@@ -77,7 +110,12 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    seller: { type: String, required: true, trim: true },
+    // 👤 SELLER DETAILS
+    seller: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
     sellerinfo: {
       type: String,
@@ -85,12 +123,30 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    location: { type: String, required: true, trim: true },
-    description: { type: String, trim: true },
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    bannerImage: { type: String, required: true },
-    galleryImages: [{ type: String }],
+    description: {
+      type: String,
+      trim: true,
+    },
 
+    // 🖼️ IMAGES
+    bannerImage: {
+      type: String,
+      required: true,
+    },
+
+    galleryImages: [
+      {
+        type: String,
+      },
+    ],
+
+    // 🛂 ADMIN STATUS
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -98,11 +154,17 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    adminNote: { type: String, trim: true },
+    adminNote: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
+/* ===============================
+   ENCRYPT SELLER
+================================ */
 sellCarSchema.pre("save", function (next) {
   if (this.seller && !this.seller.includes(":")) {
     this.seller = encryptSeller(this.seller);
@@ -110,6 +172,9 @@ sellCarSchema.pre("save", function (next) {
   next();
 });
 
+/* ===============================
+   AUTO INCREMENT SELL CAR ID
+================================ */
 sellCarSchema.pre("save", async function (next) {
   if (this.sellCarId) return next();
 

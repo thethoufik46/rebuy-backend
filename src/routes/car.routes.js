@@ -9,6 +9,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
+import Variant from "../models/car_variant_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
@@ -164,6 +165,61 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     });
   }
 });
+
+
+/* =====================================================
+   verint and board filter
+===================================================== */
+
+router.get("/filter", async (req, res) => {
+  try {
+    const { variant, board } = req.query;
+
+    const query = {};
+
+    // -------- VARIANT (title -> ObjectId) --------
+    if (variant) {
+      const variantDoc = await Variant.findOne({
+        title: { $regex: `^${variant}$`, $options: "i" }, // x5 / X5
+      }).select("_id");
+
+      if (!variantDoc) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          cars: [],
+        });
+      }
+
+      query.variant = variantDoc._id;
+    }
+
+    // -------- BOARD (enum string) --------
+    if (board) {
+      query.board = board; // own | t board
+    }
+
+    const cars = await Car.find(query)
+      .populate("brand", "name logoUrl")
+      .populate("variant", "title imageUrl")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: cars.length,
+      cars,
+    });
+  } catch (err) {
+    console.error("GET /cars/filter error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch filtered cars",
+    });
+  }
+});
+
+
 
 /* =====================================================
    UPDATE CAR (ADMIN)

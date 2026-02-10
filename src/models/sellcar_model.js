@@ -1,4 +1,5 @@
 // ======================= models/sellcar_model.js =======================
+
 import mongoose from "mongoose";
 import Counter from "./counter_model.js";
 import { encryptSeller } from "../utils/sellerCrypto.js";
@@ -25,20 +26,7 @@ const sellCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    // 👤 USER SELECTED (DISPLAY)
-    userBrand: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    userModel: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    // 🔗 USER SELECTED (ID – FROM DROPDOWN)
+    // 🔗 DROPDOWN
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Brand",
@@ -51,13 +39,13 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 🚗 CAR DETAILS
     model: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // 🚗 CAR DETAILS
     year: {
       type: Number,
       required: true,
@@ -110,7 +98,7 @@ const sellCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    // 👤 SELLER DETAILS
+    // 👤 SELLER
     seller: {
       type: String,
       required: true,
@@ -134,20 +122,23 @@ const sellCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // 🖼️ IMAGES
-    bannerImage: {
-      type: String,
-      required: true,
-    },
-
+    // 🖼️ IMAGES (MULTIPLE ONLY)
     galleryImages: [
       {
         type: String,
+        required: true,
       },
     ],
 
-    // 🛂 ADMIN STATUS
+    // 🚦 ACTUAL CAR STATUS (USER / LIVE)
     status: {
+      type: String,
+      enum: ["available", "booking", "sold"],
+      default: "available",
+    },
+
+    // 🛂 ADMIN RESPONSE (SEPARATE)
+    adminResponse: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",

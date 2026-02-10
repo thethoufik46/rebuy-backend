@@ -1,4 +1,5 @@
 // ======================= routes/sellcar.routes.js =======================
+
 import express from "express";
 import mongoose from "mongoose";
 import SellCar from "../models/sellcar_model.js";
@@ -13,44 +14,38 @@ import {
 const router = express.Router();
 
 /* =====================================================
-   USER ADD SELL CAR (PENDING)
+   USER ADD SELL CAR
+   - gallery images only
+   - adminResponse = pending (default)
 ===================================================== */
 router.post(
   "/add",
   verifyToken,
   uploadSellcar.fields([
-    { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
   ]),
   async (req, res) => {
     try {
-      if (!req.files?.banner) {
+      if (!req.files?.gallery || req.files.gallery.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Banner image required",
+          message: "At least one gallery image required",
         });
       }
 
-      const bannerImage = await uploadSellcarImage(
-        req.files.banner[0],
-        "sellcars/banner"
+      const galleryImages = await Promise.all(
+        req.files.gallery.map((img) =>
+          uploadSellcarImage(img, "sellcars/gallery")
+        )
       );
-
-      const galleryImages = req.files.gallery
-        ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadSellcarImage(img, "sellcars/gallery")
-            )
-          )
-        : [];
 
       const sellCar = await SellCar.create({
         ...req.body,
         user: req.userId,
         userId: req.userId,
-        bannerImage,
         galleryImages,
-        status: "pending",
+        status: "available",        // real car status
+        adminResponse: "pending",   // admin flow
       });
 
       return res.status(201).json({
@@ -84,14 +79,14 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
 });
 
 /* =====================================================
-   ADMIN APPROVE / REJECT (STATUS ONLY)
-   ❌ NO Car.create HERE
+   ADMIN APPROVE / REJECT
+   - ONLY adminResponse changes
 ===================================================== */
-router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
+router.put("/:id/admin-response", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { status, adminNote } = req.body;
+    const { adminResponse, adminNote } = req.body;
 
-    if (!["approved", "rejected"].includes(status)) {
+    if (!["approved", "rejected"].includes(adminResponse)) {
       return res.status(400).json({ success: false });
     }
 
@@ -100,27 +95,19 @@ router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
       return res.status(404).json({ success: false });
     }
 
-    if (sellCar.status === "approved") {
-      return res.status(400).json({
-        success: false,
-        message: "Already approved",
-      });
-    }
-
-    sellCar.status = status;
+    sellCar.adminResponse = adminResponse;
     sellCar.adminNote = adminNote;
 
     await sellCar.save();
-
     res.json({ success: true });
   } catch (err) {
-    console.error("STATUS UPDATE ERROR:", err);
+    console.error("ADMIN RESPONSE ERROR:", err);
     res.status(500).json({ success: false });
   }
 });
 
 /* =====================================================
-   ADMIN CREATE CAR FROM SELLCAR (CREATE BUTTON)
+   ADMIN CREATE CAR (LAST STEP)
 ===================================================== */
 router.post(
   "/:id/create-car",
@@ -136,10 +123,10 @@ router.post(
         });
       }
 
-      if (sellCar.status === "approved") {
+      if (sellCar.adminResponse !== "approved") {
         return res.status(400).json({
           success: false,
-          message: "Car already created",
+          message: "SellCar not approved yet",
         });
       }
 
@@ -160,18 +147,15 @@ router.post(
         sellerinfo: sellCar.sellerinfo,
         location: sellCar.location,
         description: sellCar.description,
-        bannerImage: sellCar.bannerImage,
         galleryImages: sellCar.galleryImages,
-        status: "available",
+        status: sellCar.status, // available / booking / sold
       });
 
-      sellCar.status = "approved";
       sellCar.adminNote = "Car created by admin";
       await sellCar.save();
 
       return res.status(201).json({
         success: true,
-        message: "Car created successfully",
         car,
       });
     } catch (err) {
@@ -190,7 +174,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
     return res.status(404).json({ success: false });
   }
 
-  await deleteSellcarImage(sellCar.bannerImage);
   for (const img of sellCar.galleryImages) {
     await deleteSellcarImage(img);
   }

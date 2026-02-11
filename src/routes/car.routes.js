@@ -5,7 +5,10 @@ import Variant from "../models/car_variant_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
-import { uploadCarImage, deleteCarImage } from "../utils/carUpload.js";
+import {
+  uploadCarImage,
+  deleteCarImage,
+} from "../utils/carUpload.js";
 import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
@@ -26,24 +29,21 @@ router.post(
       const { brand, variant } = req.body;
 
       if (!req.files?.banner) {
-        return res.status(400).json({
-          success: false,
-          message: "Banner image required",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Banner image required" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid brand id",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid brand id" });
       }
 
       if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid variant id",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid variant id" });
       }
 
       const bannerImage = await uploadCarImage(
@@ -65,13 +65,13 @@ router.post(
         galleryImages,
       });
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
         message: "Car added successfully",
         car,
       });
     } catch (err) {
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         message: err.message,
       });
@@ -110,19 +110,17 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     if (district) query.district = district;
     if (city) query.city = city;
 
-    /* ✅ Variant by ObjectId */
     if (variant && mongoose.Types.ObjectId.isValid(variant)) {
       query.variant = variant;
     }
 
-    /* ✅ Variant by Title (VERY IMPORTANT) */
     if (variantTitle) {
       const variantDoc = await Variant.findOne({
         title: { $regex: `^${variantTitle}$`, $options: "i" },
       }).select("_id");
 
       if (!variantDoc) {
-        return res.status(200).json({
+        return res.json({
           success: true,
           count: 0,
           cars: [],
@@ -132,14 +130,12 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       query.variant = variantDoc._id;
     }
 
-    /* ✅ Price Filter */
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    /* ✅ Year Filter */
     if (minYear || maxYear) {
       query.year = {};
       if (minYear) query.year.$gte = Number(minYear);
@@ -155,30 +151,25 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const isAdminUser = req.user?.role === "admin";
 
     const finalCars = cars.map((car) => {
-      let seller = car.seller;
-
       if (
         isAdminUser &&
-        typeof seller === "string" &&
-        seller.includes(":")
+        typeof car.seller === "string" &&
+        car.seller.includes(":")
       ) {
         try {
-          seller = decryptSeller(seller);
+          car.seller = decryptSeller(car.seller);
         } catch (_) {}
       }
-
-      return { ...car, seller };
+      return car;
     });
 
-    return res.status(200).json({
+    res.json({
       success: true,
       count: finalCars.length,
       cars: finalCars,
     });
   } catch (err) {
-    console.error("GET /cars error:", err);
-
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
     });
@@ -199,31 +190,27 @@ router.put(
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
-
       if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
+        return res
+          .status(404)
+          .json({ success: false, message: "Car not found" });
       }
 
-      /* ✅ Banner Replace */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
-
         car.bannerImage = await uploadCarImage(
           req.files.banner[0],
           "cars/banner"
         );
       }
 
-      /* ✅ Gallery Handling */
       let existingGallery = [];
-
       if (req.body.existingGallery) {
-        existingGallery = Array.isArray(req.body.existingGallery)
-          ? req.body.existingGallery
-          : JSON.parse(req.body.existingGallery);
+        try {
+          existingGallery = JSON.parse(req.body.existingGallery);
+        } catch {
+          existingGallery = [];
+        }
       }
 
       for (const img of car.galleryImages) {
@@ -233,7 +220,6 @@ router.put(
       }
 
       let newGallery = [];
-
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -244,19 +230,20 @@ router.put(
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
-      const { existingGallery: eg, banner, gallery, ...safeBody } = req.body;
+      const { banner, gallery, existingGallery: eg, ...safeBody } =
+        req.body;
 
       Object.assign(car, safeBody);
 
       await car.save();
 
-      return res.status(200).json({
+      res.json({
         success: true,
         message: "Car updated successfully",
         car,
       });
     } catch (err) {
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         message: "Car update failed",
       });
@@ -270,28 +257,25 @@ router.put(
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
-
     if (!car) {
-      return res.status(404).json({
-        success: false,
-        message: "Car not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Car not found" });
     }
 
     await deleteCarImage(car.bannerImage);
-
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }
 
     await car.deleteOne();
 
-    return res.status(200).json({
+    res.json({
       success: true,
       message: "Car deleted successfully",
     });
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Delete failed",
     });

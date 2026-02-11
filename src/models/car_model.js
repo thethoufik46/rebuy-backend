@@ -3,10 +3,22 @@ import Counter from "./counter_model.js";
 import { encryptSeller } from "../utils/sellerCrypto.js";
 import fs from "fs";
 import path from "path";
-const locationsPath = path.join(process.cwd(), "src/tamilnadu_locations.json");
 
-const locations = JSON.parse(fs.readFileSync(locationsPath, "utf-8"));
+/* =====================================================
+   LOAD TAMIL NADU LOCATIONS JSON
+===================================================== */
+const locationsPath = path.join(
+  process.cwd(),
+  "src/tamilnadu_locations.json"
+);
 
+const locations = JSON.parse(
+  fs.readFileSync(locationsPath, "utf-8")
+);
+
+/* =====================================================
+   CAR SCHEMA
+===================================================== */
 const carSchema = new mongoose.Schema(
   {
     carId: {
@@ -125,28 +137,22 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    galleryImages: [
-      {
-        type: String,
-      },
-    ],
+    galleryImages: [{ type: String }],
   },
   { timestamps: true }
 );
 
-/* ===============================
-   PRE SAVE LOGIC (ALL-IN-ONE)
-================================ */
+/* =====================================================
+   PRE SAVE LOGIC
+===================================================== */
 carSchema.pre("save", async function (next) {
   try {
-    /* ✅ Seller Encryption */
-    if (typeof this.seller === "string" && this.seller.trim()) {
-      if (!this.seller.includes(":")) {
-        this.seller = encryptSeller(this.seller);
-      }
+    /* 🔐 Encrypt Seller */
+    if (this.seller && !this.seller.includes(":")) {
+      this.seller = encryptSeller(this.seller);
     }
 
-    /* ✅ Auto Increment Car ID */
+    /* 🔢 Auto Increment Car ID */
     if (!this.carId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "carId" },
@@ -157,13 +163,19 @@ carSchema.pre("save", async function (next) {
       this.carId = counter.seq;
     }
 
-    /* ✅ District Validation */
-    if (!locations[this.district]) {
+    /* 📍 District Validation (CASE-INSENSITIVE SAFE) */
+    const districtKey = Object.keys(locations).find(
+      (d) => d.toLowerCase() === this.district.toLowerCase()
+    );
+
+    if (!districtKey) {
       throw new Error("Invalid district");
     }
 
-    /* ✅ City Validation */
-    if (!locations[this.district].includes(this.city)) {
+    this.district = districtKey;
+
+    /* 🏙️ City Validation */
+    if (!locations[districtKey].includes(this.city)) {
       throw new Error("City does not belong to district");
     }
 

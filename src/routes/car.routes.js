@@ -1,11 +1,3 @@
-// ======================= car.routes.js =======================
-// 📁 src/routes/car.routes.js
-// ✅ FINAL FULL CAR ROUTES – ADD / VIEW / UPDATE / DELETE
-// 🔹 Brand → Variant supported
-// 🔹 Banner + Gallery upload
-// 🔹 Admin-only seller decrypt on GET
-// 🔹 Admin protected (add / update / delete)
-
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
@@ -13,10 +5,7 @@ import Variant from "../models/car_variant_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
-import {
-  uploadCarImage,
-  deleteCarImage,
-} from "../utils/carUpload.js";
+import { uploadCarImage, deleteCarImage } from "../utils/carUpload.js";
 import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
@@ -37,18 +26,30 @@ router.post(
       const { brand, variant } = req.body;
 
       if (!req.files?.banner) {
-        return res.status(400).json({ success: false, message: "Banner image required" });
+        return res.status(400).json({
+          success: false,
+          message: "Banner image required",
+        });
       }
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res.status(400).json({ success: false, message: "Invalid brand id" });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
+        });
       }
 
-      if (!mongoose.Types.ObjectId.isValid(variant)) {
-        return res.status(400).json({ success: false, message: "Invalid variant id" });
+      if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid variant id",
+        });
       }
 
-      const bannerImage = await uploadCarImage(req.files.banner[0], "cars/banner");
+      const bannerImage = await uploadCarImage(
+        req.files.banner[0],
+        "cars/banner"
+      );
 
       const galleryImages = req.files.gallery
         ? await Promise.all(
@@ -70,24 +71,29 @@ router.post(
         car,
       });
     } catch (err) {
-      return res.status(500).json({ success: false, message: err.message });
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
     }
   }
 );
 
 /* =====================================================
-   GET ALL CARS (PUBLIC + ADMIN)
-   🔐 Admin → seller decrypted
+   GET ALL CARS (SMART FILTER ENGINE)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
       brand,
       variant,
+      variantTitle,
       fuel,
       transmission,
       owner,
       board,
+      district,
+      city,
       minPrice,
       maxPrice,
       minYear,
@@ -97,18 +103,43 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const query = {};
 
     if (brand) query.brand = brand;
-    if (variant) query.variant = variant;
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
     if (board) query.board = board;
+    if (district) query.district = district;
+    if (city) query.city = city;
 
+    /* ✅ Variant by ObjectId */
+    if (variant && mongoose.Types.ObjectId.isValid(variant)) {
+      query.variant = variant;
+    }
+
+    /* ✅ Variant by Title (VERY IMPORTANT) */
+    if (variantTitle) {
+      const variantDoc = await Variant.findOne({
+        title: { $regex: `^${variantTitle}$`, $options: "i" },
+      }).select("_id");
+
+      if (!variantDoc) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          cars: [],
+        });
+      }
+
+      query.variant = variantDoc._id;
+    }
+
+    /* ✅ Price Filter */
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
+    /* ✅ Year Filter */
     if (minYear || maxYear) {
       query.year = {};
       if (minYear) query.year.$gte = Number(minYear);
@@ -116,16 +147,8 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     }
 
     const cars = await Car.find(query)
-      .populate({
-        path: "brand",
-        select: "name logoUrl",
-        options: { strictPopulate: false },
-      })
-      .populate({
-        path: "variant",
-        select: "title imageUrl",
-        options: { strictPopulate: false },
-      })
+      .populate("brand", "name logoUrl")
+      .populate("variant", "title imageUrl")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -141,15 +164,10 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       ) {
         try {
           seller = decryptSeller(seller);
-        } catch (_) {
-          seller = car.seller;
-        }
+        } catch (_) {}
       }
 
-      return {
-        ...car,
-        seller,
-      };
+      return { ...car, seller };
     });
 
     return res.status(200).json({
@@ -159,67 +177,13 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     });
   } catch (err) {
     console.error("GET /cars error:", err);
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
     });
   }
 });
-
-
-/* =====================================================
-   verint and board filter
-===================================================== */
-
-router.get("/filter", async (req, res) => {
-  try {
-    const { variant, board } = req.query;
-
-    const query = {};
-
-    // -------- VARIANT (title -> ObjectId) --------
-    if (variant) {
-      const variantDoc = await Variant.findOne({
-        title: { $regex: `^${variant}$`, $options: "i" }, // x5 / X5
-      }).select("_id");
-
-      if (!variantDoc) {
-        return res.status(200).json({
-          success: true,
-          count: 0,
-          cars: [],
-        });
-      }
-
-      query.variant = variantDoc._id;
-    }
-
-    // -------- BOARD (enum string) --------
-    if (board) {
-      query.board = board; // own | t board
-    }
-
-    const cars = await Car.find(query)
-      .populate("brand", "name logoUrl")
-      .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      count: cars.length,
-      cars,
-    });
-  } catch (err) {
-    console.error("GET /cars/filter error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch filtered cars",
-    });
-  }
-});
-
-
 
 /* =====================================================
    UPDATE CAR (ADMIN)
@@ -235,19 +199,27 @@ router.put(
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
+
       if (!car) {
-        return res.status(404).json({ success: false, message: "Car not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
       }
 
+      /* ✅ Banner Replace */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
+
         car.bannerImage = await uploadCarImage(
           req.files.banner[0],
           "cars/banner"
         );
       }
 
+      /* ✅ Gallery Handling */
       let existingGallery = [];
+
       if (req.body.existingGallery) {
         existingGallery = Array.isArray(req.body.existingGallery)
           ? req.body.existingGallery
@@ -261,6 +233,7 @@ router.put(
       }
 
       let newGallery = [];
+
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -272,6 +245,7 @@ router.put(
       car.galleryImages = [...existingGallery, ...newGallery];
 
       const { existingGallery: eg, banner, gallery, ...safeBody } = req.body;
+
       Object.assign(car, safeBody);
 
       await car.save();
@@ -295,16 +269,17 @@ router.put(
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid car id" });
-    }
-
     const car = await Car.findById(req.params.id);
+
     if (!car) {
-      return res.status(404).json({ success: false, message: "Car not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
     }
 
     await deleteCarImage(car.bannerImage);
+
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }

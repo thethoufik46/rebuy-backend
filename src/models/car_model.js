@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import Counter from "./counter_model.js";
 import { encryptSeller } from "../utils/sellerCrypto.js";
+import fs from "fs";
+import path from "path";
+const locationsPath = path.join(process.cwd(), "src/tamilnadu_locations.json");
+
+const locations = JSON.parse(fs.readFileSync(locationsPath, "utf-8"));
 
 const carSchema = new mongoose.Schema(
   {
@@ -15,12 +20,12 @@ const carSchema = new mongoose.Schema(
       ref: "Brand",
       required: true,
     },
-    variant: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Variant",
-  required: false,
-},
 
+    variant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Variant",
+      required: false,
+    },
 
     model: {
       type: String,
@@ -92,16 +97,22 @@ const carSchema = new mongoose.Schema(
       trim: true,
     },
 
-    location: {
+    sellerinfo: {
+      type: String,
+      enum: ["Rc owner", "Dealer", "Verified"],
+      required: true,
+    },
+
+    district: {
       type: String,
       required: true,
       trim: true,
     },
 
-    sellerinfo: {
+    city: {
       type: String,
-      enum: ["Rc owner", "Dealer", "Verified"],
       required: true,
+      trim: true,
     },
 
     description: {
@@ -124,31 +135,42 @@ const carSchema = new mongoose.Schema(
 );
 
 /* ===============================
-   ENCRYPT SELLER
-================================ */
-carSchema.pre("save", function (next) {
-  if (typeof this.seller === "string" && this.seller.trim()) {
-    if (!this.seller.includes(":")) {
-      this.seller = encryptSeller(this.seller);
-    }
-  }
-  next();
-});
-
-/* ===============================
-   AUTO INCREMENT CAR ID
+   PRE SAVE LOGIC (ALL-IN-ONE)
 ================================ */
 carSchema.pre("save", async function (next) {
-  if (this.carId) return next();
+  try {
+    /* ✅ Seller Encryption */
+    if (typeof this.seller === "string" && this.seller.trim()) {
+      if (!this.seller.includes(":")) {
+        this.seller = encryptSeller(this.seller);
+      }
+    }
 
-  const counter = await Counter.findByIdAndUpdate(
-    { _id: "carId" },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
+    /* ✅ Auto Increment Car ID */
+    if (!this.carId) {
+      const counter = await Counter.findByIdAndUpdate(
+        { _id: "carId" },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
 
-  this.carId = counter.seq;
-  next();
+      this.carId = counter.seq;
+    }
+
+    /* ✅ District Validation */
+    if (!locations[this.district]) {
+      throw new Error("Invalid district");
+    }
+
+    /* ✅ City Validation */
+    if (!locations[this.district].includes(this.city)) {
+      throw new Error("City does not belong to district");
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default mongoose.model("Car", carSchema);

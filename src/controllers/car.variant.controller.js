@@ -1,6 +1,6 @@
 // ======================= car.variant.controller.js =======================
 // 📁 src/controllers/car.variant.controller.js
-// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE / DELETE (EDIT BRAND SUPPORT)
+// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE / DELETE (FIXED ID FORMAT)
 
 import Variant from "../models/car_variant_model.js";
 import Brand from "../models/car_brand_model.js";
@@ -64,7 +64,7 @@ export const addVariant = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL VARIANTS ✅ (brandId INCLUDED)
+   GET ALL VARIANTS ✅ FIXED
 ===================================================== */
 export const getAllVariants = async (req, res) => {
   try {
@@ -73,8 +73,8 @@ export const getAllVariants = async (req, res) => {
       .populate("brand", "name logoUrl");
 
     const data = variants.map((v) => ({
-      _id: v._id,
-      brandId: v.brand?._id,              // ✅ IMPORTANT
+      _id: v._id.toString(),                      // ✅ FIXED
+      brandId: v.brand?._id?.toString() || "",     // ✅ FIXED
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -94,7 +94,7 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VARIANTS BY BRAND ✅ (brandId INCLUDED)
+   GET VARIANTS BY BRAND ✅ FIXED
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -105,8 +105,8 @@ export const getVariantsByBrand = async (req, res) => {
       .populate("brand", "name logoUrl");
 
     const data = variants.map((v) => ({
-      _id: v._id,
-      brandId: v.brand?._id,              // ✅ IMPORTANT
+      _id: v._id.toString(),                      // ✅ FIXED
+      brandId: v.brand?._id?.toString() || "",     // ✅ FIXED
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -126,7 +126,7 @@ export const getVariantsByBrand = async (req, res) => {
 };
 
 /* =====================================================
-   UPDATE VARIANT (TITLE + BRAND + IMAGE)
+   UPDATE VARIANT
 ===================================================== */
 export const updateVariant = async (req, res) => {
   try {

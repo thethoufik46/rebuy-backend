@@ -93,6 +93,91 @@ export const getAllVariants = async (req, res) => {
   }
 };
 
+
+/* =====================================================
+   GET ONE BRAND HIDE VARIANTS ✅
+===================================================== */
+export const getONEBrandhideVariants = async (req, res) => {
+  try {
+
+    /// ✅ BRAND NAME TO HIDE
+    const hiddenBrandName = "load vehicles லோடு வாகனங்கள்";
+
+    const variants = await Variant.find()
+      .sort({ createdAt: -1 })
+      .populate("brand", "name logoUrl");
+
+    /// ✅ FILTER
+    const filtered = variants.filter(
+      (v) => v.brand?.name?.toLowerCase() !== hiddenBrandName
+    );
+
+    const data = filtered.map((v) => ({
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      variants: data,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+
+
+/* =====================================================
+   GET LOAD VEHICLES VARIANTS ONLY ✅
+===================================================== */
+export const getLoadVehiclesVariants = async (req, res) => {
+  try {
+
+    /// ✅ TARGET BRAND
+    const targetBrandName = "load vehicles லோடு வாகனங்கள்";
+
+    const variants = await Variant.find()
+      .sort({ createdAt: -1 })
+      .populate("brand", "name logoUrl");
+
+    /// ✅ FILTER ONLY THIS BRAND
+    const filteredVariants = variants.filter(
+      (v) => v.brand?.name?.toLowerCase() === targetBrandName
+    );
+
+    const data = filteredVariants.map((v) => ({
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      variants: data,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+
+
 /* =====================================================
    GET VARIANTS BY BRAND ✅ FIXED
 ===================================================== */

@@ -2,11 +2,23 @@ import multer from "multer";
 
 const storage = multer.memoryStorage();
 
-const uploadStory = multer({
+const fileFilter = (req, file, cb) => {
+  if (
+    file.mimetype.startsWith("image/") ||
+    file.mimetype === "application/octet-stream"
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files allowed"), false);
+  }
+};
+
+const uploadNotification = multer({
   storage,
   limits: {
-    fileSize: 50 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024,
   },
+  fileFilter,
 });
 
-export default uploadStory;
+export default uploadNotification;

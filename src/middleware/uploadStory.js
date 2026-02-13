@@ -16,7 +16,7 @@ const fileFilter = (req, file, cb) => {
 const uploadStory = multer({
   storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // ✅ Stories can be video → bigger limit
+    fileSize: 50 * 1024 * 1024,
   },
   fileFilter,
 });

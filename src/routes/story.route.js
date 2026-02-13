@@ -14,10 +14,9 @@ const router = express.Router();
 router.post(
   "/add",
   verifyToken,
-  uploadStory.single("media"), 
+  uploadStory.single("media"),
   addStory
 );
-
 
 router.get("/", getStories);
 

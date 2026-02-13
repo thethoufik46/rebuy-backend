@@ -4,9 +4,6 @@ import r2 from "../config/r2.js";
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-/* =====================================================
-   UPLOAD STORY MEDIA (IMAGE / VIDEO)
-===================================================== */
 export const uploadStoryMedia = async (file, folder = "stories") => {
   if (!file || !file.buffer) {
     throw new Error("File buffer missing");
@@ -30,9 +27,6 @@ export const uploadStoryMedia = async (file, folder = "stories") => {
   return `${PUBLIC_URL}/${key}`;
 };
 
-/* =====================================================
-   DELETE STORY MEDIA
-===================================================== */
 export const deleteStoryMedia = async (url) => {
   if (!url) return;
 

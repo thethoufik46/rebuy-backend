@@ -4,9 +4,6 @@ import {
   deleteStoryMedia,
 } from "../utils/sendStory.js";
 
-/* =========================
-   🟢 ADD STORY
-========================= */
 export const addStory = async (req, res) => {
   try {
     if (!req.file) {
@@ -25,7 +22,7 @@ export const addStory = async (req, res) => {
 
     const story = await Story.create({
       title: title.trim(),
-      media: mediaUrl,   // ✅ PUBLIC URL
+      media: mediaUrl,
       mediaType: req.file.mimetype.startsWith("video")
         ? "video"
         : "image",
@@ -44,9 +41,6 @@ export const addStory = async (req, res) => {
   }
 };
 
-/* =========================
-   🔵 GET STORIES
-========================= */
 export const getStories = async (req, res) => {
   try {
     const stories = await Story.find({
@@ -65,9 +59,6 @@ export const getStories = async (req, res) => {
   }
 };
 
-/* =========================
-   🟡 UPDATE STORY
-========================= */
 export const updateStory = async (req, res) => {
   try {
     const updateData = {};
@@ -86,7 +77,6 @@ export const updateStory = async (req, res) => {
     }
 
     if (req.file) {
-      // ✅ Delete old media from R2
       await deleteStoryMedia(story.media);
 
       const mediaUrl = await uploadStoryMedia(req.file);
@@ -112,9 +102,6 @@ export const updateStory = async (req, res) => {
   }
 };
 
-/* =========================
-   🔴 DELETE STORY
-========================= */
 export const deleteStory = async (req, res) => {
   try {
     const story = await Story.findById(req.params.id);
@@ -126,7 +113,7 @@ export const deleteStory = async (req, res) => {
       });
     }
 
-    await deleteStoryMedia(story.media);  // ✅ Delete from R2
+    await deleteStoryMedia(story.media);
     await story.deleteOne();
 
     res.json({

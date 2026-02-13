@@ -4,6 +4,9 @@ import {
   deleteStoryMedia,
 } from "../utils/sendStory.js";
 
+/* =========================
+   ADD STORY
+========================= */
 export const addStory = async (req, res) => {
   try {
     if (!req.file) {
@@ -23,16 +26,14 @@ export const addStory = async (req, res) => {
     const story = await Story.create({
       title: title.trim(),
       media: mediaUrl,
-      mediaType: req.file.mimetype.startsWith("video")
+      mediaType: req.file.mimetype.includes("video")
         ? "video"
         : "image",
       expiresAt,
     });
 
-    res.json({
-      success: true,
-      story,
-    });
+    res.json({ success: true, story });
+
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -41,16 +42,17 @@ export const addStory = async (req, res) => {
   }
 };
 
+/* =========================
+   GET STORIES
+========================= */
 export const getStories = async (req, res) => {
   try {
     const stories = await Story.find({
       expiresAt: { $gt: new Date() },
     }).sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      stories,
-    });
+    res.json({ success: true, stories });
+
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -59,14 +61,11 @@ export const getStories = async (req, res) => {
   }
 };
 
+/* =========================
+   UPDATE STORY
+========================= */
 export const updateStory = async (req, res) => {
   try {
-    const updateData = {};
-
-    if (req.body.title !== undefined) {
-      updateData.title = req.body.title.trim();
-    }
-
     const story = await Story.findById(req.params.id);
 
     if (!story) {
@@ -76,24 +75,25 @@ export const updateStory = async (req, res) => {
       });
     }
 
+    if (req.body.title !== undefined) {
+      story.title = req.body.title.trim();
+    }
+
     if (req.file) {
       await deleteStoryMedia(story.media);
 
       const mediaUrl = await uploadStoryMedia(req.file);
 
-      updateData.media = mediaUrl;
-      updateData.mediaType = req.file.mimetype.startsWith("video")
+      story.media = mediaUrl;
+      story.mediaType = req.file.mimetype.includes("video")
         ? "video"
         : "image";
     }
 
-    Object.assign(story, updateData);
     await story.save();
 
-    res.json({
-      success: true,
-      story,
-    });
+    res.json({ success: true, story });
+
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -102,6 +102,9 @@ export const updateStory = async (req, res) => {
   }
 };
 
+/* =========================
+   DELETE STORY
+========================= */
 export const deleteStory = async (req, res) => {
   try {
     const story = await Story.findById(req.params.id);
@@ -120,6 +123,7 @@ export const deleteStory = async (req, res) => {
       success: true,
       message: "Story deleted successfully",
     });
+
   } catch (err) {
     res.status(500).json({
       success: false,

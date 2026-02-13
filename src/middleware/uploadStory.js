@@ -3,22 +3,25 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
+  console.log("MIME:", file.mimetype);
+
   if (
-    file.mimetype.startsWith("image/") ||
+    file.mimetype.includes("image") ||
+    file.mimetype.includes("video") ||
     file.mimetype === "application/octet-stream"
   ) {
     cb(null, true);
   } else {
-    cb(new Error("Only image files allowed"), false);
+    cb(new Error("Only image/video files allowed"), false);
   }
 };
 
-const uploadNotification = multer({
+const uploadStory = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 50 * 1024 * 1024, // ✅ 50MB (stories safe)
   },
   fileFilter,
 });
 
-export default uploadNotification;
+export default uploadStory;

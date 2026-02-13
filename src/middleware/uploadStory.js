@@ -3,9 +3,12 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
+  console.log("MIME:", file.mimetype);  // ✅ DEBUG
+
   if (
     file.mimetype.startsWith("image/") ||
-    file.mimetype.startsWith("video/")
+    file.mimetype.startsWith("video/") ||
+    file.mimetype === "application/octet-stream"   
   ) {
     cb(null, true);
   } else {

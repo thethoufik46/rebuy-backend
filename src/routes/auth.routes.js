@@ -7,8 +7,7 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-
-// ================= REGISTER =================
+/* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
     let { name, phone, email, password, category, location, address } =
@@ -31,9 +30,10 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({
-      $or: [{ phone }, ...(email ? [{ email }] : [])],
-    });
+    const query = [{ phone }];
+    if (email) query.push({ email });
+
+    const existingUser = await User.findOne({ $or: query });
 
     if (existingUser) {
       return res.status(400).json({
@@ -76,8 +76,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-
-// ================= LOGIN =================
+/* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
     let { identifier, password } = req.body;
@@ -135,8 +134,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-
-// ================= GET ME =================
+/* ================= GET ME ================= */
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
@@ -144,8 +142,8 @@ router.get("/me", verifyToken, (req, res) => {
   });
 });
 
-
-// ================= UPDATE PROFILE =================
+/* ================= UPDATE PROFILE ================= */
+/* ❌ PHONE UPDATE BLOCKED */
 router.put("/me", verifyToken, async (req, res) => {
   try {
     let { name, email, location, address } = req.body;
@@ -155,15 +153,6 @@ router.put("/me", verifyToken, async (req, res) => {
     const update = {};
 
     if (name) update.name = name;
-
-    /// ✅ PHONE LOCKED 🔥
-    if (req.body.phone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number cannot be changed",
-      });
-    }
-
     if (email) update.email = email;
     if (location) update.location = location;
     if (address) update.address = address;
@@ -183,8 +172,7 @@ router.put("/me", verifyToken, async (req, res) => {
   }
 });
 
-
-// ================= CHANGE PASSWORD =================
+/* ================= CHANGE PASSWORD ================= */
 router.put("/change-password", verifyToken, async (req, res) => {
   try {
     let { newPassword } = req.body;
@@ -201,6 +189,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
     const user = await User.findById(req.userId);
 
     user.password = await bcrypt.hash(newPassword, 10);
+
     await user.save();
 
     res.json({
@@ -217,8 +206,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
   }
 });
 
-
-// ================= FORGOT REQUEST =================
+/* ================= FORGOT REQUEST ================= */
 router.post("/forgot-request", async (req, res) => {
   try {
     let { phone, newPassword } = req.body;
@@ -269,8 +257,7 @@ router.post("/forgot-request", async (req, res) => {
   }
 });
 
-
-// ================= DELETE MY ACCOUNT =================
+/* ================= DELETE MY ACCOUNT ================= */
 router.delete("/me", verifyToken, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.userId);
@@ -289,8 +276,37 @@ router.delete("/me", verifyToken, async (req, res) => {
   }
 });
 
+/* =========================================================
+   🔥 ADMIN SECTION 🔥
+========================================================= */
 
-// ================= ADMIN UPDATE USER =================
+/* ================= GET ALL USERS ================= */
+router.get("/admin/users", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admins only",
+      });
+    }
+
+    const users = await User.find().select("-password");
+
+    res.json({
+      success: true,
+      users,
+    });
+  } catch (err) {
+    console.log("ADMIN USERS ERROR 👉", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to load users",
+    });
+  }
+});
+
+/* ================= UPDATE USER ================= */
 router.put("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -300,28 +316,22 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    const { name, email, category, location, address } = req.body;
+    const { name, phone, email, category, location, address } = req.body;
 
     const update = {};
 
     if (name) update.name = name;
-
-    /// ✅ PHONE LOCKED EVEN FOR ADMIN 🔥
-    if (req.body.phone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number cannot be changed",
-      });
-    }
-
+    if (phone) update.phone = phone.toString().trim();
     if (email) update.email = email.toLowerCase().trim();
     if (category) update.category = category;
     if (location) update.location = location;
     if (address) update.address = address;
 
-    const user = await User.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-    }).select("-password");
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    ).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -330,7 +340,10 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    res.json({ success: true, user });
+    res.json({
+      success: true,
+      user,
+    });
   } catch (err) {
     console.log("ADMIN UPDATE ERROR 👉", err);
 
@@ -341,8 +354,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
   }
 });
 
-
-// ================= ADMIN DELETE USER =================
+/* ================= DELETE USER ================= */
 router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {

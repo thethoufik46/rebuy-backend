@@ -3,7 +3,15 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, trim: true },
+
+   phone: { 
+  type: String, 
+  required: true, 
+  trim: true,
+
+  set: (v) => v?.toString().replace(/\s+/g, ""),  
+  // ✅ removes ALL spaces automatically
+},
 
     email: {
       type: String,
@@ -15,14 +23,12 @@ const userSchema = new mongoose.Schema(
 
     password: { type: String, required: true },
 
-    // 🔐 ACCESS CONTROL
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
 
-    // 👥 BUSINESS LOGIC
     category: {
       type: String,
       enum: ["buyer", "seller", "driver"],
@@ -34,11 +40,19 @@ const userSchema = new mongoose.Schema(
 
     profileImage: { type: String, default: "" },
 
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    /* ✅ FORGOT SYSTEM */
+    forgotRequest: {
+      type: Boolean,
+      default: false,
+    },
 
-    lastNotificationSeenAt: {
+    forgotRequestAt: {
       type: Date,
+      default: null,
+    },
+
+    requestedPassword: {
+      type: String,
       default: null,
     },
   },

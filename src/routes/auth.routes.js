@@ -380,4 +380,69 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   }
 });
 
+
+
+/* ================= ADMIN RESET PASSWORD 🔥 ================= */
+router.put("/admin/reset-password", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admins only",
+      });
+    }
+
+    let { phone, newPassword } = req.body;
+
+    phone = phone?.toString().trim();
+    newPassword = newPassword?.toString();
+
+    if (!phone || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone & password required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password too short",
+      });
+    }
+
+    const user = await User.findOne({ phone });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    /* ✅ HASH NEW PASSWORD */
+    user.password = await bcrypt.hash(newPassword, 10);
+
+    /* ✅ CLEAR FORGOT FLAGS */
+    user.forgotRequest = false;
+    user.forgotRequestAt = null;
+    user.requestedPassword = null;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    console.log("RESET PASSWORD ERROR 👉", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Reset failed",
+    });
+  }
+});
+
+
 export default router;

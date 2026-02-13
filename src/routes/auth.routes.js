@@ -13,9 +13,13 @@ router.post("/register", async (req, res) => {
     let { name, phone, email, password, category, location, address } =
       req.body;
 
-    phone = phone?.toString().trim();
+    /* ✅ CLEAN INPUTS */
+    name = name?.toString().trim();
+    phone = phone?.toString().replace(/\s+/g, ""); // 🔥 removes spaces
     email = email?.toString().toLowerCase().trim();
+    password = password?.toString();
 
+    /* ✅ REQUIRED CHECK */
     if (!name || !phone || !password || !category) {
       return res.status(400).json({
         success: false,
@@ -23,6 +27,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    /* ✅ PASSWORD VALIDATION */
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -30,6 +35,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    /* ✅ DUPLICATE CHECK */
     const query = [{ phone }];
     if (email) query.push({ email });
 
@@ -42,29 +48,44 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    /* ✅ HASH PASSWORD */
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    /* ✅ CREATE USER */
     const user = await User.create({
       name,
       phone,
       email: email || undefined,
       password: hashedPassword,
-      role: "user",
+
+      role: "user",       // 🔐 ALWAYS USER
       category,
+
       location: location || "NA",
       address: address || "NA",
     });
 
+    /* ✅ TOKEN */
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
+    /* ✅ SAFE RESPONSE (NO PASSWORD) */
     res.status(201).json({
       success: true,
       token,
-      user,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        category: user.category,
+        location: user.location,
+        address: user.address,
+      },
     });
   } catch (err) {
     console.error("REGISTER ERROR 👉", err);

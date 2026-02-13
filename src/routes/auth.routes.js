@@ -10,16 +10,9 @@ const router = express.Router();
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
-    let { name, phone, email, password, category, location, address } =
+    const { name, phone, email, password, category, location, address } =
       req.body;
 
-    /* ✅ CLEAN INPUTS */
-    name = name?.toString().trim();
-    phone = phone?.toString().replace(/\s+/g, ""); // 🔥 removes spaces
-    email = email?.toString().toLowerCase().trim();
-    password = password?.toString();
-
-    /* ✅ REQUIRED CHECK */
     if (!name || !phone || !password || !category) {
       return res.status(400).json({
         success: false,
@@ -27,20 +20,10 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    /* ✅ PASSWORD VALIDATION */
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password too short",
-      });
-    }
-
-    /* ✅ DUPLICATE CHECK */
     const query = [{ phone }];
-    if (email) query.push({ email });
+    if (email) query.push({ email: email.toLowerCase() });
 
     const existingUser = await User.findOne({ $or: query });
-
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -48,31 +31,30 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    /* ✅ HASH PASSWORD */
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* ✅ CREATE USER */
     const user = await User.create({
       name,
       phone,
-      email: email || undefined,
+      email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
 
-      role: "user",       // 🔐 ALWAYS USER
+      // 🔐 ALWAYS DEFAULT
+      role: "user",
+
+      // 👥 buyer / seller / driver
       category,
 
       location: location || "NA",
       address: address || "NA",
     });
 
-    /* ✅ TOKEN */
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    /* ✅ SAFE RESPONSE (NO PASSWORD) */
     res.status(201).json({
       success: true,
       token,
@@ -88,15 +70,13 @@ router.post("/register", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("REGISTER ERROR 👉", err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message || "Registration failed",
-    });
+  console.error("REGISTER ERROR 👉", err);
+  res.status(500).json({
+    success: false,
+    message: err.message || "Registration failed",
+  });
   }
 });
-
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {

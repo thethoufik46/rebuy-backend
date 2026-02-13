@@ -7,7 +7,8 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-/* ================= REGISTER ================= */
+
+// ================= REGISTER =================
 router.post("/register", async (req, res) => {
   try {
     let { name, phone, email, password, category, location, address } =
@@ -23,22 +24,21 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const query = [{ phone }];
-    if (email) query.push({ email });
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password too short",
+      });
+    }
 
-    const existingUser = await User.findOne({ $or: query });
+    const existingUser = await User.findOne({
+      $or: [{ phone }, ...(email ? [{ email }] : [])],
+    });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
         message: "User already exists",
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password too short",
       });
     }
 
@@ -76,7 +76,8 @@ router.post("/register", async (req, res) => {
   }
 });
 
-/* ================= LOGIN ================= */
+
+// ================= LOGIN =================
 router.post("/login", async (req, res) => {
   try {
     let { identifier, password } = req.body;
@@ -134,7 +135,8 @@ router.post("/login", async (req, res) => {
   }
 });
 
-/* ================= GET ME ================= */
+
+// ================= GET ME =================
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
@@ -142,18 +144,26 @@ router.get("/me", verifyToken, (req, res) => {
   });
 });
 
-/* ================= UPDATE PROFILE ================= */
+
+// ================= UPDATE PROFILE =================
 router.put("/me", verifyToken, async (req, res) => {
   try {
-    let { name, phone, email, location, address } = req.body;
+    let { name, email, location, address } = req.body;
 
-    phone = phone?.toString().trim();
     email = email?.toString().toLowerCase().trim();
 
     const update = {};
 
     if (name) update.name = name;
-    if (phone) update.phone = phone;
+
+    /// ✅ PHONE LOCKED 🔥
+    if (req.body.phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number cannot be changed",
+      });
+    }
+
     if (email) update.email = email;
     if (location) update.location = location;
     if (address) update.address = address;
@@ -173,7 +183,8 @@ router.put("/me", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= CHANGE PASSWORD ================= */
+
+// ================= CHANGE PASSWORD =================
 router.put("/change-password", verifyToken, async (req, res) => {
   try {
     let { newPassword } = req.body;
@@ -190,7 +201,6 @@ router.put("/change-password", verifyToken, async (req, res) => {
     const user = await User.findById(req.userId);
 
     user.password = await bcrypt.hash(newPassword, 10);
-
     await user.save();
 
     res.json({
@@ -207,11 +217,10 @@ router.put("/change-password", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= FORGOT REQUEST ================= */
+
+// ================= FORGOT REQUEST =================
 router.post("/forgot-request", async (req, res) => {
   try {
-    console.log("BODY 👉", req.body);
-
     let { phone, newPassword } = req.body;
 
     phone = phone?.toString().trim();
@@ -232,8 +241,6 @@ router.post("/forgot-request", async (req, res) => {
     }
 
     const user = await User.findOne({ phone });
-
-    console.log("USER 👉", user);
 
     if (!user) {
       return res.status(404).json({
@@ -262,8 +269,29 @@ router.post("/forgot-request", async (req, res) => {
   }
 });
 
-/* ================= ADMIN RESET PASSWORD ================= */
-router.put("/admin/reset-password", verifyToken, async (req, res) => {
+
+// ================= DELETE MY ACCOUNT =================
+router.delete("/me", verifyToken, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.userId);
+
+    res.json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (err) {
+    console.log("DELETE ERROR 👉", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Delete failed",
+    });
+  }
+});
+
+
+// ================= ADMIN UPDATE USER =================
+router.put("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -272,26 +300,28 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
       });
     }
 
-    let { phone, newPassword } = req.body;
+    const { name, email, category, location, address } = req.body;
 
-    phone = phone?.toString().trim();
-    newPassword = newPassword?.toString();
+    const update = {};
 
-    if (!phone || !newPassword) {
+    if (name) update.name = name;
+
+    /// ✅ PHONE LOCKED EVEN FOR ADMIN 🔥
+    if (req.body.phone) {
       return res.status(400).json({
         success: false,
-        message: "Phone & password required",
+        message: "Phone number cannot be changed",
       });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password too short",
-      });
-    }
+    if (email) update.email = email.toLowerCase().trim();
+    if (category) update.category = category;
+    if (location) update.location = location;
+    if (address) update.address = address;
 
-    const user = await User.findOne({ phone });
+    const user = await User.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -300,23 +330,40 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.forgotRequest = false;
-    user.forgotRequestAt = null;
-    user.requestedPassword = null;
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Password updated successfully",
-    });
+    res.json({ success: true, user });
   } catch (err) {
-    console.log("RESET ERROR 👉", err);
+    console.log("ADMIN UPDATE ERROR 👉", err);
 
     res.status(500).json({
       success: false,
-      message: "Reset failed",
+      message: "Update failed",
+    });
+  }
+});
+
+
+// ================= ADMIN DELETE USER =================
+router.delete("/admin/users/:id", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admins only",
+      });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "User deleted",
+    });
+  } catch (err) {
+    console.log("ADMIN DELETE ERROR 👉", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Delete failed",
     });
   }
 });

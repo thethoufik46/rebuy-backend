@@ -15,8 +15,10 @@ export const verifyToken = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
+    /// ✅ VERIFY TOKEN
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    /// ✅ FETCH USER
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
@@ -26,11 +28,16 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
+    /// ✅ ATTACH USER
     req.user = user;
     req.userId = user._id;
 
     next();
   } catch (err) {
+
+    /// ✅ DEBUG FRIENDLY ERROR 🔥
+    console.log("AUTH ERROR 👉", err.message);
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",

@@ -4,14 +4,15 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
 
-   phone: { 
-  type: String, 
-  required: true, 
-  trim: true,
-
-  set: (v) => v?.toString().replace(/\s+/g, ""),  
-  // ✅ removes ALL spaces automatically
-},
+    /// ✅ MULTIPLE PHONE NUMBERS 🔥🔥🔥
+    phones: [
+      {
+        type: String,
+        required: true,
+        trim: true,
+        set: (v) => v?.toString().replace(/\s+/g, ""),
+      }
+    ],
 
     email: {
       type: String,
@@ -40,21 +41,10 @@ const userSchema = new mongoose.Schema(
 
     profileImage: { type: String, default: "" },
 
-    /* ✅ FORGOT SYSTEM */
-    forgotRequest: {
-      type: Boolean,
-      default: false,
-    },
+    forgotRequest: { type: Boolean, default: false },
+    forgotRequestAt: { type: Date, default: null },
 
-    forgotRequestAt: {
-      type: Date,
-      default: null,
-    },
-
-    requestedPassword: {
-      type: String,
-      default: null,
-    },
+    requestedPassword: { type: String, default: null },
   },
   { timestamps: true }
 );

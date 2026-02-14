@@ -10,14 +10,29 @@ import {
   deleteVariant,
   getONEBrandhideVariants,
   getLoadVehiclesVariants,
-  getTaxiVariants,          // ✅ ADDED
+  getTaxiVariants,
 } from "../controllers/car.variant.controller.js";
 
 const router = express.Router();
 
 /* =====================================================
-   ADD VARIANT
+   PUBLIC ROUTES 🚀
 ===================================================== */
+
+router.get("/", getAllVariants);
+
+router.get("/visible", getONEBrandhideVariants);
+
+router.get("/load-vehicles", getLoadVehiclesVariants);
+
+router.get("/taxi", getTaxiVariants);
+
+router.get("/brand/:brandId", getVariantsByBrand);
+
+/* =====================================================
+   PROTECTED ROUTES 🔒
+===================================================== */
+
 router.post(
   "/add",
   verifyToken,
@@ -25,34 +40,6 @@ router.post(
   addVariant
 );
 
-/* =====================================================
-   GET ALL VARIANTS
-===================================================== */
-router.get("/", getAllVariants);
-
-/* =====================================================
-   GET ONE BRAND HIDE VARIANTS
-===================================================== */
-router.get("/visible", getONEBrandhideVariants);
-
-/* =====================================================
-   GET LOAD VEHICLES VARIANTS ONLY
-===================================================== */
-router.get("/load-vehicles", getLoadVehiclesVariants);
-
-/* =====================================================
-   GET TAXI VARIANTS ONLY ✅
-===================================================== */
-router.get("/taxi", getTaxiVariants);
-
-/* =====================================================
-   GET VARIANTS BY BRAND
-===================================================== */
-router.get("/brand/:brandId", getVariantsByBrand);
-
-/* =====================================================
-   UPDATE VARIANT
-===================================================== */
 router.put(
   "/:id",
   verifyToken,
@@ -60,9 +47,6 @@ router.put(
   updateVariant
 );
 
-/* =====================================================
-   DELETE VARIANT
-===================================================== */
 router.delete("/:id", verifyToken, deleteVariant);
 
 export default router;

@@ -89,14 +89,13 @@ export const getAllVariants = async (req, res) => {
   }
 };
 
-
 /* =====================================================
-   GET VISIBLE VARIANTS (HIDE LOAD + TAXI) ✅
+   GET ONE BRAND HIDE VARIANTS
 ===================================================== */
 export const getONEBrandhideVariants = async (req, res) => {
   try {
 
-    /// ✅ HIDDEN BRANDS LIST 🔥
+    /// ✅ HIDDEN BRANDS 🔥
     const hiddenBrands = [
       "load vehicles லோடு வாகனங்கள்",
       "Taxi Cars டாக்சி டிராவல்ஸ்",
@@ -107,10 +106,9 @@ export const getONEBrandhideVariants = async (req, res) => {
       .populate("brand", "name logoUrl");
 
     /// ✅ FILTER
-    const filtered = variants.filter((v) => {
-      const brandName = v.brand?.name?.toLowerCase();
-      return !hiddenBrands.map(b => b.toLowerCase()).includes(brandName);
-    });
+    const filtered = variants.filter((v) =>
+      !hiddenBrands.includes(v.brand?.name)
+    );
 
     const data = filtered.map((v) => ({
       _id: v._id.toString(),

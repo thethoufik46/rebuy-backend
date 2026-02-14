@@ -90,18 +90,30 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VISIBLE VARIANTS (Hide Load Vehicles)
+   GET VISIBLE VARIANTS (Hide Load + Taxi)
 ===================================================== */
 export const getONEBrandhideVariants = async (req, res) => {
   try {
-    /// ✅ Find Load Vehicles Brand SAFELY
-    const hiddenBrand = await Brand.findOne({
-      name: /load vehicles/i,
+    /// ✅ Exact Brand கண்டுபிடி (NO GUESSWORK)
+    const loadBrand = await Brand.findOne({
+      name: "Load vehicles லோடு வாகனங்கள்",
     });
 
-    const query = hiddenBrand
-      ? { brand: { $ne: hiddenBrand._id } }
-      : {};
+    const taxiBrand = await Brand.findOne({
+      name: "Taxi Cars டாக்சி டிராவல்ஸ்",
+    });
+
+    /// ✅ Hidden brand IDs
+    const hiddenBrandIds = [];
+
+    if (loadBrand) hiddenBrandIds.push(loadBrand._id);
+    if (taxiBrand) hiddenBrandIds.push(taxiBrand._id);
+
+    /// ✅ Mongo Query (FAST ⚡)
+    const query =
+      hiddenBrandIds.length > 0
+        ? { brand: { $nin: hiddenBrandIds } }
+        : {};
 
     const variants = await Variant.find(query)
       .sort({ createdAt: -1 })

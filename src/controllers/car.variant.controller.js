@@ -1,7 +1,3 @@
-// ======================= car.variant.controller.js =======================
-// 📁 src/controllers/car.variant.controller.js
-// ✅ FINAL FULL CONTROLLER – ADD / VIEW / UPDATE / DELETE (FIXED ID FORMAT)
-
 import Variant from "../models/car_variant_model.js";
 import Brand from "../models/car_brand_model.js";
 import {
@@ -64,7 +60,7 @@ export const addVariant = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL VARIANTS ✅ FIXED
+   GET ALL VARIANTS
 ===================================================== */
 export const getAllVariants = async (req, res) => {
   try {
@@ -73,8 +69,8 @@ export const getAllVariants = async (req, res) => {
       .populate("brand", "name logoUrl");
 
     const data = variants.map((v) => ({
-      _id: v._id.toString(),                      // ✅ FIXED
-      brandId: v.brand?._id?.toString() || "",     // ✅ FIXED
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -135,62 +131,17 @@ export const getONEBrandhideVariants = async (req, res) => {
 };
 
 
-
 /* =====================================================
-   GET LOAD VEHICLES VARIANTS ONLY ✅
+   GET LOAD VEHICLES VARIANTS ONLY
 ===================================================== */
 export const getLoadVehiclesVariants = async (req, res) => {
   try {
-
-    /// ✅ TARGET BRAND
     const targetBrandName = "load vehicles லோடு வாகனங்கள்";
 
     const variants = await Variant.find()
       .sort({ createdAt: -1 })
       .populate("brand", "name logoUrl");
 
-    /// ✅ FILTER ONLY THIS BRAND
-    const filteredVariants = variants.filter(
-      (v) => v.brand?.name?.toLowerCase() === targetBrandName
-    );
-
-    const data = filteredVariants.map((v) => ({
-      _id: v._id.toString(),
-      brandId: v.brand?._id?.toString() || "",
-      brandName: v.brand?.name || "",
-      brandLogo: v.brand?.logoUrl || "",
-      variantName: v.title || "",
-      variantImage: v.imageUrl || "",
-    }));
-
-    return res.status(200).json({
-      success: true,
-      variants: data,
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-
-/* =====================================================
-   GET TAXI VARIANTS ONLY ✅
-===================================================== */
-export const getTaxiVariants = async (req, res) => {
-  try {
-
-    /// ✅ TARGET BRAND NAME
-    const targetBrandName = "Taxi Cars டாக்சி டிராவல்ஸ்";
-
-    const variants = await Variant.find()
-      .sort({ createdAt: -1 })
-      .populate("brand", "name logoUrl");
-
-    /// ✅ FILTER ONLY TAXI BRAND
     const filteredVariants = variants.filter(
       (v) => v.brand?.name === targetBrandName
     );
@@ -208,7 +159,6 @@ export const getTaxiVariants = async (req, res) => {
       success: true,
       variants: data,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -217,11 +167,44 @@ export const getTaxiVariants = async (req, res) => {
   }
 };
 
+/* =====================================================
+   GET TAXI VARIANTS ONLY ✅
+===================================================== */
+export const getTaxiVariants = async (req, res) => {
+  try {
+    const targetBrandName = "Taxi Cars டாக்சி டிராவல்ஸ்";
 
+    const variants = await Variant.find()
+      .sort({ createdAt: -1 })
+      .populate("brand", "name logoUrl");
 
+    const filteredVariants = variants.filter(
+      (v) => v.brand?.name === targetBrandName
+    );
+
+    const data = filteredVariants.map((v) => ({
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      variants: data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 /* =====================================================
-   GET VARIANTS BY BRAND ✅ FIXED
+   GET VARIANTS BY BRAND
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -232,8 +215,8 @@ export const getVariantsByBrand = async (req, res) => {
       .populate("brand", "name logoUrl");
 
     const data = variants.map((v) => ({
-      _id: v._id.toString(),                      // ✅ FIXED
-      brandId: v.brand?._id?.toString() || "",     // ✅ FIXED
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
       brandName: v.brand?.name || "",
       brandLogo: v.brand?.logoUrl || "",
       variantName: v.title || "",
@@ -268,7 +251,7 @@ export const updateVariant = async (req, res) => {
       });
     }
 
-    if (title && title.trim()) {
+    if (title?.trim()) {
       variant.title = title.trim();
     }
 

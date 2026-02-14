@@ -27,17 +27,22 @@ const carSchema = new mongoose.Schema(
       index: true,
     },
 
-    brand: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Brand",
-      required: true,
-    },
+    /* ✅ MULTI BRAND SUPPORT */
+    brand: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Brand",
+        required: true,
+      },
+    ],
 
-    variant: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Variant",
-      required: false,
-    },
+    /* ✅ MULTI VARIANT SUPPORT */
+    variant: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Variant",
+      },
+    ],
 
     model: {
       type: String,
@@ -163,7 +168,7 @@ carSchema.pre("save", async function (next) {
       this.carId = counter.seq;
     }
 
-    /* 📍 District Validation (CASE-INSENSITIVE SAFE) */
+    /* 📍 District Validation */
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );

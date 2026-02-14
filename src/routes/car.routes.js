@@ -14,6 +14,23 @@ import { decryptSeller } from "../utils/sellerCrypto.js";
 const router = express.Router();
 
 /* =====================================================
+   ✅ HELPER → SAFE ARRAY PARSER
+===================================================== */
+const parseArrayField = (field) => {
+  if (!field) return [];
+
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field); // ✅ CRITICAL FIX
+    } catch {
+      return [field];
+    }
+  }
+
+  return Array.isArray(field) ? field : [field];
+};
+
+/* =====================================================
    ADD CAR (ADMIN)
 ===================================================== */
 router.post(
@@ -26,10 +43,8 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      let { brand, variant } = req.body;
-
-      if (!Array.isArray(brand)) brand = [brand];
-      if (!Array.isArray(variant)) variant = variant ? [variant] : [];
+      let brand = parseArrayField(req.body.brand);
+      let variant = parseArrayField(req.body.variant);
 
       if (!req.files?.banner) {
         return res.status(400).json({
@@ -38,6 +53,14 @@ router.post(
         });
       }
 
+      if (!brand.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Brand required",
+        });
+      }
+
+      /* ✅ BRAND VALIDATION */
       for (const b of brand) {
         if (!mongoose.Types.ObjectId.isValid(b)) {
           return res.status(400).json({
@@ -47,6 +70,7 @@ router.post(
         }
       }
 
+      /* ✅ VARIANT VALIDATION */
       for (const v of variant) {
         if (v && !mongoose.Types.ObjectId.isValid(v)) {
           return res.status(400).json({
@@ -83,6 +107,7 @@ router.post(
         car,
       });
     } catch (err) {
+      console.log("CAR ADD ERROR:", err); // ✅ DEBUG SAFE
       res.status(500).json({
         success: false,
         message: err.message,
@@ -92,7 +117,7 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (SMART FILTER ENGINE)
+   GET ALL CARS (SMART FILTER)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -213,32 +238,11 @@ router.put(
         });
       }
 
-      let { brand, variant } = req.body;
+      const brand = parseArrayField(req.body.brand);
+      const variant = parseArrayField(req.body.variant);
 
-      if (brand && !Array.isArray(brand)) brand = [brand];
-      if (variant && !Array.isArray(variant)) variant = [variant];
-
-      if (brand) {
-        for (const b of brand) {
-          if (!mongoose.Types.ObjectId.isValid(b)) {
-            return res.status(400).json({
-              success: false,
-              message: "Invalid brand id",
-            });
-          }
-        }
-      }
-
-      if (variant) {
-        for (const v of variant) {
-          if (v && !mongoose.Types.ObjectId.isValid(v)) {
-            return res.status(400).json({
-              success: false,
-              message: "Invalid variant id",
-            });
-          }
-        }
-      }
+      if (brand.length) car.brand = brand;
+      if (variant.length) car.variant = variant;
 
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
@@ -264,15 +268,13 @@ router.put(
         }
       }
 
-      let newGallery = [];
-
-      if (req.files?.gallery) {
-        newGallery = await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadCarImage(img, "cars/gallery")
+      const newGallery = req.files?.gallery
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadCarImage(img, "cars/gallery")
+            )
           )
-        );
-      }
+        : [];
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
@@ -280,9 +282,6 @@ router.put(
         req.body;
 
       Object.assign(car, safeBody);
-
-      if (brand) car.brand = brand;
-      if (variant) car.variant = variant;
 
       await car.save();
 
@@ -292,6 +291,7 @@ router.put(
         car,
       });
     } catch (err) {
+      console.log("CAR UPDATE ERROR:", err);
       res.status(500).json({
         success: false,
         message: "Car update failed",

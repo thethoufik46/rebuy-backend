@@ -8,11 +8,9 @@ import {
   getVariantsByBrand,
   updateVariant,
   deleteVariant,
-
-  /// ✅ ADD THESE
   getONEBrandhideVariants,
   getLoadVehiclesVariants,
-
+  getTaxiVariants,          // ✅ ADDED
 } from "../controllers/car.variant.controller.js";
 
 const router = express.Router();
@@ -33,14 +31,19 @@ router.post(
 router.get("/", getAllVariants);
 
 /* =====================================================
-   GET ONE BRAND HIDE VARIANTS ✅
+   GET ONE BRAND HIDE VARIANTS
 ===================================================== */
 router.get("/visible", getONEBrandhideVariants);
 
 /* =====================================================
-   GET LOAD VEHICLES VARIANTS ONLY ✅
+   GET LOAD VEHICLES VARIANTS ONLY
 ===================================================== */
 router.get("/load-vehicles", getLoadVehiclesVariants);
+
+/* =====================================================
+   GET TAXI VARIANTS ONLY ✅
+===================================================== */
+router.get("/taxi", getTaxiVariants);
 
 /* =====================================================
    GET VARIANTS BY BRAND

@@ -35,7 +35,7 @@ export const addVariant = async (req, res) => {
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Variant already exists for this brand",
+        message: "Variant already exists",
       });
     }
 
@@ -89,26 +89,25 @@ export const getAllVariants = async (req, res) => {
   }
 };
 
-
 /* =====================================================
-   GET ONE BRAND HIDE VARIANTS ✅
+   GET VISIBLE VARIANTS (Hide Load Vehicles)
 ===================================================== */
 export const getONEBrandhideVariants = async (req, res) => {
   try {
+    /// ✅ Find Load Vehicles Brand SAFELY
+    const hiddenBrand = await Brand.findOne({
+      name: /load vehicles/i,
+    });
 
-    /// ✅ BRAND NAME TO HIDE
-    const hiddenBrandName = "load vehicles லோடு வாகனங்கள்";
+    const query = hiddenBrand
+      ? { brand: { $ne: hiddenBrand._id } }
+      : {};
 
-    const variants = await Variant.find()
+    const variants = await Variant.find(query)
       .sort({ createdAt: -1 })
       .populate("brand", "name logoUrl");
 
-    /// ✅ FILTER
-    const filtered = variants.filter(
-      (v) => v.brand?.name?.toLowerCase() !== hiddenBrandName
-    );
-
-    const data = filtered.map((v) => ({
+    const data = variants.map((v) => ({
       _id: v._id.toString(),
       brandId: v.brand?._id?.toString() || "",
       brandName: v.brand?.name || "",
@@ -121,7 +120,6 @@ export const getONEBrandhideVariants = async (req, res) => {
       success: true,
       variants: data,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -130,23 +128,28 @@ export const getONEBrandhideVariants = async (req, res) => {
   }
 };
 
-
 /* =====================================================
-   GET LOAD VEHICLES VARIANTS ONLY
+   LOAD VEHICLES VARIANTS 🚚
 ===================================================== */
 export const getLoadVehiclesVariants = async (req, res) => {
   try {
-    const targetBrandName = "load vehicles லோடு வாகனங்கள்";
+    /// ✅ Find Brand (NO STRING BUGS)
+    const brand = await Brand.findOne({
+      name: /load vehicles/i,
+    });
 
-    const variants = await Variant.find()
+    if (!brand) {
+      return res.status(200).json({
+        success: true,
+        variants: [],
+      });
+    }
+
+    const variants = await Variant.find({ brand: brand._id })
       .sort({ createdAt: -1 })
       .populate("brand", "name logoUrl");
 
-    const filteredVariants = variants.filter(
-      (v) => v.brand?.name === targetBrandName
-    );
-
-    const data = filteredVariants.map((v) => ({
+    const data = variants.map((v) => ({
       _id: v._id.toString(),
       brandId: v.brand?._id?.toString() || "",
       brandName: v.brand?.name || "",
@@ -168,21 +171,26 @@ export const getLoadVehiclesVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET TAXI VARIANTS ONLY ✅
+   TAXI VARIANTS 🚕
 ===================================================== */
 export const getTaxiVariants = async (req, res) => {
   try {
-    const targetBrandName = "Taxi Cars டாக்சி டிராவல்ஸ்";
+    const brand = await Brand.findOne({
+      name: /taxi/i,
+    });
 
-    const variants = await Variant.find()
+    if (!brand) {
+      return res.status(200).json({
+        success: true,
+        variants: [],
+      });
+    }
+
+    const variants = await Variant.find({ brand: brand._id })
       .sort({ createdAt: -1 })
       .populate("brand", "name logoUrl");
 
-    const filteredVariants = variants.filter(
-      (v) => v.brand?.name === targetBrandName
-    );
-
-    const data = filteredVariants.map((v) => ({
+    const data = variants.map((v) => ({
       _id: v._id.toString(),
       brandId: v.brand?._id?.toString() || "",
       brandName: v.brand?.name || "",
@@ -204,7 +212,7 @@ export const getTaxiVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VARIANTS BY BRAND
+   VARIANTS BY BRAND
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
@@ -251,9 +259,7 @@ export const updateVariant = async (req, res) => {
       });
     }
 
-    if (title?.trim()) {
-      variant.title = title.trim();
-    }
+    if (title?.trim()) variant.title = title.trim();
 
     if (brandId) {
       const brand = await Brand.findById(brandId);
@@ -305,7 +311,7 @@ export const deleteVariant = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Variant deleted successfully",
+      message: "Variant deleted",
     });
   } catch (err) {
     return res.status(500).json({

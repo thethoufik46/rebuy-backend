@@ -226,6 +226,46 @@ export const getOtherStateVariants = async (req, res) => {
 };
 
 /* =====================================================
+   tarvel cars BY verint cryst ertiga swift innova
+===================================================== */
+
+export const getSelectedVariants = async (req, res) => {
+  try {
+    const variants = await Variant.find({
+      title: {
+        $in: [
+          /^innova/i,
+          /^crysta/i,
+          /^swift/i,
+          /^ertiga/i,
+        ],
+      },
+    })
+      .populate("brand", "name logoUrl")
+      .sort({ createdAt: -1 });
+
+    const data = variants.map((v) => ({
+      _id: v._id.toString(),
+      brandId: v.brand?._id?.toString() || "",
+      brandName: v.brand?.name || "",
+      brandLogo: v.brand?.logoUrl || "",
+      variantName: v.title || "",
+      variantImage: v.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      variants: data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
    VARIANTS BY BRAND
 ===================================================== */
 export const getVariantsByBrand = async (req, res) => {

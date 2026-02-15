@@ -14,6 +14,23 @@ import { decryptSeller } from "../utils/sellerCrypto.js";
 const router = express.Router();
 
 /* =====================================================
+   ✅ HELPER → SAFE ARRAY PARSER
+===================================================== */
+const parseArrayField = (field) => {
+  if (!field) return [];
+
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field); // ✅ CRITICAL FIX
+    } catch {
+      return [field];
+    }
+  }
+
+  return Array.isArray(field) ? field : [field];
+};
+
+/* =====================================================
    ADD CAR (ADMIN)
 ===================================================== */
 router.post(
@@ -26,24 +43,41 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      const { brand, variant } = req.body;
+      let brand = parseArrayField(req.body.brand);
+      let variant = parseArrayField(req.body.variant);
 
       if (!req.files?.banner) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Banner image required" });
+        return res.status(400).json({
+          success: false,
+          message: "Banner image required",
+        });
       }
 
-      if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid brand id" });
+      if (!brand.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Brand required",
+        });
       }
 
-      if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid variant id" });
+      /* ✅ BRAND VALIDATION */
+      for (const b of brand) {
+        if (!mongoose.Types.ObjectId.isValid(b)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid brand id",
+          });
+        }
+      }
+
+      /* ✅ VARIANT VALIDATION */
+      for (const v of variant) {
+        if (v && !mongoose.Types.ObjectId.isValid(v)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid variant id",
+          });
+        }
       }
 
       const bannerImage = await uploadCarImage(
@@ -61,6 +95,8 @@ router.post(
 
       const car = await Car.create({
         ...req.body,
+        brand,
+        variant,
         bannerImage,
         galleryImages,
       });
@@ -71,6 +107,7 @@ router.post(
         car,
       });
     } catch (err) {
+      console.log("CAR ADD ERROR:", err); // ✅ DEBUG SAFE
       res.status(500).json({
         success: false,
         message: err.message,
@@ -80,7 +117,7 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (SMART FILTER ENGINE)
+   GET ALL CARS (SMART FILTER)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -102,17 +139,20 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 
     const query = {};
 
-    if (brand) query.brand = brand;
+    if (brand && mongoose.Types.ObjectId.isValid(brand)) {
+      query.brand = { $in: [brand] };
+    }
+
+    if (variant && mongoose.Types.ObjectId.isValid(variant)) {
+      query.variant = { $in: [variant] };
+    }
+
     if (fuel) query.fuel = fuel;
     if (transmission) query.transmission = transmission;
     if (owner) query.owner = owner;
     if (board) query.board = board;
     if (district) query.district = district;
     if (city) query.city = city;
-
-    if (variant && mongoose.Types.ObjectId.isValid(variant)) {
-      query.variant = variant;
-    }
 
     if (variantTitle) {
       const variantDoc = await Variant.findOne({
@@ -127,7 +167,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
         });
       }
 
-      query.variant = variantDoc._id;
+      query.variant = { $in: [variantDoc._id] };
     }
 
     if (minPrice || maxPrice) {
@@ -190,11 +230,19 @@ router.put(
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
+
       if (!car) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Car not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
       }
+
+      const brand = parseArrayField(req.body.brand);
+      const variant = parseArrayField(req.body.variant);
+
+      if (brand.length) car.brand = brand;
+      if (variant.length) car.variant = variant;
 
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
@@ -205,6 +253,7 @@ router.put(
       }
 
       let existingGallery = [];
+
       if (req.body.existingGallery) {
         try {
           existingGallery = JSON.parse(req.body.existingGallery);
@@ -219,14 +268,13 @@ router.put(
         }
       }
 
-      let newGallery = [];
-      if (req.files?.gallery) {
-        newGallery = await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadCarImage(img, "cars/gallery")
+      const newGallery = req.files?.gallery
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadCarImage(img, "cars/gallery")
+            )
           )
-        );
-      }
+        : [];
 
       car.galleryImages = [...existingGallery, ...newGallery];
 
@@ -243,6 +291,7 @@ router.put(
         car,
       });
     } catch (err) {
+      console.log("CAR UPDATE ERROR:", err);
       res.status(500).json({
         success: false,
         message: "Car update failed",
@@ -257,13 +306,16 @@ router.put(
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
+
     if (!car) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Car not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
     }
 
     await deleteCarImage(car.bannerImage);
+
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }

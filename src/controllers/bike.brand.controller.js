@@ -1,152 +1,141 @@
-import BikeBrand from "../models/bike_brand_model.js";
-import cloudinary from "../config/cloudinary.js";
+// ======================= bike.brand.controller.js =======================
 
-/* =========================
-   🟢 CREATE BIKE BRAND
-========================= */
+import BikeBrand from "../models/bike_brand_model.js";
+import {
+  uploadBikeImage,
+  deleteBikeImage,
+} from "../utils/bikeBrand.js";
+
+/* =====================================================
+   CREATE BRAND
+===================================================== */
 export const addBikeBrand = async (req, res) => {
   try {
     const { name } = req.body;
 
     if (!name || !req.file) {
-      return res
-        .status(400)
-        .json({ message: "Brand name and logo are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Brand name and logo required",
+      });
     }
 
-    // ✅ prevent duplicate brand (name is IMPORTANT)
-    const exists = await BikeBrand.findOne({
-      name: name.trim().toLowerCase(),
+    const existing = await BikeBrand.findOne({
+      name: new RegExp(`^${name.trim()}$`, "i"),
     });
 
-    if (exists) {
+    if (existing) {
       return res.status(409).json({
+        success: false,
         message: "Brand already exists",
       });
     }
 
+    const logoUrl = await uploadBikeImage(req.file, "bike-brands");
+
     const brand = await BikeBrand.create({
-      name: name.trim(), // lowercase handled in model
-      logoUrl: req.file.path, // Cloudinary URL
+      name: name.trim(),
+      logoUrl,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Bike brand added successfully",
       brand,
     });
-  } catch (error) {
-    console.error("Error adding bike brand:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-/* =========================
-   🔵 GET BIKE BRANDS
-========================= */
+/* =====================================================
+   GET BRANDS
+===================================================== */
 export const getBikeBrands = async (req, res) => {
   try {
-    const brands = await BikeBrand.find().sort({ createdAt: -1 });
+    const brands = await BikeBrand.find().sort({ name: 1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      count: brands.length,
       brands,
     });
-  } catch (error) {
-    console.error("Error fetching bike brands:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-/* =========================
-   🟡 UPDATE BIKE BRAND
-========================= */
+/* =====================================================
+   UPDATE BRAND
+===================================================== */
 export const updateBikeBrand = async (req, res) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
 
     const brand = await BikeBrand.findById(id);
+
     if (!brand) {
-      return res.status(404).json({ message: "Brand not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Brand not found",
+      });
     }
 
-    // ✅ check duplicate name (except current brand)
-    if (name) {
-      const exists = await BikeBrand.findOne({
-        _id: { $ne: id },
-        name: name.trim().toLowerCase(),
-      });
-
-      if (exists) {
-        return res.status(409).json({
-          message: "Brand name already exists",
-        });
-      }
-
+    if (name && name.trim()) {
       brand.name = name.trim();
     }
 
-    // ✅ replace logo
     if (req.file) {
-      if (brand.logoUrl) {
-        const publicId = brand.logoUrl
-          .split("/")
-          .slice(-2)
-          .join("/")
-          .split(".")[0];
-
-        await cloudinary.uploader.destroy(publicId);
-      }
-
-      brand.logoUrl = req.file.path;
+      await deleteBikeImage(brand.logoUrl);
+      brand.logoUrl = await uploadBikeImage(req.file, "bike-brands");
     }
 
     await brand.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Bike brand updated successfully",
       brand,
     });
-  } catch (error) {
-    console.error("Error updating bike brand:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-/* =========================
-   🔴 DELETE BIKE BRAND
-========================= */
+/* =====================================================
+   DELETE BRAND
+===================================================== */
 export const deleteBikeBrand = async (req, res) => {
   try {
     const { id } = req.params;
 
     const brand = await BikeBrand.findById(id);
+
     if (!brand) {
-      return res.status(404).json({ message: "Brand not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Brand not found",
+      });
     }
 
-    // ✅ delete logo from Cloudinary
-    if (brand.logoUrl) {
-      const publicId = brand.logoUrl
-        .split("/")
-        .slice(-2)
-        .join("/")
-        .split(".")[0];
-
-      await cloudinary.uploader.destroy(publicId);
-    }
-
+    await deleteBikeImage(brand.logoUrl);
     await brand.deleteOne();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Bike brand deleted successfully",
+      message: "Brand deleted successfully",
     });
-  } catch (error) {
-    console.error("Error deleting bike brand:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };

@@ -1,19 +1,22 @@
 // ======================= src/routes/bike.routes.js =======================
+// ✅ FINAL (SELLER DECRYPT LIKE CAR ROUTE)
 
 import express from "express";
 import mongoose from "mongoose";
 import Bike from "../models/bike_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
+import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadBike from "../middleware/uploadBike.js";
 import {
   uploadBikeImage,
   deleteBikeImage,
 } from "../utils/bikeUpload.js";
+import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
 
 /* ======================
-   ADD BIKE
+   ADD BIKE (ADMIN)
 ====================== */
 router.post(
   "/add",
@@ -72,9 +75,9 @@ router.post(
 );
 
 /* ======================
-   GET ALL BIKES (FILTER)
+   GET ALL BIKES (FILTER + SELLER DECRYPT)
 ====================== */
-router.get("/", async (req, res) => {
+router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
       brand,
@@ -110,12 +113,28 @@ router.get("/", async (req, res) => {
 
     const bikes = await Bike.find(query)
       .populate("brand", "name logoUrl")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const isAdminUser = req.user?.role === "admin";
+
+    const finalBikes = bikes.map((bike) => {
+      if (
+        isAdminUser &&
+        typeof bike.seller === "string" &&
+        bike.seller.includes(":")
+      ) {
+        try {
+          bike.seller = decryptSeller(bike.seller);
+        } catch (_) {}
+      }
+      return bike;
+    });
 
     res.json({
       success: true,
-      count: bikes.length,
-      bikes,
+      count: finalBikes.length,
+      bikes: finalBikes,
     });
   } catch (err) {
     console.error("BIKE FILTER ERROR:", err);
@@ -127,7 +146,7 @@ router.get("/", async (req, res) => {
 });
 
 /* ======================
-   UPDATE BIKE
+   UPDATE BIKE (ADMIN)
 ====================== */
 router.put(
   "/:id",
@@ -148,7 +167,6 @@ router.put(
         });
       }
 
-      /* ---------- BANNER ---------- */
       if (req.files?.banner) {
         await deleteBikeImage(bike.bannerImage);
 
@@ -158,7 +176,6 @@ router.put(
         );
       }
 
-      /* ---------- EXISTING GALLERY ---------- */
       let existingGallery = [];
 
       if (req.body.existingGallery) {
@@ -173,7 +190,6 @@ router.put(
         }
       }
 
-      /* ---------- NEW GALLERY ---------- */
       let newGallery = [];
 
       if (req.files?.gallery) {
@@ -186,7 +202,6 @@ router.put(
 
       bike.galleryImages = [...existingGallery, ...newGallery];
 
-      /* ---------- SAFE BODY ---------- */
       const {
         existingGallery: eg,
         banner,
@@ -212,7 +227,7 @@ router.put(
 );
 
 /* ======================
-   DELETE BIKE
+   DELETE BIKE (ADMIN)
 ====================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {

@@ -234,10 +234,10 @@ export const getSelectedVariants = async (req, res) => {
     const variants = await Variant.find({
       title: {
         $in: [
-          /^innova/i,
-          /^crysta/i,
-          /^swift/i,
-          /^ertiga/i,
+          "Innova இன்னோவா",
+          "Crysta கிரிஸ்டா",
+          "Swift ஸ்விப்ட்",
+          "Ertiga எர்டிகா",
         ],
       },
     })
@@ -264,6 +264,8 @@ export const getSelectedVariants = async (req, res) => {
     });
   }
 };
+
+
 
 /* =====================================================
    VARIANTS BY BRAND

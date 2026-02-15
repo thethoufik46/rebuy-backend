@@ -1,19 +1,38 @@
 import mongoose from "mongoose";
+import Counter from "./counter_model.js";
+import { encryptSeller } from "../utils/sellerCrypto.js";
+import fs from "fs";
+import path from "path";
 
+/* =====================================================
+   LOAD TAMIL NADU LOCATIONS JSON
+===================================================== */
+const locationsPath = path.join(
+  process.cwd(),
+  "src/tamilnadu_locations.json"
+);
+
+const locations = JSON.parse(
+  fs.readFileSync(locationsPath, "utf-8")
+);
+
+/* =====================================================
+   BIKE SCHEMA
+===================================================== */
 const bikeSchema = new mongoose.Schema(
   {
-    /* -------------------------------------------------
-       🔗 Brand Reference (Bike Brand dropdown)
-    ---------------------------------------------------*/
+    bikeId: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
+
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "BikeBrand",
       required: true,
     },
 
-    /* -------------------------------------------------
-       🏍️ Basic Details
-    ---------------------------------------------------*/
     model: {
       type: String,
       required: true,
@@ -21,7 +40,7 @@ const bikeSchema = new mongoose.Schema(
     },
 
     year: {
-      type: String,
+      type: Number,
       required: true,
     },
 
@@ -37,9 +56,6 @@ const bikeSchema = new mongoose.Schema(
       min: 0,
     },
 
-    /* -------------------------------------------------
-       👤 Owner & Status
-    ---------------------------------------------------*/
     owner: {
       type: String,
       required: true,
@@ -51,16 +67,7 @@ const bikeSchema = new mongoose.Schema(
       default: "available",
     },
 
-    /* -------------------------------------------------
-       🧑 Seller Details
-    ---------------------------------------------------*/
     seller: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    location: {
       type: String,
       required: true,
       trim: true,
@@ -72,43 +79,87 @@ const bikeSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* -------------------------------------------------
-       📝 Description
-    ---------------------------------------------------*/
+    district: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     description: {
       type: String,
       trim: true,
     },
 
-    /* -------------------------------------------------
-       🖼️ Images
-    ---------------------------------------------------*/
     bannerImage: {
       type: String,
       required: true,
     },
 
-    galleryImages: [
-      {
-        type: String,
-      },
-    ],
+    galleryImages: [{ type: String }],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* -------------------------------------------------
-   ⚡ Indexes
----------------------------------------------------*/
+/* =====================================================
+   PRE SAVE LOGIC
+===================================================== */
+bikeSchema.pre("save", async function (next) {
+  try {
+    /* 🔐 Encrypt Seller */
+    if (this.seller && !this.seller.includes(":")) {
+      this.seller = encryptSeller(this.seller);
+    }
+
+    /* 🔢 Auto Increment Bike ID */
+    if (!this.bikeId) {
+      const counter = await Counter.findByIdAndUpdate(
+        { _id: "bikeId" },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+
+      this.bikeId = counter.seq;
+    }
+
+    /* 📍 District Validation */
+    const districtKey = Object.keys(locations).find(
+      (d) => d.toLowerCase() === this.district.toLowerCase()
+    );
+
+    if (!districtKey) {
+      throw new Error("Invalid district");
+    }
+
+    this.district = districtKey;
+
+    /* 🏙️ City Validation */
+    if (!locations[districtKey].includes(this.city)) {
+      throw new Error("City does not belong to district");
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* =====================================================
+   INDEXES
+===================================================== */
 bikeSchema.index({ brand: 1 });
 bikeSchema.index({ model: 1 });
 bikeSchema.index({ price: 1 });
 bikeSchema.index({ year: 1 });
 bikeSchema.index({ status: 1 });
 bikeSchema.index({ seller: 1 });
-bikeSchema.index({ location: 1 });
 bikeSchema.index({ sellerinfo: 1 });
+bikeSchema.index({ district: 1 });
+bikeSchema.index({ city: 1 });
 
 export default mongoose.model("Bike", bikeSchema);

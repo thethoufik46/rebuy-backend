@@ -1,5 +1,3 @@
-// ======================= bike_brand_model.js =======================
-
 import mongoose from "mongoose";
 
 const bikeBrandSchema = new mongoose.Schema(

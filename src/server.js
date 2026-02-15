@@ -17,9 +17,9 @@ import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/car_brand.routes.js";
-import bikeBrandRoutes from "./routes/bike_brand.routes.js";
+import bikeBrandRoutes from "./routes/bike_brand.routes.js"; // ✅ FIXED
 
-import variantRoutes from "./routes/car_variant.routes.js"; // ✅ ADDED
+import variantRoutes from "./routes/car_variant.routes.js";
 
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
@@ -69,7 +69,7 @@ app.use(
 app.options("*", cors());
 
 /* =========================
-   BODY PARSER (MULTER SAFE)
+   BODY PARSER
 ========================= */
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -119,7 +119,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
-app.use("/api/variants", variantRoutes); // ✅ CAR VARIANTS
+app.use("/api/variants", variantRoutes);
 app.use("/api/bike-brands", bikeBrandRoutes);
 
 app.use("/api/cars", carRoutes);

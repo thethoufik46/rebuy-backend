@@ -1,4 +1,5 @@
 // ======================= src/routes/bike.routes.js =======================
+
 import express from "express";
 import mongoose from "mongoose";
 import Bike from "../models/bike_model.js";
@@ -71,10 +72,7 @@ router.post(
 );
 
 /* ======================
-   GET ALL BIKES
-====================== */
-/* ======================
-   GET ALL BIKES
+   GET ALL BIKES (FILTER)
 ====================== */
 router.get("/", async (req, res) => {
   try {
@@ -86,15 +84,17 @@ router.get("/", async (req, res) => {
       minYear,
       maxYear,
       status,
+      district,
+      city,
     } = req.query;
 
     const query = {};
 
-    // ✅ BRAND FILTER
     if (brand) query.brand = brand;
-
     if (owner) query.owner = owner;
     if (status) query.status = status;
+    if (district) query.district = district;
+    if (city) query.city = city;
 
     if (minPrice || maxPrice) {
       query.price = {};
@@ -112,20 +112,19 @@ router.get("/", async (req, res) => {
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 });
 
-    return res.json({
+    res.json({
       success: true,
       count: bikes.length,
       bikes,
     });
   } catch (err) {
     console.error("BIKE FILTER ERROR:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to fetch bikes",
     });
   }
 });
-
 
 /* ======================
    UPDATE BIKE
@@ -141,15 +140,18 @@ router.put(
   async (req, res) => {
     try {
       const bike = await Bike.findById(req.params.id);
-      if (!bike)
+
+      if (!bike) {
         return res.status(404).json({
           success: false,
           message: "Bike not found",
         });
+      }
 
       /* ---------- BANNER ---------- */
       if (req.files?.banner) {
         await deleteBikeImage(bike.bannerImage);
+
         bike.bannerImage = await uploadBikeImage(
           req.files.banner[0],
           "bikes/banner"
@@ -196,7 +198,7 @@ router.put(
 
       await bike.save();
 
-      res.status(200).json({
+      res.json({
         success: true,
         bike,
       });
@@ -215,8 +217,13 @@ router.put(
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const bike = await Bike.findById(req.params.id);
-    if (!bike)
-      return res.status(404).json({ success: false });
+
+    if (!bike) {
+      return res.status(404).json({
+        success: false,
+        message: "Bike not found",
+      });
+    }
 
     await deleteBikeImage(bike.bannerImage);
 
@@ -226,9 +233,13 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
 
     await bike.deleteOne();
 
-    res.json({ success: true });
+    res.json({
+      success: true,
+    });
   } catch (err) {
-    res.status(500).json({ success: false });
+    res.status(500).json({
+      success: false,
+    });
   }
 });
 

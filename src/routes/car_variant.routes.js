@@ -10,7 +10,7 @@ import {
   deleteVariant,
   getONEBrandhideVariants,
   getLoadVehiclesVariants,
-  getTaxiVariants,
+  getOtherStateVariants, // ✅ UPDATED
 } from "../controllers/car.variant.controller.js";
 
 const router = express.Router();
@@ -25,7 +25,7 @@ router.get("/visible", getONEBrandhideVariants);
 
 router.get("/load-vehicles", getLoadVehiclesVariants);
 
-router.get("/taxi", getTaxiVariants);
+router.get("/other-state", getOtherStateVariants); // ✅ UPDATED
 
 router.get("/brand/:brandId", getVariantsByBrand);
 

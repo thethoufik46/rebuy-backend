@@ -90,24 +90,24 @@ export const getAllVariants = async (req, res) => {
 };
 
 /* =====================================================
-   GET VISIBLE VARIANTS (Hide Load + Taxi)
+   GET VISIBLE VARIANTS (Hide Load + Other State)
 ===================================================== */
 export const getONEBrandhideVariants = async (req, res) => {
   try {
-    /// ✅ Exact Brand கண்டுபிடி (NO GUESSWORK)
+    /// ✅ Exact Brand Match (NO STRING BUGS)
     const loadBrand = await Brand.findOne({
       name: "Load vehicles லோடு வாகனங்கள்",
     });
 
-    const taxiBrand = await Brand.findOne({
-      name: "Taxi Cars டாக்சி டிராவல்ஸ்",
+    const otherStateBrand = await Brand.findOne({
+      name: "Other State டெல்லி",
     });
 
     /// ✅ Hidden brand IDs
     const hiddenBrandIds = [];
 
     if (loadBrand) hiddenBrandIds.push(loadBrand._id);
-    if (taxiBrand) hiddenBrandIds.push(taxiBrand._id);
+    if (otherStateBrand) hiddenBrandIds.push(otherStateBrand._id);
 
     /// ✅ Mongo Query (FAST ⚡)
     const query =
@@ -139,6 +139,7 @@ export const getONEBrandhideVariants = async (req, res) => {
     });
   }
 };
+
 
 /* =====================================================
    LOAD VEHICLES VARIANTS 🚚
@@ -183,12 +184,13 @@ export const getLoadVehiclesVariants = async (req, res) => {
 };
 
 /* =====================================================
-   TAXI VARIANTS 🚕
+   OTHER STATE VARIANTS 🌏
 ===================================================== */
-export const getTaxiVariants = async (req, res) => {
+export const getOtherStateVariants = async (req, res) => {
   try {
+    /// ✅ Exact Brand Match (NO REGEX / NO BUGS)
     const brand = await Brand.findOne({
-      name: /taxi/i,
+      name: "Other State டெல்லி",
     });
 
     if (!brand) {

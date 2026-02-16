@@ -100,15 +100,22 @@ router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const query = { ...req.query };
 
+    const isAdminUser = req.user?.role === "admin";
+
+    /* ✅ USER → HIDE DRAFT CARS 🔥 */
+    if (!isAdminUser) {
+      query.status = { $ne: "draft" }; 
+      // draft அல்லாதவை மட்டும்
+    }
+
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .populate("variant", "title imageUrl")
       .sort({ createdAt: -1 })
       .lean();
 
-    const isAdminUser = req.user?.role === "admin";
-
     const finalCars = cars.map((car) => {
+      /* ✅ ADMIN → DECRYPT SELLER 🔐 */
       if (
         isAdminUser &&
         typeof car.seller === "string" &&
@@ -133,6 +140,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     });
   }
 });
+
 
 /* =====================================================
    UPDATE CAR (ADMIN)

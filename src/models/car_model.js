@@ -134,7 +134,7 @@ const carSchema = new mongoose.Schema(
 
     bannerImage: {
       type: String,
-      required: true,
+      required: false,
     },
 
     galleryImages: [{ type: String }],

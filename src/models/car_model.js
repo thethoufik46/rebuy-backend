@@ -97,11 +97,12 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    status: {
-      type: String,
-      enum: ["available", "booking", "sold"],
-      default: "draft",
-    },
+ status: {
+  type: String,
+  enum: ["available", "booking", "sold", "draft"], // ✅ ADD THIS
+  default: "draft", // ✅ NOW VALID
+},
+
 
     seller: {
       type: String,

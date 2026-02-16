@@ -36,12 +36,12 @@ const carSchema = new mongoose.Schema(
     variant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Variant",
-      required: false,
+      required: false,   // ✅ OPTIONAL
     },
 
     model: {
       type: String,
-      required: true,
+      required: false,   // ✅ OPTIONAL
       trim: true,
     },
 
@@ -58,13 +58,13 @@ const carSchema = new mongoose.Schema(
 
     km: {
       type: Number,
-      required: true,
+      required: false,   // ✅ OPTIONAL
       min: 0,
     },
 
     color: {
       type: String,
-      required: true,
+      required: false,   // ✅ OPTIONAL
       trim: true,
     },
 
@@ -123,7 +123,7 @@ const carSchema = new mongoose.Schema(
 
     city: {
       type: String,
-      required: true,
+      required: false,   // ✅ OPTIONAL
       trim: true,
     },
 
@@ -138,6 +138,12 @@ const carSchema = new mongoose.Schema(
     },
 
     galleryImages: [{ type: String }],
+
+    /* 🎤 AUDIO NOTE */
+    audioNote: {
+      type: String,
+      required: false,   // ✅ OPTIONAL
+    },
   },
   { timestamps: true }
 );
@@ -163,7 +169,7 @@ carSchema.pre("save", async function (next) {
       this.carId = counter.seq;
     }
 
-    /* 📍 District Validation (CASE-INSENSITIVE SAFE) */
+    /* 📍 District Validation */
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -174,9 +180,11 @@ carSchema.pre("save", async function (next) {
 
     this.district = districtKey;
 
-    /* 🏙️ City Validation */
-    if (!locations[districtKey].includes(this.city)) {
-      throw new Error("City does not belong to district");
+    /* 🏙️ City Validation (ONLY IF CITY PROVIDED) */
+    if (this.city) {
+      if (!locations[districtKey].includes(this.city)) {
+        throw new Error("City does not belong to district");
+      }
     }
 
     next();

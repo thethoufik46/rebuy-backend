@@ -23,27 +23,31 @@ router.post(
   uploadCar.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 }, // ✅ AUDIO
   ]),
   async (req, res) => {
     try {
       const { brand, variant } = req.body;
 
       if (!req.files?.banner) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Banner image required" });
+        return res.status(400).json({
+          success: false,
+          message: "Banner image required",
+        });
       }
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid brand id" });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
+        });
       }
 
       if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid variant id" });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid variant id",
+        });
       }
 
       const bannerImage = await uploadCarImage(
@@ -59,10 +63,20 @@ router.post(
           )
         : [];
 
+      let audioNote = null;
+
+      if (req.files?.audio) {
+        audioNote = await uploadCarImage(
+          req.files.audio[0],
+          "cars/audio"
+        );
+      }
+
       const car = await Car.create({
         ...req.body,
         bannerImage,
         galleryImages,
+        audioNote, // ✅ SAVE AUDIO
       });
 
       res.status(201).json({
@@ -80,67 +94,11 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS (SMART FILTER ENGINE)
+   GET ALL CARS
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
-    const {
-      brand,
-      variant,
-      variantTitle,
-      fuel,
-      transmission,
-      owner,
-      board,
-      district,
-      city,
-      minPrice,
-      maxPrice,
-      minYear,
-      maxYear,
-    } = req.query;
-
-    const query = {};
-
-    if (brand) query.brand = brand;
-    if (fuel) query.fuel = fuel;
-    if (transmission) query.transmission = transmission;
-    if (owner) query.owner = owner;
-    if (board) query.board = board;
-    if (district) query.district = district;
-    if (city) query.city = city;
-
-    if (variant && mongoose.Types.ObjectId.isValid(variant)) {
-      query.variant = variant;
-    }
-
-    if (variantTitle) {
-      const variantDoc = await Variant.findOne({
-        title: { $regex: `^${variantTitle}$`, $options: "i" },
-      }).select("_id");
-
-      if (!variantDoc) {
-        return res.json({
-          success: true,
-          count: 0,
-          cars: [],
-        });
-      }
-
-      query.variant = variantDoc._id;
-    }
-
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
-    }
-
-    if (minYear || maxYear) {
-      query.year = {};
-      if (minYear) query.year.$gte = Number(minYear);
-      if (maxYear) query.year.$lte = Number(maxYear);
-    }
+    const query = { ...req.query };
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
@@ -168,7 +126,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       count: finalCars.length,
       cars: finalCars,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
@@ -186,25 +144,32 @@ router.put(
   uploadCar.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 }, // ✅ AUDIO
   ]),
   async (req, res) => {
     try {
       const car = await Car.findById(req.params.id);
+
       if (!car) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Car not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
       }
 
+      /* ✅ BANNER */
       if (req.files?.banner) {
         await deleteCarImage(car.bannerImage);
+
         car.bannerImage = await uploadCarImage(
           req.files.banner[0],
           "cars/banner"
         );
       }
 
+      /* ✅ GALLERY */
       let existingGallery = [];
+
       if (req.body.existingGallery) {
         try {
           existingGallery = JSON.parse(req.body.existingGallery);
@@ -220,6 +185,7 @@ router.put(
       }
 
       let newGallery = [];
+
       if (req.files?.gallery) {
         newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -229,6 +195,18 @@ router.put(
       }
 
       car.galleryImages = [...existingGallery, ...newGallery];
+
+      /* ✅ AUDIO */
+      if (req.files?.audio) {
+        if (car.audioNote) {
+          await deleteCarImage(car.audioNote);
+        }
+
+        car.audioNote = await uploadCarImage(
+          req.files.audio[0],
+          "cars/audio"
+        );
+      }
 
       const { banner, gallery, existingGallery: eg, ...safeBody } =
         req.body;
@@ -242,7 +220,7 @@ router.put(
         message: "Car updated successfully",
         car,
       });
-    } catch (err) {
+    } catch {
       res.status(500).json({
         success: false,
         message: "Car update failed",
@@ -257,15 +235,22 @@ router.put(
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
+
     if (!car) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Car not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
     }
 
     await deleteCarImage(car.bannerImage);
+
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
+    }
+
+    if (car.audioNote) {
+      await deleteCarImage(car.audioNote); // ✅ DELETE AUDIO
     }
 
     await car.deleteOne();
@@ -274,7 +259,7 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: "Car deleted successfully",
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({
       success: false,
       message: "Delete failed",

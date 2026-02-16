@@ -267,4 +267,81 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
+
+/* =====================================================
+   ✅ USER ADD CAR (DRAFT FLOW 🔥)
+===================================================== */
+router.post(
+  "/user-add",
+  verifyToken,
+  uploadCar.fields([
+    { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const { brand, variant } = req.body;
+
+      if (!mongoose.Types.ObjectId.isValid(brand)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
+        });
+      }
+
+      if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid variant id",
+        });
+      }
+
+      /* ✅ USER → Banner NOT allowed */
+      let bannerImage = null;
+
+      const galleryImages = req.files?.gallery
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadCarImage(img, "cars/gallery")
+            )
+          )
+        : [];
+
+      let audioNote = null;
+
+      if (req.files?.audio) {
+        audioNote = await uploadCarImage(
+          req.files.audio[0],
+          "cars/audio"
+        );
+      }
+
+      const car = await Car.create({
+        ...req.body,
+
+        bannerImage,
+        galleryImages,
+        audioNote,
+
+        /// ✅ IMPORTANT 🔥🔥🔥
+        status: "draft",
+        price: null,          // ✅ Force null
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Car submitted for admin approval",
+        car,
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+);
+
+
 export default router;

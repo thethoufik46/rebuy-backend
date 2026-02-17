@@ -265,6 +265,7 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
 /* =====================================================
    ✅ USER ADD CAR (DRAFT FLOW 🔥)
 ===================================================== */
+
 router.post(
   "/user-add",
   verifyToken,
@@ -276,6 +277,7 @@ router.post(
     try {
       const { brand, variant } = req.body;
 
+      /* ✅ BRAND VALIDATION */
       if (!mongoose.Types.ObjectId.isValid(brand)) {
         return res.status(400).json({
           success: false,
@@ -283,6 +285,7 @@ router.post(
         });
       }
 
+      /* ✅ VARIANT VALIDATION */
       if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
         return res.status(400).json({
           success: false,
@@ -290,6 +293,7 @@ router.post(
         });
       }
 
+      /* ✅ FIND USER FROM TOKEN 🔥 */
       const user = await User.findById(req.user.id);
 
       if (!user) {
@@ -299,6 +303,7 @@ router.post(
         });
       }
 
+      /* ✅ UPLOAD GALLERY */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
@@ -307,6 +312,7 @@ router.post(
           )
         : [];
 
+      /* ✅ UPLOAD AUDIO */
       let audioNote = null;
 
       if (req.files?.audio) {
@@ -316,7 +322,7 @@ router.post(
         );
       }
 
-      /* ✅ CREATE USER LISTING 🔥🔥🔥 */
+      /* ✅ CREATE CAR 🔥🔥🔥 */
       const car = await Car.create({
         ...req.body,
 
@@ -324,9 +330,10 @@ router.post(
         galleryImages,
         audioNote,
 
-        seller: user.phone,    // ✅ AUTO PHONE
-        sellerUser: user._id,  // ✅ LINKED USER
-        createdBy: user._id,   // ✅ OWNER
+        /* 💣 CRITICAL FIX */
+        seller: String(user.phone),   // ✅ ALWAYS STRING 😎🔥
+        sellerUser: user._id,
+        createdBy: user._id,
 
         status: "draft",
         price: null,
@@ -337,7 +344,10 @@ router.post(
         message: "Car submitted for admin approval",
         car,
       });
+
     } catch (err) {
+      console.log("USER ADD ERROR:", err);   // ✅ DEBUG LIFE SAVER 😎
+
       res.status(500).json({
         success: false,
         message: err.message,
@@ -345,28 +355,5 @@ router.post(
     }
   }
 );
-
-/* =====================================================
-   ✅ GET MY CARS
-===================================================== */
-router.get("/my", verifyToken, async (req, res) => {
-  try {
-    const cars = await Car.find({ createdBy: req.user.id })
-      .populate("brand", "name logoUrl")
-      .populate("variant", "title imageUrl")
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: cars.length,
-      cars,
-    });
-  } catch {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch user cars",
-    });
-  }
-});
 
 export default router;

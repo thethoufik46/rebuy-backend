@@ -24,7 +24,7 @@ const carSchema = new mongoose.Schema(
     carId: {
       type: Number,
       unique: true,
-      index: true, 
+      index: true,
     },
 
     /* ✅ LISTING OWNER 🔥 */
@@ -34,11 +34,11 @@ const carSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* ✅ SMART SELLER LINKING 😎🔥 */
+    /* ✅ LINKED USER (OPTIONAL) */
     sellerUser: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // optional (admin listings etc)
+      default: null,
     },
 
     brand: {
@@ -50,12 +50,12 @@ const carSchema = new mongoose.Schema(
     variant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Variant",
-      required: false,
+      default: null,
     },
 
     model: {
       type: String,
-      trim: false,
+      default: null,
     },
 
     year: {
@@ -66,7 +66,7 @@ const carSchema = new mongoose.Schema(
     price: {
       type: Number,
       min: 0,
-      default: null, // ✅ Draft friendly
+      default: null,
     },
 
     km: {
@@ -77,7 +77,7 @@ const carSchema = new mongoose.Schema(
 
     color: {
       type: String,
-      trim: false,
+      default: null,
     },
 
     fuel: {
@@ -106,7 +106,7 @@ const carSchema = new mongoose.Schema(
     insurance: {
       type: String,
       enum: ["comprehensive", "thirdparty", "no insurance"],
-      required: false,
+      default: null,
     },
 
     status: {
@@ -136,12 +136,12 @@ const carSchema = new mongoose.Schema(
 
     city: {
       type: String,
-      trim: true,
+      default: null,
     },
 
     description: {
       type: String,
-      trim: true,
+      default: null,
     },
 
     bannerImage: {
@@ -149,7 +149,10 @@ const carSchema = new mongoose.Schema(
       default: null,
     },
 
-    galleryImages: [{ type: String }],
+    galleryImages: {
+      type: [String],
+      default: [],
+    },
 
     audioNote: {
       type: String,
@@ -164,12 +167,16 @@ const carSchema = new mongoose.Schema(
 ===================================================== */
 carSchema.pre("save", async function (next) {
   try {
-    /* 🔐 Encrypt Seller */
-    if (this.seller && !this.seller.includes(":")) {
-      this.seller = encryptSeller(this.seller);
+    /* 🔐 SELLER SAFETY 💣 */
+    if (this.seller) {
+      this.seller = String(this.seller);   // ✅ Prevent cast errors forever 😎
+
+      if (!this.seller.includes(":")) {
+        this.seller = encryptSeller(this.seller);
+      }
     }
 
-    /* 🔢 Auto Increment Car ID */
+    /* 🔢 AUTO CAR ID */
     if (!this.carId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "carId" },
@@ -180,7 +187,7 @@ carSchema.pre("save", async function (next) {
       this.carId = counter.seq;
     }
 
-    /* 📍 District Validation */
+    /* 📍 DISTRICT VALIDATION */
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -191,7 +198,7 @@ carSchema.pre("save", async function (next) {
 
     this.district = districtKey;
 
-    /* 🏙️ City Validation */
+    /* 🏙️ CITY VALIDATION */
     if (this.city) {
       if (!locations[districtKey].includes(this.city)) {
         throw new Error("City does not belong to district");

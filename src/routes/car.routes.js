@@ -356,4 +356,45 @@ router.post(
   }
 );
 
+
+
+/* =====================================================
+   ✅ GET MY CARS (USER LISTINGS 🔥)
+===================================================== */
+router.get("/my", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const cars = await Car.find({ createdBy: userId })
+      .populate("brand", "name logoUrl")
+      .populate("variant", "title imageUrl")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    /* ✅ NEVER DECRYPT FOR USER 😎 */
+    const safeCars = cars.map((car) => {
+      if (
+        typeof car.seller === "string" &&
+        car.seller.includes(":")
+      ) {
+        car.seller = "**********";  // optional masking
+      }
+      return car;
+    });
+
+    res.json({
+      success: true,
+      count: safeCars.length,
+      cars: safeCars,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user cars",
+    });
+  }
+});
+
+
 export default router;

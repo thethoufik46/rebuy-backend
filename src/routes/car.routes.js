@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
-import Variant from "../models/car_variant_model.js";
+import User from "../models/user_model.js"; // ✅ IMPORTANT
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
@@ -14,7 +14,7 @@ import { decryptSeller } from "../utils/sellerCrypto.js";
 const router = express.Router();
 
 /* =====================================================
-   ADD CAR (ADMIN)
+   ✅ ADD CAR (ADMIN)
 ===================================================== */
 router.post(
   "/add",
@@ -23,7 +23,7 @@ router.post(
   uploadCar.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
-    { name: "audio", maxCount: 1 }, // ✅ AUDIO
+    { name: "audio", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
@@ -50,6 +50,7 @@ router.post(
         });
       }
 
+      /* ✅ Upload Images */
       const bannerImage = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
@@ -72,11 +73,16 @@ router.post(
         );
       }
 
+      /* ✅ CREATE CAR (CRITICAL FIX 🔥) */
       const car = await Car.create({
         ...req.body,
+
         bannerImage,
         galleryImages,
-        audioNote, // ✅ SAVE AUDIO
+        audioNote,
+
+        createdBy: req.user.id, // ✅🔥 OWNER FIX
+        status: "available",     // ✅ Admin listings live
       });
 
       res.status(201).json({
@@ -94,18 +100,16 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL CARS
+   ✅ GET ALL CARS
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const query = { ...req.query };
-
     const isAdminUser = req.user?.role === "admin";
 
-    /* ✅ USER → HIDE DRAFT CARS 🔥 */
+    /* ✅ Hide Draft for Public Users */
     if (!isAdminUser) {
-      query.status = { $ne: "draft" }; 
-      // draft அல்லாதவை மட்டும்
+      query.status = { $ne: "draft" };
     }
 
     const cars = await Car.find(query)
@@ -115,7 +119,6 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       .lean();
 
     const finalCars = cars.map((car) => {
-      /* ✅ ADMIN → DECRYPT SELLER 🔐 */
       if (
         isAdminUser &&
         typeof car.seller === "string" &&
@@ -141,9 +144,8 @@ router.get("/", verifyTokenOptional, async (req, res) => {
   }
 });
 
-
 /* =====================================================
-   UPDATE CAR (ADMIN)
+   ✅ UPDATE CAR (ADMIN)
 ===================================================== */
 router.put(
   "/:id",
@@ -152,7 +154,7 @@ router.put(
   uploadCar.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
-    { name: "audio", maxCount: 1 }, // ✅ AUDIO
+    { name: "audio", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
@@ -165,9 +167,11 @@ router.put(
         });
       }
 
-      /* ✅ BANNER */
+      /* ✅ Banner */
       if (req.files?.banner) {
-        await deleteCarImage(car.bannerImage);
+        if (car.bannerImage) {
+          await deleteCarImage(car.bannerImage);
+        }
 
         car.bannerImage = await uploadCarImage(
           req.files.banner[0],
@@ -175,23 +179,7 @@ router.put(
         );
       }
 
-      /* ✅ GALLERY */
-      let existingGallery = [];
-
-      if (req.body.existingGallery) {
-        try {
-          existingGallery = JSON.parse(req.body.existingGallery);
-        } catch {
-          existingGallery = [];
-        }
-      }
-
-      for (const img of car.galleryImages) {
-        if (!existingGallery.includes(img)) {
-          await deleteCarImage(img);
-        }
-      }
-
+      /* ✅ Gallery */
       let newGallery = [];
 
       if (req.files?.gallery) {
@@ -202,9 +190,9 @@ router.put(
         );
       }
 
-      car.galleryImages = [...existingGallery, ...newGallery];
+      car.galleryImages = [...car.galleryImages, ...newGallery];
 
-      /* ✅ AUDIO */
+      /* ✅ Audio */
       if (req.files?.audio) {
         if (car.audioNote) {
           await deleteCarImage(car.audioNote);
@@ -216,10 +204,7 @@ router.put(
         );
       }
 
-      const { banner, gallery, existingGallery: eg, ...safeBody } =
-        req.body;
-
-      Object.assign(car, safeBody);
+      Object.assign(car, req.body);
 
       await car.save();
 
@@ -238,7 +223,7 @@ router.put(
 );
 
 /* =====================================================
-   DELETE CAR (ADMIN)
+   ✅ DELETE CAR (ADMIN)
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
@@ -251,14 +236,16 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    await deleteCarImage(car.bannerImage);
+    if (car.bannerImage) {
+      await deleteCarImage(car.bannerImage);
+    }
 
     for (const img of car.galleryImages) {
       await deleteCarImage(img);
     }
 
     if (car.audioNote) {
-      await deleteCarImage(car.audioNote); // ✅ DELETE AUDIO
+      await deleteCarImage(car.audioNote);
     }
 
     await car.deleteOne();
@@ -274,8 +261,6 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
     });
   }
 });
-
-
 
 /* =====================================================
    ✅ USER ADD CAR (DRAFT FLOW 🔥)
@@ -305,8 +290,14 @@ router.post(
         });
       }
 
-      /* ✅ USER → Banner NOT allowed */
-      let bannerImage = null;
+      const user = await User.findById(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
 
       const galleryImages = req.files?.gallery
         ? await Promise.all(
@@ -325,16 +316,20 @@ router.post(
         );
       }
 
+      /* ✅ CREATE USER LISTING 🔥🔥🔥 */
       const car = await Car.create({
         ...req.body,
 
-        bannerImage,
+        bannerImage: null,
         galleryImages,
         audioNote,
 
-        /// ✅ IMPORTANT 🔥🔥🔥
+        seller: user.phone,    // ✅ AUTO PHONE
+        sellerUser: user._id,  // ✅ LINKED USER
+        createdBy: user._id,   // ✅ OWNER
+
         status: "draft",
-        price: null,          // ✅ Force null
+        price: null,
       });
 
       res.status(201).json({
@@ -351,5 +346,27 @@ router.post(
   }
 );
 
+/* =====================================================
+   ✅ GET MY CARS
+===================================================== */
+router.get("/my", verifyToken, async (req, res) => {
+  try {
+    const cars = await Car.find({ createdBy: req.user.id })
+      .populate("brand", "name logoUrl")
+      .populate("variant", "title imageUrl")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: cars.length,
+      cars,
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user cars",
+    });
+  }
+});
 
 export default router;

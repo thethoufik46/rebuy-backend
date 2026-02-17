@@ -24,7 +24,21 @@ const carSchema = new mongoose.Schema(
     carId: {
       type: Number,
       unique: true,
-      index: true,
+      index: true, 
+    },
+
+    /* ✅ LISTING OWNER 🔥 */
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    /* ✅ SMART SELLER LINKING 😎🔥 */
+    sellerUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false, // optional (admin listings etc)
     },
 
     brand: {
@@ -36,13 +50,12 @@ const carSchema = new mongoose.Schema(
     variant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Variant",
-      required: false,   // ✅ OPTIONAL
+      required: false,
     },
 
     model: {
       type: String,
-      required: false,   // ✅ OPTIONAL
-      trim: true,
+      trim: false,
     },
 
     year: {
@@ -52,20 +65,19 @@ const carSchema = new mongoose.Schema(
 
     price: {
       type: Number,
-      required: false,
       min: 0,
+      default: null, // ✅ Draft friendly
     },
 
     km: {
       type: Number,
-      required: false,   // ✅ OPTIONAL
       min: 0,
+      default: null,
     },
 
     color: {
       type: String,
-      required: false,   // ✅ OPTIONAL
-      trim: true,
+      trim: false,
     },
 
     fuel: {
@@ -94,16 +106,16 @@ const carSchema = new mongoose.Schema(
     insurance: {
       type: String,
       enum: ["comprehensive", "thirdparty", "no insurance"],
-      required: true,
+      required: false,
     },
 
- status: {
-  type: String,
-  enum: ["available", "booking", "sold", "draft"], // ✅ ADD THIS
-  default: "draft", // ✅ NOW VALID
-},
+    status: {
+      type: String,
+      enum: ["available", "booking", "sold", "draft"],
+      default: "draft",
+    },
 
-
+    /* ✅ DISPLAY CONTACT 🔥 */
     seller: {
       type: String,
       required: true,
@@ -124,7 +136,6 @@ const carSchema = new mongoose.Schema(
 
     city: {
       type: String,
-      required: false,   // ✅ OPTIONAL
       trim: true,
     },
 
@@ -135,15 +146,14 @@ const carSchema = new mongoose.Schema(
 
     bannerImage: {
       type: String,
-      required: false,
+      default: null,
     },
 
     galleryImages: [{ type: String }],
 
-    /* 🎤 AUDIO NOTE */
     audioNote: {
       type: String,
-      required: false,   // ✅ OPTIONAL
+      default: null,
     },
   },
   { timestamps: true }
@@ -181,7 +191,7 @@ carSchema.pre("save", async function (next) {
 
     this.district = districtKey;
 
-    /* 🏙️ City Validation (ONLY IF CITY PROVIDED) */
+    /* 🏙️ City Validation */
     if (this.city) {
       if (!locations[districtKey].includes(this.city)) {
         throw new Error("City does not belong to district");

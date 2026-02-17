@@ -108,9 +108,10 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const isAdminUser = req.user?.role === "admin";
 
     /* ✅ Hide Draft for Public Users */
-    if (!isAdminUser) {
-      query.status = { $ne: "draft" };
-    }
+   if (!isAdminUser) {
+  query.status = { $nin: ["draft", "delete_requested"] };
+}
+
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
@@ -204,7 +205,32 @@ router.put(
         );
       }
 
-      Object.assign(car, req.body);
+const allowedFields = [
+  "brand",
+  "variant",
+  "model",
+  "year",
+  "price",
+  "km",
+  "color",
+  "fuel",
+  "transmission",
+  "owner",
+  "board",
+  "insurance",
+  "status",
+  "sellerinfo",
+  "district",
+  "city",
+  "description",
+];
+
+allowedFields.forEach((field) => {
+  if (req.body[field] !== undefined) {
+    car[field] = req.body[field];
+  }
+});
+
 
       await car.save();
 
@@ -392,6 +418,43 @@ router.get("/my", verifyToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch user cars",
+    });
+  }
+});
+
+/* =====================================================
+   user requst for delete
+===================================================== */
+router.put("/:id/request-delete", verifyToken, async (req, res) => {
+  try {
+    const car = await Car.findById(req.params.id);
+
+    if (!car) {
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
+    }
+
+    /// ✅ Only owner can request delete
+    if (car.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    car.status = "delete_requested"; 
+    await car.save();
+
+    res.json({
+      success: true,
+      message: "Delete request sent",
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Failed to request delete",
     });
   }
 });

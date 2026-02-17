@@ -205,7 +205,32 @@ router.put(
         );
       }
 
-      Object.assign(car, req.body);
+   const allowedFields = [
+  "brand",
+  "variant",
+  "model",
+  "year",
+  "price",
+  "km",
+  "color",
+  "fuel",
+  "transmission",
+  "owner",
+  "board",
+  "insurance",
+  "status",
+  "sellerinfo",
+  "district",
+  "city",
+  "description",
+];
+
+allowedFields.forEach((field) => {
+  if (req.body[field] !== undefined) {
+    car[field] = req.body[field];
+  }
+});
+
 
       await car.save();
 

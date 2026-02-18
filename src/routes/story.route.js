@@ -1,6 +1,6 @@
 import express from "express";
 import { verifyToken } from "../middleware/auth.js";
-import uploadTestimonial from "../middleware/uploadTestimonial.js";
+import upload from "../middleware/uploadTestimonial.js";
 
 import {
   addTestimonial,
@@ -11,40 +11,36 @@ import {
 
 const router = express.Router();
 
-/* =====================================================
-   ADD
-===================================================== */
+/* ===================================================== */
+/* ADD TESTIMONIAL */
 router.post(
   "/add",
   verifyToken,
-  uploadTestimonial.fields([
+  upload.fields([
     { name: "image", maxCount: 1 },
     { name: "video", maxCount: 1 },
   ]),
   addTestimonial
 );
 
-/* =====================================================
-   GET
-===================================================== */
+/* ===================================================== */
+/* GET TESTIMONIALS */
 router.get("/", getTestimonials);
 
-/* =====================================================
-   UPDATE 🔥 FIXED
-===================================================== */
+/* ===================================================== */
+/* UPDATE TESTIMONIAL */
 router.put(
   "/:id",
   verifyToken,
-  uploadTestimonial.fields([
+  upload.fields([
     { name: "image", maxCount: 1 },
     { name: "video", maxCount: 1 },
   ]),
   updateTestimonial
 );
 
-/* =====================================================
-   DELETE
-===================================================== */
+/* ===================================================== */
+/* DELETE TESTIMONIAL */
 router.delete("/:id", verifyToken, deleteTestimonial);
 
 export default router;

@@ -4,9 +4,8 @@ import {
   deleteFileFromR2,
 } from "../utils/testimonialUpload.js";
 
-/* =====================================================
-   ADD TESTIMONIAL
-===================================================== */
+/* ===================================================== */
+/* ✅ ADD TESTIMONIAL */
 export const addTestimonial = async (req, res) => {
   try {
     const { name, description, location, rating, phone } = req.body;
@@ -61,9 +60,8 @@ export const addTestimonial = async (req, res) => {
   }
 };
 
-/* =====================================================
-   GET TESTIMONIALS
-===================================================== */
+/* ===================================================== */
+/* ✅ GET TESTIMONIALS */
 export const getTestimonials = async (req, res) => {
   try {
     const testimonials = await Testimonial.find().sort({
@@ -82,9 +80,8 @@ export const getTestimonials = async (req, res) => {
   }
 };
 
-/* =====================================================
-   UPDATE TESTIMONIAL 🔥 FIXED
-===================================================== */
+/* ===================================================== */
+/* ✅ UPDATE TESTIMONIAL */
 export const updateTestimonial = async (req, res) => {
   try {
     const { id } = req.params;
@@ -99,16 +96,17 @@ export const updateTestimonial = async (req, res) => {
       });
     }
 
-    /// ✅ TEXT FIELDS
     if (name) testimonial.name = name.trim();
     if (description) testimonial.description = description.trim();
     if (location) testimonial.location = location.trim();
     if (rating) testimonial.rating = Number(rating);
     if (phone) testimonial.phone = phone.trim();
 
-    /// ✅ IMAGE UPDATE (OPTIONAL)
+    /* ✅ IMAGE UPDATE */
     if (req.files?.image) {
-      await deleteFileFromR2(testimonial.imageUrl);
+      if (testimonial.imageUrl) {
+        await deleteFileFromR2(testimonial.imageUrl);
+      }
 
       testimonial.imageUrl = await uploadFileToR2(
         req.files.image[0],
@@ -116,9 +114,11 @@ export const updateTestimonial = async (req, res) => {
       );
     }
 
-    /// ✅ VIDEO UPDATE (OPTIONAL)
+    /* ✅ VIDEO UPDATE */
     if (req.files?.video) {
-      await deleteFileFromR2(testimonial.videoUrl);
+      if (testimonial.videoUrl) {
+        await deleteFileFromR2(testimonial.videoUrl);
+      }
 
       testimonial.videoUrl = await uploadFileToR2(
         req.files.video[0],
@@ -140,9 +140,8 @@ export const updateTestimonial = async (req, res) => {
   }
 };
 
-/* =====================================================
-   DELETE TESTIMONIAL
-===================================================== */
+/* ===================================================== */
+/* ✅ DELETE TESTIMONIAL */
 export const deleteTestimonial = async (req, res) => {
   try {
     const { id } = req.params;
@@ -156,8 +155,13 @@ export const deleteTestimonial = async (req, res) => {
       });
     }
 
-    await deleteFileFromR2(testimonial.imageUrl);
-    await deleteFileFromR2(testimonial.videoUrl);
+    if (testimonial.imageUrl) {
+      await deleteFileFromR2(testimonial.imageUrl);
+    }
+
+    if (testimonial.videoUrl) {
+      await deleteFileFromR2(testimonial.videoUrl);
+    }
 
     await testimonial.deleteOne();
 

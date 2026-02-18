@@ -79,6 +79,65 @@ export const getTestimonials = async (req, res) => {
     });
   }
 };
+/* =====================================================
+
+   update TESTIMONIALS
+===================================================== */
+
+export const updateTestimonial = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, location, rating, phone } = req.body;
+
+    const testimonial = await Testimonial.findById(id);
+
+    if (!testimonial) {
+      return res.status(404).json({
+        success: false,
+        message: "Not found",
+      });
+    }
+
+    /// ✅ TEXT FIELDS
+    if (name) testimonial.name = name.trim();
+    if (description) testimonial.description = description.trim();
+    if (location) testimonial.location = location.trim();
+    if (rating) testimonial.rating = Number(rating);
+    if (phone) testimonial.phone = phone.trim();
+
+    /// ✅ IMAGE UPDATE
+    if (req.files?.image) {
+      await deleteFileFromR2(testimonial.imageUrl);
+
+      testimonial.imageUrl = await uploadFileToR2(
+        req.files.image[0],
+        "testimonials/images"
+      );
+    }
+
+    /// ✅ VIDEO UPDATE
+    if (req.files?.video) {
+      await deleteFileFromR2(testimonial.videoUrl);
+
+      testimonial.videoUrl = await uploadFileToR2(
+        req.files.video[0],
+        "testimonials/videos"
+      );
+    }
+
+    await testimonial.save();
+
+    return res.status(200).json({
+      success: true,
+      testimonial,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 /* =====================================================
    DELETE TESTIMONIAL

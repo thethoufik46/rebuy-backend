@@ -1,17 +1,42 @@
 import Testimonial from "../models/testimonial_model.js";
-import cloudinary from "../config/cloudinary.js";
+import {
+  uploadFileToR2,
+  deleteFileFromR2,
+} from "../utils/testimonialUpload.js";
 
-/* =========================
-   🟢 ADD TESTIMONIAL (ADMIN)
-========================= */
+/* =====================================================
+   ADD TESTIMONIAL
+===================================================== */
 export const addTestimonial = async (req, res) => {
   try {
     const { name, description, location, rating, phone } = req.body;
 
-    if (!name || !description || !location || !rating || !phone || !req.files?.image) {
+    if (!name || !description || !location || !rating || !phone) {
       return res.status(400).json({
-        message: "All required fields must be provided",
+        success: false,
+        message: "All fields required",
       });
+    }
+
+    if (!req.files?.image) {
+      return res.status(400).json({
+        success: false,
+        message: "Image required",
+      });
+    }
+
+    const imageUrl = await uploadFileToR2(
+      req.files.image[0],
+      "testimonials/images"
+    );
+
+    let videoUrl = null;
+
+    if (req.files?.video) {
+      videoUrl = await uploadFileToR2(
+        req.files.video[0],
+        "testimonials/videos"
+      );
     }
 
     const testimonial = await Testimonial.create({
@@ -19,137 +44,106 @@ export const addTestimonial = async (req, res) => {
       description: description.trim(),
       location: location.trim(),
       rating: Number(rating),
-      phone,
-      imageUrl: req.files.image[0].path,
-      videoUrl: req.files.video ? req.files.video[0].path : null,
+      phone: phone.trim(),
+      imageUrl,
+      videoUrl,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Testimonial added successfully",
       testimonial,
     });
-  } catch (error) {
-    console.error("Add testimonial error:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-/* =========================
-   🔵 GET TESTIMONIALS (USER)
-========================= */
+/* =====================================================
+   GET TESTIMONIALS
+===================================================== */
 export const getTestimonials = async (req, res) => {
   try {
     const testimonials = await Testimonial.find().sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      count: testimonials.length,
       testimonials,
     });
-  } catch (error) {
-    console.error("Get testimonials error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-/* =========================
-   🟡 UPDATE TESTIMONIAL (ADMIN)
-========================= */
-export const updateTestimonial = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const testimonial = await Testimonial.findById(id);
-    if (!testimonial) {
-      return res.status(404).json({ message: "Testimonial not found" });
-    }
-
-    const { name, description, location, rating, phone } = req.body;
-
-    if (name) testimonial.name = name.trim();
-    if (description) testimonial.description = description.trim();
-    if (location) testimonial.location = location.trim();
-    if (rating) testimonial.rating = Number(rating);
-    if (phone) testimonial.phone = phone;
-
-    // replace image
-    if (req.files?.image) {
-      if (testimonial.imageUrl) {
-        const publicId = testimonial.imageUrl
-          .split("/")
-          .slice(-2)
-          .join("/")
-          .split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
-      }
-      testimonial.imageUrl = req.files.image[0].path;
-    }
-
-    // replace video
-    if (req.files?.video) {
-      if (testimonial.videoUrl) {
-        const publicId = testimonial.videoUrl
-          .split("/")
-          .slice(-2)
-          .join("/")
-          .split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
-      }
-      testimonial.videoUrl = req.files.video[0].path;
-    }
-
-    await testimonial.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Testimonial updated successfully",
-      testimonial,
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
     });
-  } catch (error) {
-    console.error("Update testimonial error:", error);
-    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-/* =========================
-   🔴 DELETE TESTIMONIAL (ADMIN)
-========================= */
+/* =====================================================
+   update TESTIMONIAL
+===================================================== */
+
+export const uploadFileToR2 = async (file, folder) => {
+  if (!file || !file.buffer) {
+    throw new Error("File buffer missing");
+  }
+
+  let ext = "bin";
+
+  if (file.mimetype.startsWith("image/")) {
+    ext = file.mimetype.split("/")[1];
+  } 
+  else if (file.mimetype.startsWith("video/")) {
+    ext = file.mimetype.split("/")[1];
+  }
+
+  const key = `${folder}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}.${ext}`;
+
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    })
+  );
+
+  return `${PUBLIC_URL}/${key}`;
+};
+
+
+/* =====================================================
+   DELETE TESTIMONIAL
+===================================================== */
 export const deleteTestimonial = async (req, res) => {
   try {
     const { id } = req.params;
 
     const testimonial = await Testimonial.findById(id);
+
     if (!testimonial) {
-      return res.status(404).json({ message: "Testimonial not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Not found",
+      });
     }
 
-    if (testimonial.imageUrl) {
-      const publicId = testimonial.imageUrl
-        .split("/")
-        .slice(-2)
-        .join("/")
-        .split(".")[0];
-      await cloudinary.uploader.destroy(publicId);
-    }
-
-    if (testimonial.videoUrl) {
-      const publicId = testimonial.videoUrl
-        .split("/")
-        .slice(-2)
-        .join("/")
-        .split(".")[0];
-      await cloudinary.uploader.destroy(publicId);
-    }
+    await deleteFileFromR2(testimonial.imageUrl);
+    await deleteFileFromR2(testimonial.videoUrl);
 
     await testimonial.deleteOne();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Testimonial deleted successfully",
+      message: "Deleted successfully",
     });
-  } catch (error) {
-    console.error("Delete testimonial error:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };

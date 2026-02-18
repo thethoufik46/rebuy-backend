@@ -20,6 +20,16 @@ router.post(
   addTestimonial
 );
 
+router.put(
+  "/:id",
+  verifyToken,
+  uploadTestimonial.fields([
+    { name: "image", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+  ]),
+  updateTestimonial
+);
+
 router.get("/", getTestimonials);
 
 router.delete("/:id", verifyToken, deleteTestimonial);

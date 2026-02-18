@@ -81,41 +81,6 @@ export const getTestimonials = async (req, res) => {
 };
 
 /* =====================================================
-   update TESTIMONIAL
-===================================================== */
-
-export const uploadFileToR2 = async (file, folder) => {
-  if (!file || !file.buffer) {
-    throw new Error("File buffer missing");
-  }
-
-  let ext = "bin";
-
-  if (file.mimetype.startsWith("image/")) {
-    ext = file.mimetype.split("/")[1];
-  } 
-  else if (file.mimetype.startsWith("video/")) {
-    ext = file.mimetype.split("/")[1];
-  }
-
-  const key = `${folder}/${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}.${ext}`;
-
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    })
-  );
-
-  return `${PUBLIC_URL}/${key}`;
-};
-
-
-/* =====================================================
    DELETE TESTIMONIAL
 ===================================================== */
 export const deleteTestimonial = async (req, res) => {

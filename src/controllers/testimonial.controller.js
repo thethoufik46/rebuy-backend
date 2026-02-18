@@ -66,7 +66,9 @@ export const addTestimonial = async (req, res) => {
 ===================================================== */
 export const getTestimonials = async (req, res) => {
   try {
-    const testimonials = await Testimonial.find().sort({ createdAt: -1 });
+    const testimonials = await Testimonial.find().sort({
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       success: true,
@@ -79,11 +81,10 @@ export const getTestimonials = async (req, res) => {
     });
   }
 };
+
 /* =====================================================
-
-   update TESTIMONIALS
+   UPDATE TESTIMONIAL 🔥 FIXED
 ===================================================== */
-
 export const updateTestimonial = async (req, res) => {
   try {
     const { id } = req.params;
@@ -105,7 +106,7 @@ export const updateTestimonial = async (req, res) => {
     if (rating) testimonial.rating = Number(rating);
     if (phone) testimonial.phone = phone.trim();
 
-    /// ✅ IMAGE UPDATE
+    /// ✅ IMAGE UPDATE (OPTIONAL)
     if (req.files?.image) {
       await deleteFileFromR2(testimonial.imageUrl);
 
@@ -115,7 +116,7 @@ export const updateTestimonial = async (req, res) => {
       );
     }
 
-    /// ✅ VIDEO UPDATE
+    /// ✅ VIDEO UPDATE (OPTIONAL)
     if (req.files?.video) {
       await deleteFileFromR2(testimonial.videoUrl);
 

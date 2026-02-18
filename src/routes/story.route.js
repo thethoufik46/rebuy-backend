@@ -1,32 +1,50 @@
 import express from "express";
 import { verifyToken } from "../middleware/auth.js";
-import uploadStory from "../middleware/uploadStory.js";
+import uploadTestimonial from "../middleware/uploadTestimonial.js";
 
 import {
-  addStory,
-  getStories,
-  updateStory,
-  deleteStory,
-} from "../controllers/story.controller.js";
+  addTestimonial,
+  getTestimonials,
+  updateTestimonial,
+  deleteTestimonial,
+} from "../controllers/testimonial.controller.js";
 
 const router = express.Router();
 
+/* =====================================================
+   ADD
+===================================================== */
 router.post(
   "/add",
   verifyToken,
-  uploadStory.single("media"),   // ✅ CRITICAL
-  addStory
+  uploadTestimonial.fields([
+    { name: "image", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+  ]),
+  addTestimonial
 );
 
-router.get("/", getStories);
+/* =====================================================
+   GET
+===================================================== */
+router.get("/", getTestimonials);
 
+/* =====================================================
+   UPDATE 🔥 FIXED
+===================================================== */
 router.put(
   "/:id",
   verifyToken,
-  uploadStory.single("media"),
-  updateStory
+  uploadTestimonial.fields([
+    { name: "image", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+  ]),
+  updateTestimonial
 );
 
-router.delete("/:id", verifyToken, deleteStory);
+/* =====================================================
+   DELETE
+===================================================== */
+router.delete("/:id", verifyToken, deleteTestimonial);
 
 export default router;

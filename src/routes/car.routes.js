@@ -104,14 +104,79 @@ router.post(
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
-    const query = { ...req.query };
     const isAdminUser = req.user?.role === "admin";
 
-    /* ✅ Hide Draft for Public Users */
-   if (!isAdminUser) {
-  query.status = { $nin: ["draft", "delete_requested"] };
-}
+    const query = {};
 
+    const {
+      brand,
+      variant,
+      fuel,
+      transmission,
+      owner,
+      board,
+      minPrice,
+      maxPrice,
+      minYear,
+      maxYear,
+    } = req.query;
+
+    /* ✅ BRAND */
+    if (brand) {
+      query.brand = brand;
+    }
+
+    /* ✅ VARIANT */
+    if (variant) {
+      query.variant = variant;
+    }
+
+    /* ✅ MULTI FUEL 🔥 */
+    if (fuel) {
+      query.fuel = {
+        $in: fuel.split(",").map((f) => f.toLowerCase()),
+      };
+    }
+
+    /* ✅ MULTI OWNER 🔥 */
+    if (owner) {
+      query.owner = {
+        $in: owner.split(",").map(Number), // ⚠ owner Number in DB
+      };
+    }
+
+    /* ✅ TRANSMISSION */
+    if (transmission) {
+      query.transmission = transmission;
+    }
+
+    /* ✅ BOARD */
+    if (board) {
+      query.board = board;
+    }
+
+    /* ✅ PRICE RANGE 🔥 */
+    if (minPrice || maxPrice) {
+      query.price = {};
+
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    /* ✅ YEAR RANGE 🔥 */
+    if (minYear || maxYear) {
+      query.year = {};
+
+      if (minYear) query.year.$gte = Number(minYear);
+      if (maxYear) query.year.$lte = Number(maxYear);
+    }
+
+    /* ✅ STATUS FILTER */
+    if (!isAdminUser) {
+      query.status = { $nin: ["draft", "delete_requested"] };
+    }
+
+    console.log("FILTER QUERY:", query); // 🔥 DEBUG GOLD
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
@@ -137,7 +202,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       count: finalCars.length,
       cars: finalCars,
     });
-  } catch {
+  } catch (err) {
+    console.log("FILTER ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch cars",

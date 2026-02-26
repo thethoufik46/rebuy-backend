@@ -5,7 +5,7 @@ export const addWatermarkBuffer = async (imageBuffer) => {
   const logoPath = path.join(process.cwd(), "assets/logo.png");
 
   const logoBuffer = await sharp(logoPath)
-    .resize(160)              // 🔥 auto nice size
+    .resize(170)              // 🔥 auto nice size
     .png()
     .toBuffer();
 
@@ -17,6 +17,6 @@ export const addWatermarkBuffer = async (imageBuffer) => {
         blend: "over",
       },
     ])
-    .jpeg({ quality: 90 })
+    .jpeg({ quality: 100 })
     .toBuffer();
 };

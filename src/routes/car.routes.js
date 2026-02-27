@@ -195,8 +195,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 
 
 /* =====================================================
-   ✅ UPDATE CAR (ADMIN - FULL PRODUCTION SAFE)
+   ✅ UPDATE CAR (ADMIN - FINAL SAFE VERSION)
 ===================================================== */
+
 router.put(
   "/:id",
   verifyToken,
@@ -219,9 +220,9 @@ router.put(
       }
 
       /* =====================================================
-         ✅ BANNER UPDATE (REPLACE)
+         ✅ BANNER UPDATE (REPLACE SAFE)
       ===================================================== */
-      if (req.files?.banner) {
+      if (req.files?.banner?.length) {
         if (car.bannerImage) {
           await deleteCarImage(car.bannerImage);
         }
@@ -233,50 +234,53 @@ router.put(
       }
 
       /* =====================================================
-         ✅ GALLERY UPDATE (DELETE + APPEND)
+         ✅ GALLERY UPDATE (SAFE DELETE + APPEND)
       ===================================================== */
 
-      // 1️⃣ Handle Existing Gallery (Delete removed images)
       if (req.body.existingGallery !== undefined) {
-        let existingGallery = [];
+        let existingGallery;
 
-        if (Array.isArray(req.body.existingGallery)) {
-          existingGallery = req.body.existingGallery;
-        } else {
-          try {
-            existingGallery = JSON.parse(req.body.existingGallery);
-          } catch {
-            existingGallery = [];
+        try {
+          existingGallery = Array.isArray(req.body.existingGallery)
+            ? req.body.existingGallery
+            : JSON.parse(req.body.existingGallery);
+        } catch (err) {
+          // 🔥 If parsing fails, DO NOT DELETE anything
+          existingGallery = car.galleryImages || [];
+        }
+
+        if (Array.isArray(existingGallery)) {
+          // Delete only removed images
+          const imagesToDelete = (car.galleryImages || []).filter(
+            (img) => !existingGallery.includes(img)
+          );
+
+          for (const img of imagesToDelete) {
+            await deleteCarImage(img);
           }
+
+          car.galleryImages = existingGallery;
         }
-
-        // Find images to delete
-        const imagesToDelete = car.galleryImages.filter(
-          (img) => !existingGallery.includes(img)
-        );
-
-        for (const img of imagesToDelete) {
-          await deleteCarImage(img);
-        }
-
-        car.galleryImages = existingGallery;
       }
 
-      // 2️⃣ Handle New Gallery Upload
-      if (req.files?.gallery) {
+      // Append new gallery images
+      if (req.files?.gallery?.length) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
             uploadCarImage(img, "cars/gallery")
           )
         );
 
-        car.galleryImages = [...car.galleryImages, ...newGallery];
+        car.galleryImages = [
+          ...(car.galleryImages || []),
+          ...newGallery,
+        ];
       }
 
       /* =====================================================
-         ✅ AUDIO UPDATE (REPLACE)
+         ✅ AUDIO UPDATE (REPLACE SAFE)
       ===================================================== */
-      if (req.files?.audio) {
+      if (req.files?.audio?.length) {
         if (car.audioNote) {
           await deleteCarImage(car.audioNote);
         }
@@ -288,43 +292,45 @@ router.put(
       }
 
       /* =====================================================
-         ✅ VIDEO UPDATE (DELETE + APPEND)
+         ✅ VIDEO UPDATE (SAFE DELETE + APPEND)
       ===================================================== */
 
-      // 1️⃣ Handle Existing Videos (Delete removed videos)
       if (req.body.existingVideos !== undefined) {
-        let existingVideos = [];
+        let existingVideos;
 
-        if (Array.isArray(req.body.existingVideos)) {
-          existingVideos = req.body.existingVideos;
-        } else {
-          try {
-            existingVideos = JSON.parse(req.body.existingVideos);
-          } catch {
-            existingVideos = [];
+        try {
+          existingVideos = Array.isArray(req.body.existingVideos)
+            ? req.body.existingVideos
+            : JSON.parse(req.body.existingVideos);
+        } catch (err) {
+          existingVideos = car.videos || [];
+        }
+
+        if (Array.isArray(existingVideos)) {
+          const videosToDelete = (car.videos || []).filter(
+            (vid) => !existingVideos.includes(vid)
+          );
+
+          for (const vid of videosToDelete) {
+            await deleteCarImage(vid);
           }
+
+          car.videos = existingVideos;
         }
-
-        const videosToDelete = (car.videos || []).filter(
-          (vid) => !existingVideos.includes(vid)
-        );
-
-        for (const vid of videosToDelete) {
-          await deleteCarImage(vid);
-        }
-
-        car.videos = existingVideos;
       }
 
-      // 2️⃣ Handle New Video Upload
-      if (req.files?.video) {
+      // Append new videos
+      if (req.files?.video?.length) {
         const newVideos = await Promise.all(
           req.files.video.map((vid) =>
             uploadCarImage(vid, "cars/videos")
           )
         );
 
-        car.videos = [...(car.videos || []), ...newVideos];
+        car.videos = [
+          ...(car.videos || []),
+          ...newVideos,
+        ];
       }
 
       /* =====================================================

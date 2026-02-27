@@ -193,8 +193,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
   }
 });
 
+
 /* =====================================================
-   ✅ UPDATE CAR (ADMIN)
+   ✅ UPDATE CAR (ADMIN - FULL PRODUCTION SAFE)
 ===================================================== */
 router.put(
   "/:id",
@@ -204,7 +205,7 @@ router.put(
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
     { name: "audio", maxCount: 1 },
-    { name: "video", maxCount: 5 }, // ✅ NEW
+    { name: "video", maxCount: 5 },
   ]),
   async (req, res) => {
     try {
@@ -218,7 +219,7 @@ router.put(
       }
 
       /* =====================================================
-         ✅ BANNER UPDATE
+         ✅ BANNER UPDATE (REPLACE)
       ===================================================== */
       if (req.files?.banner) {
         if (car.bannerImage) {
@@ -232,8 +233,36 @@ router.put(
       }
 
       /* =====================================================
-         ✅ GALLERY UPDATE (APPEND)
+         ✅ GALLERY UPDATE (DELETE + APPEND)
       ===================================================== */
+
+      // 1️⃣ Handle Existing Gallery (Delete removed images)
+      if (req.body.existingGallery !== undefined) {
+        let existingGallery = [];
+
+        if (Array.isArray(req.body.existingGallery)) {
+          existingGallery = req.body.existingGallery;
+        } else {
+          try {
+            existingGallery = JSON.parse(req.body.existingGallery);
+          } catch {
+            existingGallery = [];
+          }
+        }
+
+        // Find images to delete
+        const imagesToDelete = car.galleryImages.filter(
+          (img) => !existingGallery.includes(img)
+        );
+
+        for (const img of imagesToDelete) {
+          await deleteCarImage(img);
+        }
+
+        car.galleryImages = existingGallery;
+      }
+
+      // 2️⃣ Handle New Gallery Upload
       if (req.files?.gallery) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -259,8 +288,35 @@ router.put(
       }
 
       /* =====================================================
-         ✅ VIDEO UPLOAD UPDATE (APPEND)
+         ✅ VIDEO UPDATE (DELETE + APPEND)
       ===================================================== */
+
+      // 1️⃣ Handle Existing Videos (Delete removed videos)
+      if (req.body.existingVideos !== undefined) {
+        let existingVideos = [];
+
+        if (Array.isArray(req.body.existingVideos)) {
+          existingVideos = req.body.existingVideos;
+        } else {
+          try {
+            existingVideos = JSON.parse(req.body.existingVideos);
+          } catch {
+            existingVideos = [];
+          }
+        }
+
+        const videosToDelete = (car.videos || []).filter(
+          (vid) => !existingVideos.includes(vid)
+        );
+
+        for (const vid of videosToDelete) {
+          await deleteCarImage(vid);
+        }
+
+        car.videos = existingVideos;
+      }
+
+      // 2️⃣ Handle New Video Upload
       if (req.files?.video) {
         const newVideos = await Promise.all(
           req.files.video.map((vid) =>
@@ -268,11 +324,11 @@ router.put(
           )
         );
 
-        car.videos = [...car.videos, ...newVideos];
+        car.videos = [...(car.videos || []), ...newVideos];
       }
 
       /* =====================================================
-         ✅ EXTERNAL VIDEO LINK UPDATE
+         ✅ VIDEO LINK UPDATE
       ===================================================== */
       if (req.body.videoLink !== undefined) {
         car.videoLink = req.body.videoLink || null;
@@ -324,6 +380,7 @@ router.put(
     }
   }
 );
+
 
 /* =====================================================
    ✅ DELETE CAR (ADMIN)

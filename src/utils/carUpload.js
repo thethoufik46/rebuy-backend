@@ -6,48 +6,71 @@ const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 /* =====================================================
-   UPLOAD CAR IMAGE
-   ✅ Gallery → Watermark
-   ✅ Banner → Clean
+   ✅ UPLOAD CAR MEDIA
+   - Gallery Images → Watermark
+   - Banner → Clean
+   - Audio → Clean
+   - Video → Clean
 ===================================================== */
 export const uploadCarImage = async (file, folder) => {
-  const ext = file.mimetype.split("/")[1] || "jpg";
+  try {
+    if (!file || !file.buffer) {
+      throw new Error("Invalid file upload");
+    }
 
-  const key = `${folder}/${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}.${ext}`;
+    const mimeParts = file.mimetype.split("/");
+    const ext = mimeParts[1] || "jpg";
 
-  let bufferToUpload = file.buffer;
+    const key = `${folder}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
 
-  /* ✅ APPLY WATERMARK ONLY FOR GALLERY */
-  if (folder.includes("gallery")) {
-    bufferToUpload = await addWatermarkBuffer(file.buffer);
+    let bufferToUpload = file.buffer;
+
+    /* =====================================================
+       ✅ APPLY WATERMARK ONLY FOR GALLERY IMAGES
+    ===================================================== */
+    if (
+      folder.includes("gallery") &&
+      file.mimetype.startsWith("image/")
+    ) {
+      bufferToUpload = await addWatermarkBuffer(file.buffer);
+    }
+
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: bufferToUpload,
+        ContentType: file.mimetype,
+      })
+    );
+
+    return `${PUBLIC_URL}/${key}`;
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err.message);
+    throw new Error("File upload failed");
   }
-
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: bufferToUpload,
-      ContentType: file.mimetype,
-    })
-  );
-
-  return `${PUBLIC_URL}/${key}`;
 };
 
 /* =====================================================
-   DELETE IMAGE
+   ✅ DELETE MEDIA FROM R2
 ===================================================== */
 export const deleteCarImage = async (url) => {
-  if (!url) return;
+  try {
+    if (!url || !url.startsWith(PUBLIC_URL)) return;
 
-  const key = url.replace(`${PUBLIC_URL}/`, "");
+    const key = url.replace(`${PUBLIC_URL}/`, "");
 
-  await r2.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    })
-  );
+    if (!key) return;
+
+    await r2.send(
+      new DeleteObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+      })
+    );
+  } catch (err) {
+    console.error("DELETE ERROR:", err.message);
+  }
 };

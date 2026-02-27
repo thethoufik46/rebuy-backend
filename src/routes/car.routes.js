@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../models/car_model.js";
-import User from "../models/user_model.js"; // ✅ IMPORTANT
+import User from "../models/user_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadCar from "../middleware/uploadCar.js";
@@ -24,10 +24,11 @@ router.post(
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
     { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 }, // ✅ NEW
   ]),
   async (req, res) => {
     try {
-      const { brand, variant } = req.body;
+      const { brand, variant, videoLink } = req.body;
 
       if (!req.files?.banner) {
         return res.status(400).json({
@@ -50,13 +51,14 @@ router.post(
         });
       }
 
-      /* ✅ Upload Images */
+      /* Upload Banner */
       const bannerImage = await uploadCarImage(
         req.files.banner[0],
         "cars/banner"
       );
 
-      const galleryImages = req.files.gallery
+      /* Upload Gallery */
+      const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
               uploadCarImage(img, "cars/gallery")
@@ -64,8 +66,8 @@ router.post(
           )
         : [];
 
+      /* Upload Audio */
       let audioNote = null;
-
       if (req.files?.audio) {
         audioNote = await uploadCarImage(
           req.files.audio[0],
@@ -73,16 +75,24 @@ router.post(
         );
       }
 
-      /* ✅ CREATE CAR (CRITICAL FIX 🔥) */
+      /* Upload Videos */
+      const videos = req.files?.video
+        ? await Promise.all(
+            req.files.video.map((vid) =>
+              uploadCarImage(vid, "cars/videos")
+            )
+          )
+        : [];
+
       const car = await Car.create({
         ...req.body,
-
         bannerImage,
         galleryImages,
         audioNote,
-
-        createdBy: req.user.id, // ✅🔥 OWNER FIX
-        status: "available",     // ✅ Admin listings live
+        videos,
+        videoLink: videoLink || null,
+        createdBy: req.user.id,
+        status: "available",
       });
 
       res.status(201).json({
@@ -99,13 +109,13 @@ router.post(
   }
 );
 
+
 /* =====================================================
    ✅ GET ALL CARS
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const isAdminUser = req.user?.role === "admin";
-
     const query = {};
 
     const {
@@ -121,62 +131,35 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       maxYear,
     } = req.query;
 
-    /* ✅ BRAND */
-    if (brand) {
-      query.brand = brand;
-    }
+    if (brand) query.brand = brand;
+    if (variant) query.variant = variant;
 
-    /* ✅ VARIANT */
-    if (variant) {
-      query.variant = variant;
-    }
-
-    /* ✅ MULTI FUEL 🔥 */
     if (fuel) {
-      query.fuel = {
-        $in: fuel.split(",").map((f) => f.toLowerCase()),
-      };
+      query.fuel = { $in: fuel.split(",").map(f => f.toLowerCase()) };
     }
 
-    /* ✅ MULTI OWNER 🔥 */
     if (owner) {
-      query.owner = {
-        $in: owner.split(",").map(Number), // ⚠ owner Number in DB
-      };
+      query.owner = { $in: owner.split(",").map(Number) };
     }
 
-    /* ✅ TRANSMISSION */
-    if (transmission) {
-      query.transmission = transmission;
-    }
+    if (transmission) query.transmission = transmission;
+    if (board) query.board = board;
 
-    /* ✅ BOARD */
-    if (board) {
-      query.board = board;
-    }
-
-    /* ✅ PRICE RANGE 🔥 */
     if (minPrice || maxPrice) {
       query.price = {};
-
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    /* ✅ YEAR RANGE 🔥 */
     if (minYear || maxYear) {
       query.year = {};
-
       if (minYear) query.year.$gte = Number(minYear);
       if (maxYear) query.year.$lte = Number(maxYear);
     }
 
-    /* ✅ STATUS FILTER */
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
-
-    console.log("FILTER QUERY:", query); // 🔥 DEBUG GOLD
 
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
@@ -202,9 +185,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       count: finalCars.length,
       cars: finalCars,
     });
-  } catch (err) {
-    console.log("FILTER ERROR:", err);
-
+  } catch {
     res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
@@ -223,6 +204,7 @@ router.put(
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
     { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 }, // ✅ NEW
   ]),
   async (req, res) => {
     try {
@@ -235,7 +217,9 @@ router.put(
         });
       }
 
-      /* ✅ Banner */
+      /* =====================================================
+         ✅ BANNER UPDATE
+      ===================================================== */
       if (req.files?.banner) {
         if (car.bannerImage) {
           await deleteCarImage(car.bannerImage);
@@ -247,20 +231,22 @@ router.put(
         );
       }
 
-      /* ✅ Gallery */
-      let newGallery = [];
-
+      /* =====================================================
+         ✅ GALLERY UPDATE (APPEND)
+      ===================================================== */
       if (req.files?.gallery) {
-        newGallery = await Promise.all(
+        const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
             uploadCarImage(img, "cars/gallery")
           )
         );
+
+        car.galleryImages = [...car.galleryImages, ...newGallery];
       }
 
-      car.galleryImages = [...car.galleryImages, ...newGallery];
-
-      /* ✅ Audio */
+      /* =====================================================
+         ✅ AUDIO UPDATE (REPLACE)
+      ===================================================== */
       if (req.files?.audio) {
         if (car.audioNote) {
           await deleteCarImage(car.audioNote);
@@ -272,32 +258,54 @@ router.put(
         );
       }
 
-   const allowedFields = [
-  "brand",
-  "variant",
-  "model",
-  "year",
-  "price",
-  "km",
-  "color",
-  "fuel",
-  "transmission",
-  "owner",
-  "board",
-  "insurance",
-  "status",
-  "sellerinfo",
-  "district",
-  "city",
-  "description",
-];
+      /* =====================================================
+         ✅ VIDEO UPLOAD UPDATE (APPEND)
+      ===================================================== */
+      if (req.files?.video) {
+        const newVideos = await Promise.all(
+          req.files.video.map((vid) =>
+            uploadCarImage(vid, "cars/videos")
+          )
+        );
 
-allowedFields.forEach((field) => {
-  if (req.body[field] !== undefined) {
-    car[field] = req.body[field];
-  }
-});
+        car.videos = [...car.videos, ...newVideos];
+      }
 
+      /* =====================================================
+         ✅ EXTERNAL VIDEO LINK UPDATE
+      ===================================================== */
+      if (req.body.videoLink !== undefined) {
+        car.videoLink = req.body.videoLink || null;
+      }
+
+      /* =====================================================
+         ✅ SAFE FIELD UPDATE
+      ===================================================== */
+      const allowedFields = [
+        "brand",
+        "variant",
+        "model",
+        "year",
+        "price",
+        "km",
+        "color",
+        "fuel",
+        "transmission",
+        "owner",
+        "board",
+        "insurance",
+        "status",
+        "sellerinfo",
+        "district",
+        "city",
+        "description",
+      ];
+
+      allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          car[field] = req.body[field];
+        }
+      });
 
       await car.save();
 
@@ -306,7 +314,9 @@ allowedFields.forEach((field) => {
         message: "Car updated successfully",
         car,
       });
-    } catch {
+
+    } catch (err) {
+      console.log("UPDATE ERROR:", err);
       res.status(500).json({
         success: false,
         message: "Car update failed",
@@ -329,25 +339,51 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
+    /* =====================================================
+       ✅ DELETE BANNER
+    ===================================================== */
     if (car.bannerImage) {
       await deleteCarImage(car.bannerImage);
     }
 
-    for (const img of car.galleryImages) {
-      await deleteCarImage(img);
+    /* =====================================================
+       ✅ DELETE GALLERY IMAGES
+    ===================================================== */
+    if (car.galleryImages && car.galleryImages.length > 0) {
+      for (const img of car.galleryImages) {
+        await deleteCarImage(img);
+      }
     }
 
+    /* =====================================================
+       ✅ DELETE AUDIO
+    ===================================================== */
     if (car.audioNote) {
       await deleteCarImage(car.audioNote);
     }
 
+    /* =====================================================
+       ✅ DELETE UPLOADED VIDEOS
+    ===================================================== */
+    if (car.videos && car.videos.length > 0) {
+      for (const vid of car.videos) {
+        await deleteCarImage(vid);
+      }
+    }
+
+    /* =====================================================
+       ✅ DELETE DOCUMENT
+    ===================================================== */
     await car.deleteOne();
 
     res.json({
       success: true,
       message: "Car deleted successfully",
     });
-  } catch {
+
+  } catch (err) {
+    console.log("DELETE ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Delete failed",
@@ -355,22 +391,26 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
+
 /* =====================================================
    ✅ USER ADD CAR (DRAFT FLOW 🔥)
 ===================================================== */
-
 router.post(
   "/user-add",
   verifyToken,
   uploadCar.fields([
     { name: "gallery", maxCount: 10 },
     { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 3 }, // ✅ NEW
   ]),
   async (req, res) => {
     try {
-      const { brand, variant } = req.body;
+      const { brand, variant, videoLink } = req.body;
 
-      /* ✅ BRAND VALIDATION */
+      /* ==============================
+         ✅ BRAND VALIDATION
+      ============================== */
       if (!mongoose.Types.ObjectId.isValid(brand)) {
         return res.status(400).json({
           success: false,
@@ -378,7 +418,6 @@ router.post(
         });
       }
 
-      /* ✅ VARIANT VALIDATION */
       if (variant && !mongoose.Types.ObjectId.isValid(variant)) {
         return res.status(400).json({
           success: false,
@@ -386,7 +425,9 @@ router.post(
         });
       }
 
-      /* ✅ FIND USER FROM TOKEN 🔥 */
+      /* ==============================
+         ✅ FIND USER
+      ============================== */
       const user = await User.findById(req.user.id);
 
       if (!user) {
@@ -396,7 +437,9 @@ router.post(
         });
       }
 
-      /* ✅ UPLOAD GALLERY */
+      /* ==============================
+         ✅ UPLOAD GALLERY
+      ============================== */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
@@ -405,7 +448,9 @@ router.post(
           )
         : [];
 
-      /* ✅ UPLOAD AUDIO */
+      /* ==============================
+         ✅ UPLOAD AUDIO
+      ============================== */
       let audioNote = null;
 
       if (req.files?.audio) {
@@ -415,16 +460,30 @@ router.post(
         );
       }
 
-      /* ✅ CREATE CAR 🔥🔥🔥 */
+      /* ==============================
+         ✅ UPLOAD VIDEOS
+      ============================== */
+      const videos = req.files?.video
+        ? await Promise.all(
+            req.files.video.map((vid) =>
+              uploadCarImage(vid, "cars/videos")
+            )
+          )
+        : [];
+
+      /* ==============================
+         ✅ CREATE CAR
+      ============================== */
       const car = await Car.create({
         ...req.body,
 
         bannerImage: null,
         galleryImages,
         audioNote,
+        videos,
+        videoLink: videoLink || null,
 
-        /* 💣 CRITICAL FIX */
-        seller: String(user.phone),   // ✅ ALWAYS STRING 😎🔥
+        seller: String(user.phone), // 🔥 Always string
         sellerUser: user._id,
         createdBy: user._id,
 
@@ -439,7 +498,7 @@ router.post(
       });
 
     } catch (err) {
-      console.log("USER ADD ERROR:", err);   // ✅ DEBUG LIFE SAVER 😎
+      console.log("USER ADD ERROR:", err);
 
       res.status(500).json({
         success: false,
@@ -448,8 +507,6 @@ router.post(
     }
   }
 );
-
-
 
 /* =====================================================
    ✅ GET MY CARS (USER LISTINGS 🔥)
@@ -464,13 +521,15 @@ router.get("/my", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    /* ✅ NEVER DECRYPT FOR USER 😎 */
+    /* ==============================
+       ✅ MASK SELLER FOR USER VIEW
+    ============================== */
     const safeCars = cars.map((car) => {
       if (
         typeof car.seller === "string" &&
         car.seller.includes(":")
       ) {
-        car.seller = "**********";  // optional masking
+        car.seller = "**********";
       }
       return car;
     });
@@ -490,7 +549,7 @@ router.get("/my", verifyToken, async (req, res) => {
 });
 
 /* =====================================================
-   user requst for delete
+   ✅ USER REQUEST DELETE
 ===================================================== */
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {
@@ -503,7 +562,9 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
       });
     }
 
-    /// ✅ Only owner can request delete
+    /* ==============================
+       ✅ ONLY OWNER CAN REQUEST
+    ============================== */
     if (car.createdBy.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
@@ -511,20 +572,20 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
       });
     }
 
-    car.status = "delete_requested"; 
+    car.status = "delete_requested";
     await car.save();
 
     res.json({
       success: true,
       message: "Delete request sent",
     });
-  } catch {
+
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "Failed to request delete",
     });
   }
 });
-
 
 export default router;

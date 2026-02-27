@@ -109,17 +109,17 @@ const carSchema = new mongoose.Schema(
       default: null,
     },
 
- status: {
-  type: String,
-  enum: [
-    "available",
-    "booking",
-    "sold",
-    "draft",
-    "delete_requested"   // ✅🔥 NEW
-  ],
-  default: "draft",
-},
+    status: {
+      type: String,
+      enum: [
+        "available",
+        "booking",
+        "sold",
+        "draft",
+        "delete_requested"   // ✅🔥 NEW
+      ],
+      default: "draft",
+    },
 
 
     /* ✅ DISPLAY CONTACT 🔥 */
@@ -165,6 +165,23 @@ const carSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    audioNote: {
+      type: String,
+      default: null,
+    },
+
+    videos: {
+      type: [String],
+      default: [],
+    },
+
+    /* 🎥 CAR VIDEO */
+    videoLink: {
+      type: String,
+      default: null,
+    },
+    
   },
   { timestamps: true }
 );

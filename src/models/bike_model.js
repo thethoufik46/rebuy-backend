@@ -27,6 +27,20 @@ const bikeSchema = new mongoose.Schema(
       index: true,
     },
 
+    /* ✅ LISTING OWNER */
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    /* ✅ LINKED USER (OPTIONAL) */
+    sellerUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "BikeBrand",
@@ -35,8 +49,8 @@ const bikeSchema = new mongoose.Schema(
 
     model: {
       type: String,
-      required: true,
       trim: true,
+      required: true,
     },
 
     year: {
@@ -46,14 +60,14 @@ const bikeSchema = new mongoose.Schema(
 
     price: {
       type: Number,
-      required: true,
       min: 0,
+      default: null,
     },
 
     km: {
       type: Number,
-      required: true,
       min: 0,
+      default: null,
     },
 
     owner: {
@@ -61,12 +75,25 @@ const bikeSchema = new mongoose.Schema(
       required: true,
     },
 
-    status: {
+    insurance: {
       type: String,
-      enum: ["available", "booking", "sold"],
-      default: "available",
+      enum: ["comprehensive", "thirdparty", "no insurance"],
+      default: null,
     },
 
+    status: {
+      type: String,
+      enum: [
+        "available",
+        "booking",
+        "sold",
+        "draft",
+        "delete_requested"
+      ],
+      default: "draft",
+    },
+
+    /* ✅ DISPLAY CONTACT */
     seller: {
       type: String,
       required: true,
@@ -87,21 +114,41 @@ const bikeSchema = new mongoose.Schema(
 
     city: {
       type: String,
-      required: true,
-      trim: true,
+      default: null,
     },
 
     description: {
       type: String,
-      trim: true,
+      default: null,
     },
 
     bannerImage: {
       type: String,
-      required: true,
+      default: null,
     },
 
-    galleryImages: [{ type: String }],
+    galleryImages: {
+      type: [String],
+      default: [],
+    },
+
+    /* 🎙️ AUDIO NOTE */
+    audioNote: {
+      type: String,
+      default: null,
+    },
+
+    /* 🎥 MULTIPLE VIDEOS */
+    videos: {
+      type: [String],
+      default: [],
+    },
+
+    /* 🎥 EXTERNAL VIDEO LINK */
+    videoLink: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -111,12 +158,16 @@ const bikeSchema = new mongoose.Schema(
 ===================================================== */
 bikeSchema.pre("save", async function (next) {
   try {
-    /* 🔐 Encrypt Seller */
-    if (this.seller && !this.seller.includes(":")) {
-      this.seller = encryptSeller(this.seller);
+    /* 🔐 SELLER ENCRYPTION */
+    if (this.seller) {
+      this.seller = String(this.seller);
+
+      if (!this.seller.includes(":")) {
+        this.seller = encryptSeller(this.seller);
+      }
     }
 
-    /* 🔢 Auto Increment Bike ID */
+    /* 🔢 AUTO BIKE ID */
     if (!this.bikeId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "bikeId" },
@@ -127,7 +178,7 @@ bikeSchema.pre("save", async function (next) {
       this.bikeId = counter.seq;
     }
 
-    /* 📍 District Validation */
+    /* 📍 DISTRICT VALIDATION */
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -138,9 +189,11 @@ bikeSchema.pre("save", async function (next) {
 
     this.district = districtKey;
 
-    /* 🏙️ City Validation */
-    if (!locations[districtKey].includes(this.city)) {
-      throw new Error("City does not belong to district");
+    /* 🏙️ CITY VALIDATION */
+    if (this.city) {
+      if (!locations[districtKey].includes(this.city)) {
+        throw new Error("City does not belong to district");
+      }
     }
 
     next();
@@ -153,13 +206,11 @@ bikeSchema.pre("save", async function (next) {
    INDEXES
 ===================================================== */
 bikeSchema.index({ brand: 1 });
-bikeSchema.index({ model: 1 });
 bikeSchema.index({ price: 1 });
 bikeSchema.index({ year: 1 });
 bikeSchema.index({ status: 1 });
-bikeSchema.index({ seller: 1 });
-bikeSchema.index({ sellerinfo: 1 });
 bikeSchema.index({ district: 1 });
 bikeSchema.index({ city: 1 });
+bikeSchema.index({ createdBy: 1 });
 
 export default mongoose.model("Bike", bikeSchema);

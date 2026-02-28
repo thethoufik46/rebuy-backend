@@ -5,10 +5,12 @@ import User from "../models/user_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
 import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadBike from "../middleware/uploadBike.js";
+
 import {
-  uploadCarImage,
-  deleteCarImage,
-} from "../utils/carUpload.js";
+  uploadBikeImage,
+  deleteBikeImage,
+} from "../utils/bikeUpload.js";
+
 import { decryptSeller } from "../utils/sellerCrypto.js";
 
 const router = express.Router();
@@ -44,31 +46,35 @@ router.post(
         });
       }
 
-      const bannerImage = await uploadCarImage(
+      /* ========= Upload Banner ========= */
+      const bannerImage = await uploadBikeImage(
         req.files.banner[0],
         "bikes/banner"
       );
 
+      /* ========= Upload Gallery ========= */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
-              uploadCarImage(img, "bikes/gallery")
+              uploadBikeImage(img, "bikes/gallery")
             )
           )
         : [];
 
+      /* ========= Upload Audio ========= */
       let audioNote = null;
       if (req.files?.audio) {
-        audioNote = await uploadCarImage(
+        audioNote = await uploadBikeImage(
           req.files.audio[0],
           "bikes/audio"
         );
       }
 
+      /* ========= Upload Videos ========= */
       const videos = req.files?.video
         ? await Promise.all(
             req.files.video.map((vid) =>
-              uploadCarImage(vid, "bikes/videos")
+              uploadBikeImage(vid, "bikes/videos")
             )
           )
         : [];
@@ -101,6 +107,9 @@ router.post(
 /* =====================================================
    ✅ GET ALL BIKES
 ===================================================== */
+/* =====================================================
+   ✅ GET ALL BIKES
+===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const isAdminUser = req.user?.role === "admin";
@@ -118,8 +127,18 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       maxYear,
     } = req.query;
 
+    /* ===============================
+       🔎 FILTERS
+    =============================== */
+
     if (brand) query.brand = brand;
-    if (owner) query.owner = { $in: owner.split(",") };
+
+    if (owner) {
+      query.owner = {
+        $in: owner.split(","),
+      };
+    }
+
     if (insurance) query.insurance = insurance;
     if (district) query.district = district;
     if (city) query.city = city;
@@ -136,17 +155,30 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       if (maxYear) query.year.$lte = Number(maxYear);
     }
 
+    /* ===============================
+       🚫 HIDE DRAFT FOR USERS
+    =============================== */
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
 
+    /* ===============================
+       📦 FETCH DATA
+    =============================== */
     const bikes = await Bike.find(query)
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 })
       .lean();
 
+    /* ===============================
+       🔐 DECRYPT SELLER (ADMIN ONLY)
+    =============================== */
     const finalBikes = bikes.map((bike) => {
-      if (isAdminUser && bike.seller) {
+      if (
+        isAdminUser &&
+        typeof bike.seller === "string" &&
+        bike.seller.includes(":")
+      ) {
         try {
           bike.seller = decryptSeller(bike.seller);
         } catch (_) {}
@@ -154,6 +186,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       return bike;
     });
 
+    /* ===============================
+       📤 RESPONSE
+    =============================== */
     res.json({
       success: true,
       count: finalBikes.length,
@@ -161,6 +196,8 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     });
 
   } catch (err) {
+    console.error("GET BIKES ERROR:", err.message);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch bikes",
@@ -190,20 +227,22 @@ router.put(
           message: "Bike not found",
         });
 
+      /* ===== Banner Replace ===== */
       if (req.files?.banner?.length) {
         if (bike.bannerImage)
-          await deleteCarImage(bike.bannerImage);
+          await deleteBikeImage(bike.bannerImage);
 
-        bike.bannerImage = await uploadCarImage(
+        bike.bannerImage = await uploadBikeImage(
           req.files.banner[0],
           "bikes/banner"
         );
       }
 
+      /* ===== Gallery Append ===== */
       if (req.files?.gallery?.length) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
-            uploadCarImage(img, "bikes/gallery")
+            uploadBikeImage(img, "bikes/gallery")
           )
         );
 
@@ -213,20 +252,22 @@ router.put(
         ];
       }
 
+      /* ===== Audio Replace ===== */
       if (req.files?.audio?.length) {
         if (bike.audioNote)
-          await deleteCarImage(bike.audioNote);
+          await deleteBikeImage(bike.audioNote);
 
-        bike.audioNote = await uploadCarImage(
+        bike.audioNote = await uploadBikeImage(
           req.files.audio[0],
           "bikes/audio"
         );
       }
 
+      /* ===== Videos Append ===== */
       if (req.files?.video?.length) {
         const newVideos = await Promise.all(
           req.files.video.map((vid) =>
-            uploadCarImage(vid, "bikes/videos")
+            uploadBikeImage(vid, "bikes/videos")
           )
         );
 
@@ -268,7 +309,7 @@ router.put(
         message: "Bike updated successfully",
         bike,
       });
-    } catch (err) {
+    } catch {
       res.status(500).json({
         success: false,
         message: "Bike update failed",
@@ -276,6 +317,8 @@ router.put(
     }
   }
 );
+
+
 
 /* =====================================================
    ✅ DELETE BIKE (ADMIN)
@@ -290,16 +333,16 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       });
 
     if (bike.bannerImage)
-      await deleteCarImage(bike.bannerImage);
+      await deleteBikeImage(bike.bannerImage);
 
     for (const img of bike.galleryImages || [])
-      await deleteCarImage(img);
+      await deleteBikeImage(img);
 
     if (bike.audioNote)
-      await deleteCarImage(bike.audioNote);
+      await deleteBikeImage(bike.audioNote);
 
     for (const vid of bike.videos || [])
-      await deleteCarImage(vid);
+      await deleteBikeImage(vid);
 
     await bike.deleteOne();
 
@@ -307,13 +350,16 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: "Bike deleted successfully",
     });
-  } catch {
+
+  } catch (err) {
+    console.error("DELETE BIKE ERROR:", err.message);
     res.status(500).json({
       success: false,
       message: "Delete failed",
     });
   }
 });
+
 
 /* =====================================================
    ✅ USER ADD BIKE (DRAFT FLOW)
@@ -344,26 +390,29 @@ router.post(
           message: "User not found",
         });
 
+      /* Upload Gallery */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
-              uploadCarImage(img, "bikes/gallery")
+              uploadBikeImage(img, "bikes/gallery")
             )
           )
         : [];
 
+      /* Upload Audio */
       let audioNote = null;
       if (req.files?.audio) {
-        audioNote = await uploadCarImage(
+        audioNote = await uploadBikeImage(
           req.files.audio[0],
           "bikes/audio"
         );
       }
 
+      /* Upload Videos */
       const videos = req.files?.video
         ? await Promise.all(
             req.files.video.map((vid) =>
-              uploadCarImage(vid, "bikes/videos")
+              uploadBikeImage(vid, "bikes/videos")
             )
           )
         : [];
@@ -387,7 +436,9 @@ router.post(
         message: "Bike submitted for admin approval",
         bike,
       });
+
     } catch (err) {
+      console.error("USER ADD BIKE ERROR:", err.message);
       res.status(500).json({
         success: false,
         message: err.message,
@@ -397,9 +448,8 @@ router.post(
 );
 
 
-
 /* =====================================================
-   ✅ GET MY BIKES (USER LISTINGS 🔥)
+   ✅ GET MY BIKES (USER LISTINGS)
 ===================================================== */
 router.get("/my", verifyToken, async (req, res) => {
   try {
@@ -410,9 +460,6 @@ router.get("/my", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    /* ==============================
-       ✅ MASK SELLER FOR USER VIEW
-    ============================== */
     const safeBikes = bikes.map((bike) => {
       if (
         typeof bike.seller === "string" &&
@@ -430,6 +477,7 @@ router.get("/my", verifyToken, async (req, res) => {
     });
 
   } catch (err) {
+    console.error("GET MY BIKES ERROR:", err.message);
     res.status(500).json({
       success: false,
       message: "Failed to fetch user bikes",
@@ -452,9 +500,6 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
       });
     }
 
-    /* ==============================
-       ✅ ONLY OWNER CAN REQUEST
-    ============================== */
     if (bike.createdBy.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
@@ -471,6 +516,7 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
     });
 
   } catch (err) {
+    console.error("REQUEST DELETE ERROR:", err.message);
     res.status(500).json({
       success: false,
       message: "Failed to request delete",
@@ -478,5 +524,8 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
   }
 });
 
-
 export default router;
+
+
+
+

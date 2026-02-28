@@ -109,6 +109,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const {
       brand,
       owner,
+      insurance,
+      district,
+      city,
       minPrice,
       maxPrice,
       minYear,
@@ -116,10 +119,10 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     } = req.query;
 
     if (brand) query.brand = brand;
-
-    if (owner) {
-      query.owner = { $in: owner.split(",") };
-    }
+    if (owner) query.owner = { $in: owner.split(",") };
+    if (insurance) query.insurance = insurance;
+    if (district) query.district = district;
+    if (city) query.city = city;
 
     if (minPrice || maxPrice) {
       query.price = {};
@@ -143,11 +146,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       .lean();
 
     const finalBikes = bikes.map((bike) => {
-      if (
-        isAdminUser &&
-        typeof bike.seller === "string" &&
-        bike.seller.includes(":")
-      ) {
+      if (isAdminUser && bike.seller) {
         try {
           bike.seller = decryptSeller(bike.seller);
         } catch (_) {}
@@ -160,7 +159,8 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       count: finalBikes.length,
       bikes: finalBikes,
     });
-  } catch {
+
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "Failed to fetch bikes",

@@ -20,3 +20,5 @@ export const addWatermarkBuffer = async (imageBuffer) => {
     .jpeg({ quality: 100 })
     .toBuffer();
 };
+
+

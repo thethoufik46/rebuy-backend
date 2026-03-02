@@ -206,8 +206,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 });
 
 /* =====================================================
-   ✅ UPDATE BIKE (ADMIN)
+   ✅ UPDATE BIKE (ADMIN - FINAL SAFE VERSION)
 ===================================================== */
+
 router.put(
   "/:id",
   verifyToken,
@@ -221,16 +222,22 @@ router.put(
   async (req, res) => {
     try {
       const bike = await Bike.findById(req.params.id);
-      if (!bike)
+
+      if (!bike) {
         return res.status(404).json({
           success: false,
           message: "Bike not found",
         });
+      }
 
-      /* ===== Banner Replace ===== */
+      /* =====================================================
+         ✅ BANNER UPDATE (REPLACE SAFE)
+      ===================================================== */
+
       if (req.files?.banner?.length) {
-        if (bike.bannerImage)
+        if (bike.bannerImage) {
           await deleteBikeImage(bike.bannerImage);
+        }
 
         bike.bannerImage = await uploadBikeImage(
           req.files.banner[0],
@@ -238,7 +245,36 @@ router.put(
         );
       }
 
-      /* ===== Gallery Append ===== */
+      /* =====================================================
+         ✅ GALLERY UPDATE (SAFE DELETE + APPEND)
+      ===================================================== */
+
+      if (req.body.existingGallery !== undefined) {
+        let existingGallery;
+
+        try {
+          existingGallery = Array.isArray(req.body.existingGallery)
+            ? req.body.existingGallery
+            : JSON.parse(req.body.existingGallery);
+        } catch (err) {
+          // If parsing fails → keep old gallery
+          existingGallery = bike.galleryImages || [];
+        }
+
+        if (Array.isArray(existingGallery)) {
+          const imagesToDelete = (bike.galleryImages || []).filter(
+            (img) => !existingGallery.includes(img)
+          );
+
+          for (const img of imagesToDelete) {
+            await deleteBikeImage(img);
+          }
+
+          bike.galleryImages = existingGallery;
+        }
+      }
+
+      // Append new gallery images
       if (req.files?.gallery?.length) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -252,10 +288,14 @@ router.put(
         ];
       }
 
-      /* ===== Audio Replace ===== */
+      /* =====================================================
+         ✅ AUDIO UPDATE (REPLACE SAFE)
+      ===================================================== */
+
       if (req.files?.audio?.length) {
-        if (bike.audioNote)
+        if (bike.audioNote) {
           await deleteBikeImage(bike.audioNote);
+        }
 
         bike.audioNote = await uploadBikeImage(
           req.files.audio[0],
@@ -263,7 +303,35 @@ router.put(
         );
       }
 
-      /* ===== Videos Append ===== */
+      /* =====================================================
+         ✅ VIDEO UPDATE (SAFE DELETE + APPEND)
+      ===================================================== */
+
+      if (req.body.existingVideos !== undefined) {
+        let existingVideos;
+
+        try {
+          existingVideos = Array.isArray(req.body.existingVideos)
+            ? req.body.existingVideos
+            : JSON.parse(req.body.existingVideos);
+        } catch (err) {
+          existingVideos = bike.videos || [];
+        }
+
+        if (Array.isArray(existingVideos)) {
+          const videosToDelete = (bike.videos || []).filter(
+            (vid) => !existingVideos.includes(vid)
+          );
+
+          for (const vid of videosToDelete) {
+            await deleteBikeImage(vid);
+          }
+
+          bike.videos = existingVideos;
+        }
+      }
+
+      // Append new videos
       if (req.files?.video?.length) {
         const newVideos = await Promise.all(
           req.files.video.map((vid) =>
@@ -277,9 +345,17 @@ router.put(
         ];
       }
 
+      /* =====================================================
+         ✅ VIDEO LINK UPDATE
+      ===================================================== */
+
       if (req.body.videoLink !== undefined) {
         bike.videoLink = req.body.videoLink || null;
       }
+
+      /* =====================================================
+         ✅ SAFE FIELD UPDATE
+      ===================================================== */
 
       const allowedFields = [
         "brand",
@@ -309,7 +385,10 @@ router.put(
         message: "Bike updated successfully",
         bike,
       });
-    } catch {
+
+    } catch (err) {
+      console.log("BIKE UPDATE ERROR:", err);
+
       res.status(500).json({
         success: false,
         message: "Bike update failed",
@@ -317,8 +396,6 @@ router.put(
     }
   }
 );
-
-
 
 /* =====================================================
    ✅ DELETE BIKE (ADMIN)

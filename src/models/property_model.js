@@ -1,9 +1,64 @@
 // ======================= src/models/property_model.js =======================
 
 import mongoose from "mongoose";
+import Counter from "./counter_model.js";
+import fs from "fs";
+import path from "path";
+
+/* =====================================================
+   LOAD TAMIL NADU LOCATIONS JSON
+===================================================== */
+const locationsPath = path.join(
+  process.cwd(),
+  "src/tamilnadu_locations.json"
+);
+
+const locations = JSON.parse(
+  fs.readFileSync(locationsPath, "utf-8")
+);
 
 const propertySchema = new mongoose.Schema(
   {
+    /* 🔢 AUTO PROPERTY ID */
+    propertyId: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
+
+    /* 👤 CREATED BY */
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    sellerUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    /* ==============================
+       LOCATION 🔥
+    ============================== */
+
+    district: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    /* ==============================
+       PROPERTY INFO
+    ============================== */
+
     mainType: {
       type: String,
       enum: ["building", "land"],
@@ -18,42 +73,64 @@ const propertySchema = new mongoose.Schema(
 
     price: {
       type: Number,
-      required: true,
       min: 0,
+      default: null,
     },
 
-    yearBuilt: Number,
-    bedrooms: Number,
-    landArea: Number,
-    homeArea: Number,
+    yearBuilt: {
+      type: Number,
+      default: null,
+    },
+
+    bedrooms: {
+      type: Number,
+      default: null,
+    },
+
+    landArea: {
+      type: Number,
+      default: null,
+    },
+
+    homeArea: {
+      type: Number,
+      default: null,
+    },
 
     roadAccess: {
       type: String,
       trim: true,
+      default: null,
     },
 
     direction: {
       type: String,
       trim: true,
+      default: null,
     },
-
-    // ✅ FINAL FIX
-    location: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    /* ==============================
+       STATUS FLOW
+    ============================== */
 
     status: {
       type: String,
-      enum: ["available", "booking", "sold"],
-      default: "available",
+      enum: [
+        "available",
+        "booking",
+        "sold",
+        "draft",
+        "delete_requested"
+      ],
+      default: "draft",
     },
+
+    /* ==============================
+       SELLER
+    ============================== */
 
     seller: {
       type: String,
       required: true,
-      trim: true,
     },
 
     sellerInfo: {
@@ -62,23 +139,62 @@ const propertySchema = new mongoose.Schema(
       required: true,
     },
 
-    description: {
-      type: String,
-      trim: true,
-    },
+    description: String,
 
     bannerImage: {
       type: String,
-      required: true,
+      default: null,
     },
 
-    galleryImages: [
-      {
-        type: String,
-      },
-    ],
+    galleryImages: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );
+
+/* =====================================================
+   PRE SAVE LOGIC
+===================================================== */
+propertySchema.pre("save", async function (next) {
+  try {
+    /* 🔢 AUTO PROPERTY ID */
+    if (!this.propertyId) {
+      const counter = await Counter.findByIdAndUpdate(
+        { _id: "propertyId" },
+        { $inc: { seq: 1 } },
+        {
+          new: true,
+          upsert: true
+        }
+      );
+
+      this.propertyId = counter.seq;
+    }
+
+    /* 📍 DISTRICT VALIDATION */
+    const districtKey = Object.keys(locations).find(
+      (d) => d.toLowerCase() === this.district.toLowerCase()
+    );
+
+    if (!districtKey) {
+      throw new Error("Invalid district");
+    }
+
+    this.district = districtKey;
+
+    /* 🏙️ CITY VALIDATION */
+    if (this.city) {
+      if (!locations[districtKey].includes(this.city)) {
+        throw new Error("City does not belong to district");
+      }
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default mongoose.model("Property", propertySchema);

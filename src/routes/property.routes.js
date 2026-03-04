@@ -3,7 +3,9 @@
 import express from "express";
 import mongoose from "mongoose";
 import Property from "../models/property_model.js";
+import User from "../models/user_model.js";
 import { verifyToken, isAdmin } from "../middleware/auth.js";
+import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
 import uploadProperty from "../middleware/uploadProperty.js";
 import {
   uploadPropertyImage,
@@ -12,9 +14,9 @@ import {
 
 const router = express.Router();
 
-/* ======================
-   ADD PROPERTY
-====================== */
+/* =====================================================
+   ✅ ADD PROPERTY (ADMIN)
+===================================================== */
 router.post(
   "/add",
   verifyToken,
@@ -22,15 +24,26 @@ router.post(
   uploadProperty.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 },
   ]),
   async (req, res) => {
     try {
+      if (!req.files?.banner) {
+        return res.status(400).json({
+          success: false,
+          message: "Banner image required",
+        });
+      }
+
+      // Upload banner
       const bannerImage = await uploadPropertyImage(
         req.files.banner[0],
         "property/banner"
       );
 
-      const galleryImages = req.files.gallery
+      // Upload gallery images
+      const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
               uploadPropertyImage(img, "property/gallery")
@@ -38,46 +51,71 @@ router.post(
           )
         : [];
 
+      // Upload audio (optional)
+      let audioNote = null;
+      if (req.files?.audio) {
+        audioNote = await uploadPropertyImage(
+          req.files.audio[0],
+          "property/audio"
+        );
+      }
+
+      // Upload videos (optional)
+      const videos = req.files?.video
+        ? await Promise.all(
+            req.files.video.map((vid) =>
+              uploadPropertyImage(vid, "property/videos")
+            )
+          )
+        : [];
+
       const property = await Property.create({
         ...req.body,
-        // ✅ FINAL FIX
-        location: `${req.body.district}, ${req.body.town}`,
         bannerImage,
         galleryImages,
+        audioNote,
+        videos,
+        videoLink: req.body.videoLink || null,
+        createdBy: req.user.id,
+        status: "available",
       });
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
+        message: "Property added successfully",
         property,
       });
     } catch (err) {
-      console.log("ADD PROPERTY ERROR:", err);
-      return res.status(500).json({ success: false });
+      res.status(500).json({
+        success: false,
+        message: err.message,
+      });
     }
   }
 );
 
-/* ======================
-   GET ALL PROPERTIES
-====================== */
-router.get("/", async (req, res) => {
+/* =====================================================
+   ✅ GET ALL PROPERTIES
+===================================================== */
+router.get("/", verifyTokenOptional, async (req, res) => {
   try {
+    const isAdminUser = req.user?.role === "admin";
+    const query = {};
+
     const {
       mainType,
       category,
+      district,
+      city,
       minPrice,
       maxPrice,
-      location,
-      status,
       bedrooms,
     } = req.query;
 
-    const query = {};
-
     if (mainType) query.mainType = mainType;
     if (category) query.category = category;
-    if (location) query.location = location;
-    if (status) query.status = status;
+    if (district) query.district = district;
+    if (city) query.city = city;
     if (bedrooms) query.bedrooms = Number(bedrooms);
 
     if (minPrice || maxPrice) {
@@ -86,27 +124,30 @@ router.get("/", async (req, res) => {
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    const properties = await Property.find(query).sort({
-      createdAt: -1,
-    });
+    if (!isAdminUser) {
+      query.status = { $nin: ["draft", "delete_requested"] };
+    }
 
-    return res.json({
+    const properties = await Property.find(query)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
       success: true,
       count: properties.length,
       properties,
     });
   } catch (err) {
-    console.error("PROPERTY FETCH ERROR:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to fetch properties",
     });
   }
 });
 
-/* ======================
-   UPDATE PROPERTY
-====================== */
+/* =====================================================
+   ✅ UPDATE PROPERTY (ADMIN SAFE)
+===================================================== */
 router.put(
   "/:id",
   verifyToken,
@@ -114,17 +155,13 @@ router.put(
   uploadProperty.fields([
     { name: "banner", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 },
   ]),
   async (req, res) => {
     try {
-      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid property id",
-        });
-      }
-
       const property = await Property.findById(req.params.id);
+
       if (!property) {
         return res.status(404).json({
           success: false,
@@ -132,74 +169,144 @@ router.put(
         });
       }
 
-      /* ======================
+      /* ==============================
          BANNER UPDATE
-      ====================== */
-      if (req.files?.banner) {
+      ============================== */
+      if (req.files?.banner?.length) {
         if (property.bannerImage) {
           await deletePropertyImage(property.bannerImage);
         }
-
         property.bannerImage = await uploadPropertyImage(
           req.files.banner[0],
           "property/banner"
         );
       }
 
-      /* ======================
-         EXISTING GALLERY
-      ====================== */
-      let existingGallery = [];
+      /* ==============================
+         GALLERY SAFE UPDATE
+      ============================== */
+      if (req.body.existingGallery !== undefined) {
+        let existingGallery;
+        try {
+          existingGallery = Array.isArray(req.body.existingGallery)
+            ? req.body.existingGallery
+            : JSON.parse(req.body.existingGallery);
+        } catch {
+          existingGallery = property.galleryImages || [];
+        }
 
-      if (req.body.existingGallery) {
-        existingGallery = Array.isArray(req.body.existingGallery)
-          ? req.body.existingGallery
-          : JSON.parse(req.body.existingGallery);
-      }
+        const imagesToDelete = (property.galleryImages || []).filter(
+          (img) => !existingGallery.includes(img)
+        );
 
-      // delete removed images
-      for (const img of property.galleryImages) {
-        if (!existingGallery.includes(img)) {
+        for (const img of imagesToDelete) {
           await deletePropertyImage(img);
         }
+
+        property.galleryImages = existingGallery;
       }
 
-      /* ======================
-         NEW GALLERY
-      ====================== */
-      let newGallery = [];
-
-      if (req.files?.gallery) {
-        newGallery = await Promise.all(
+      if (req.files?.gallery?.length) {
+        const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
             uploadPropertyImage(img, "property/gallery")
           )
         );
+        property.galleryImages = [
+          ...(property.galleryImages || []),
+          ...newGallery,
+        ];
       }
 
-      property.galleryImages = [...existingGallery, ...newGallery];
+      /* ==============================
+         AUDIO UPDATE (replace)
+      ============================== */
+      if (req.files?.audio?.length) {
+        if (property.audioNote) {
+          await deletePropertyImage(property.audioNote);
+        }
+        property.audioNote = await uploadPropertyImage(
+          req.files.audio[0],
+          "property/audio"
+        );
+      }
 
-      /* ======================
-         SAFE BODY UPDATE
-      ====================== */
-      const {
-        existingGallery: _eg,
-        banner,
-        gallery,
-        ...safeBody
-      } = req.body;
+      /* ==============================
+         VIDEO SAFE UPDATE
+      ============================== */
+      if (req.body.existingVideos !== undefined) {
+        let existingVideos;
+        try {
+          existingVideos = Array.isArray(req.body.existingVideos)
+            ? req.body.existingVideos
+            : JSON.parse(req.body.existingVideos);
+        } catch {
+          existingVideos = property.videos || [];
+        }
 
-      Object.assign(property, safeBody);
+        const videosToDelete = (property.videos || []).filter(
+          (vid) => !existingVideos.includes(vid)
+        );
+
+        for (const vid of videosToDelete) {
+          await deletePropertyImage(vid);
+        }
+
+        property.videos = existingVideos;
+      }
+
+      if (req.files?.video?.length) {
+        const newVideos = await Promise.all(
+          req.files.video.map((vid) =>
+            uploadPropertyImage(vid, "property/videos")
+          )
+        );
+        property.videos = [...(property.videos || []), ...newVideos];
+      }
+
+      /* ==============================
+         VIDEO LINK UPDATE
+      ============================== */
+      if (req.body.videoLink !== undefined) {
+        property.videoLink = req.body.videoLink || null;
+      }
+
+      /* ==============================
+         SAFE FIELD UPDATE
+      ============================== */
+      const allowedFields = [
+        "mainType",
+        "category",
+        "price",
+        "yearBuilt",
+        "bedrooms",
+        "landArea",
+        "homeArea",
+        "roadAccess",
+        "direction",
+        "district",
+        "city",
+        "status",
+        "sellerInfo",
+        "description",
+      ];
+
+      allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          property[field] = req.body[field];
+        }
+      });
 
       await property.save();
 
-      return res.status(200).json({
+      res.json({
         success: true,
+        message: "Property updated successfully",
         property,
       });
     } catch (err) {
-      console.error("UPDATE PROPERTY ERROR:", err);
-      return res.status(500).json({
+      console.log("UPDATE ERROR:", err);
+      res.status(500).json({
         success: false,
         message: "Property update failed",
       });
@@ -207,28 +314,188 @@ router.put(
   }
 );
 
-/* ======================
-   DELETE PROPERTY
-====================== */
+/* =====================================================
+   ✅ DELETE PROPERTY (ADMIN)
+===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
+
     if (!property) {
-      return res.status(404).json({ success: false });
+      return res.status(404).json({
+        success: false,
+        message: "Property not found",
+      });
     }
 
-    await deletePropertyImage(property.bannerImage);
+    // Delete banner
+    if (property.bannerImage) {
+      await deletePropertyImage(property.bannerImage);
+    }
 
+    // Delete gallery images
     for (const img of property.galleryImages) {
       await deletePropertyImage(img);
     }
 
+    // Delete audio
+    if (property.audioNote) {
+      await deletePropertyImage(property.audioNote);
+    }
+
+    // Delete videos
+    for (const vid of property.videos) {
+      await deletePropertyImage(vid);
+    }
+
     await property.deleteOne();
 
-    return res.json({ success: true });
+    res.json({
+      success: true,
+      message: "Property deleted successfully",
+    });
   } catch (err) {
-    console.error("DELETE PROPERTY ERROR:", err);
-    return res.status(500).json({ success: false });
+    console.log("DELETE ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Delete failed",
+    });
+  }
+});
+
+/* =====================================================
+   ✅ USER ADD PROPERTY (DRAFT)
+===================================================== */
+router.post(
+  "/user-add",
+  verifyToken,
+  uploadProperty.fields([
+    { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 },
+  ]),
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // Upload gallery
+      const galleryImages = req.files?.gallery
+        ? await Promise.all(
+            req.files.gallery.map((img) =>
+              uploadPropertyImage(img, "property/gallery")
+            )
+          )
+        : [];
+
+      // Upload audio
+      let audioNote = null;
+      if (req.files?.audio) {
+        audioNote = await uploadPropertyImage(
+          req.files.audio[0],
+          "property/audio"
+        );
+      }
+
+      // Upload videos
+      const videos = req.files?.video
+        ? await Promise.all(
+            req.files.video.map((vid) =>
+              uploadPropertyImage(vid, "property/videos")
+            )
+          )
+        : [];
+
+      const property = await Property.create({
+        ...req.body,
+        bannerImage: null,
+        galleryImages,
+        audioNote,
+        videos,
+        videoLink: req.body.videoLink || null,
+        seller: String(user.phone),
+        sellerUser: user._id,
+        createdBy: user._id,
+        status: "draft",
+        price: null, // optional, user may set later
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Property submitted for approval",
+        property,
+      });
+    } catch (err) {
+      console.log("USER ADD ERROR:", err);
+      res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+);
+
+/* =====================================================
+   ✅ GET MY PROPERTIES
+===================================================== */
+router.get("/my", verifyToken, async (req, res) => {
+  try {
+    const properties = await Property.find({
+      createdBy: req.user.id,
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: properties.length,
+      properties,
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch properties",
+    });
+  }
+});
+
+/* =====================================================
+   ✅ REQUEST DELETE (USER)
+===================================================== */
+router.put("/:id/request-delete", verifyToken, async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found",
+      });
+    }
+
+    if (property.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    property.status = "delete_requested";
+    await property.save();
+
+    res.json({
+      success: true,
+      message: "Delete request sent",
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Failed to request delete",
+    });
   }
 });
 

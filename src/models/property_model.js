@@ -146,10 +146,25 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
 
+     audioNote: {
+      type: String,
+      default: null,
+    },
+
     galleryImages: {
       type: [String],
       default: [],
     },
+
+    videos: {
+  type: [String],
+  default: [],
+},
+
+videoLink: {
+  type: String,
+  default: null,
+},
   },
   { timestamps: true }
 );

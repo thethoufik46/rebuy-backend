@@ -166,10 +166,7 @@ const carSchema = new mongoose.Schema(
       default: null,
     },
 
-    audioNote: {
-      type: String,
-      default: null,
-    },
+   
 
     videos: {
       type: [String],

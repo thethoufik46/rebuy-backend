@@ -1,10 +1,8 @@
 import {
   PutObjectCommand,
   DeleteObjectCommand,
-  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import r2 from "../config/r2.js";
 import User from "../models/user_model.js";
 
@@ -18,6 +16,7 @@ export const uploadProfileImage = async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -25,17 +24,25 @@ export const uploadProfileImage = async (req, res) => {
       });
     }
 
-    // delete old image
+    /* DELETE OLD IMAGE */
     if (user.profileImage) {
+      const oldKey = user.profileImage.replace(
+        process.env.R2_PUBLIC_URL + "/",
+        ""
+      );
+
       await r2.send(
         new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET,
-          Key: user.profileImage,
+          Key: oldKey,
         })
       );
     }
 
-    const key = `profile/${req.userId}-${Date.now()}.png`;
+    /* NEW IMAGE KEY */
+    const key = `profile/${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 8)}.octet-stream`;
 
     await r2.send(
       new PutObjectCommand({
@@ -46,44 +53,23 @@ export const uploadProfileImage = async (req, res) => {
       })
     );
 
-    user.profileImage = key;
+    /* SAVE FULL PUBLIC URL */
+    const imageUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+
+    user.profileImage = imageUrl;
+
     await user.save();
 
     res.json({
       success: true,
-      key,
+      image: imageUrl,
     });
   } catch (err) {
     console.error("❌ R2 UPLOAD ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Upload failed",
-    });
-  }
-};
-
-export const getSignedMediaUrl = async (req, res) => {
-  try {
-    const { key } = req.query;
-
-    const url = await getSignedUrl(
-      r2,
-      new GetObjectCommand({
-        Bucket: process.env.R2_BUCKET,
-        Key: key,
-      }),
-      { expiresIn: 60 }
-    );
-
-    res.json({
-      success: true,
-      url,
-    });
-  } catch (err) {
-    console.error("❌ SIGNED URL ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: "Signed URL failed",
     });
   }
 };

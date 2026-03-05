@@ -10,10 +10,10 @@ const router = express.Router();
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
-    const { name, phone, email, password, category, location, address } =
+    const { name, phone, email, password, category, district, address } =
       req.body;
 
-    if (!name || !phone || !password || !category) {
+    if (!name || !phone || !password || !category || !district) {
       return res.status(400).json({
         success: false,
         message: "Required fields missing",
@@ -24,6 +24,7 @@ router.post("/register", async (req, res) => {
     if (email) query.push({ email: email.toLowerCase() });
 
     const existingUser = await User.findOne({ $or: query });
+
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -39,13 +40,10 @@ router.post("/register", async (req, res) => {
       email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
 
-      // 🔐 ALWAYS DEFAULT
       role: "user",
-
-      // 👥 buyer / seller / driver
       category,
 
-      location: location || "NA",
+      district,
       address: address || "NA",
     });
 
@@ -65,18 +63,20 @@ router.post("/register", async (req, res) => {
         email: user.email,
         role: user.role,
         category: user.category,
-        location: user.location,
+        district: user.district,
         address: user.address,
       },
     });
   } catch (err) {
-  console.error("REGISTER ERROR 👉", err);
-  res.status(500).json({
-    success: false,
-    message: err.message || "Registration failed",
-  });
+    console.error("REGISTER ERROR 👉", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message || "Registration failed",
+    });
   }
 });
+
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
@@ -144,10 +144,9 @@ router.get("/me", verifyToken, (req, res) => {
 });
 
 /* ================= UPDATE PROFILE ================= */
-/* ❌ PHONE UPDATE BLOCKED */
 router.put("/me", verifyToken, async (req, res) => {
   try {
-    let { name, email, location, address } = req.body;
+    let { name, email, district, address } = req.body;
 
     email = email?.toString().toLowerCase().trim();
 
@@ -155,14 +154,17 @@ router.put("/me", verifyToken, async (req, res) => {
 
     if (name) update.name = name;
     if (email) update.email = email;
-    if (location) update.location = location;
+    if (district) update.district = district;
     if (address) update.address = address;
 
     const user = await User.findByIdAndUpdate(req.userId, update, {
       new: true,
     }).select("-password");
 
-    res.json({ success: true, user });
+    res.json({
+      success: true,
+      user,
+    });
   } catch (err) {
     console.log("UPDATE ERROR 👉", err);
 
@@ -278,7 +280,7 @@ router.delete("/me", verifyToken, async (req, res) => {
 });
 
 /* =========================================================
-   🔥 ADMIN SECTION 🔥
+   ADMIN SECTION
 ========================================================= */
 
 /* ================= GET ALL USERS ================= */
@@ -317,7 +319,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    const { name, phone, email, category, location, address } = req.body;
+    const { name, phone, email, category, district, address } = req.body;
 
     const update = {};
 
@@ -325,7 +327,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
     if (phone) update.phone = phone.toString().trim();
     if (email) update.email = email.toLowerCase().trim();
     if (category) update.category = category;
-    if (location) update.location = location;
+    if (district) update.district = district;
     if (address) update.address = address;
 
     const user = await User.findByIdAndUpdate(
@@ -380,6 +382,7 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
     });
   }
 });
+
 
 
 

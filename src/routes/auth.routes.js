@@ -10,25 +10,20 @@ const router = express.Router();
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
-    let { name, phone, email, password, category, district, location, address } =
+    const { name, phone, email, password, category, location, address } =
       req.body;
 
-    phone = phone?.toString().trim();
-
-    if (!name || !phone || !password || !category || !district) {
+    if (!name || !phone || !password || !category) {
       return res.status(400).json({
         success: false,
-        message:
-          "Required fields missing (name, phone, password, category, district)",
+        message: "Required fields missing",
       });
     }
 
-    const query = [{ phone: { $in: [phone] } }];
-
+    const query = [{ phone }];
     if (email) query.push({ email: email.toLowerCase() });
 
     const existingUser = await User.findOne({ $or: query });
-
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -40,12 +35,16 @@ router.post("/register", async (req, res) => {
 
     const user = await User.create({
       name,
-      phone: [phone], // ✅ ARRAY
+      phone,
       email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
+
+      // 🔐 ALWAYS DEFAULT
       role: "user",
+
+      // 👥 buyer / seller / driver
       category,
-      district,
+
       location: location || "NA",
       address: address || "NA",
     });
@@ -56,24 +55,28 @@ router.post("/register", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    const safeUser = user.toObject();
-    delete safeUser.password;
-
     res.status(201).json({
       success: true,
       token,
-      user: safeUser,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        category: user.category,
+        location: user.location,
+        address: user.address,
+      },
     });
   } catch (err) {
-    console.error("REGISTER ERROR 👉", err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message || "Registration failed",
-    });
+  console.error("REGISTER ERROR 👉", err);
+  res.status(500).json({
+    success: false,
+    message: err.message || "Registration failed",
+  });
   }
 });
-
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
@@ -90,7 +93,7 @@ router.post("/login", async (req, res) => {
 
     const user = await User.findOne({
       $or: [
-        { phone: { $in: [identifier] } }, // ✅ ARRAY FIX
+        { phone: identifier },
         { email: identifier.toLowerCase() },
       ],
     });
@@ -117,13 +120,10 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    const safeUser = user.toObject();
-    delete safeUser.password;
-
     res.json({
       success: true,
       token,
-      user: safeUser,
+      user,
     });
   } catch (err) {
     console.log("LOGIN ERROR 👉", err);
@@ -144,42 +144,31 @@ router.get("/me", verifyToken, (req, res) => {
 });
 
 /* ================= UPDATE PROFILE ================= */
+/* ❌ PHONE UPDATE BLOCKED */
 router.put("/me", verifyToken, async (req, res) => {
   try {
-    let { name, email, district, location, address } = req.body;
+    let { name, email, location, address } = req.body;
 
     email = email?.toString().toLowerCase().trim();
 
-    const user = await User.findById(req.userId);
+    const update = {};
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    if (name) update.name = name;
+    if (email) update.email = email;
+    if (location) update.location = location;
+    if (address) update.address = address;
 
-    if (name) user.name = name;
-    if (email) user.email = email;
-    if (district) user.district = district;
-    if (location) user.location = location;
-    if (address) user.address = address;
+    const user = await User.findByIdAndUpdate(req.userId, update, {
+      new: true,
+    }).select("-password");
 
-    await user.save();
-
-    const safeUser = user.toObject();
-    delete safeUser.password;
-
-    res.json({
-      success: true,
-      user: safeUser,
-    });
+    res.json({ success: true, user });
   } catch (err) {
     console.log("UPDATE ERROR 👉", err);
 
     res.status(500).json({
       success: false,
-      message: err.message || "Update failed",
+      message: "Update failed",
     });
   }
 });
@@ -233,9 +222,14 @@ router.post("/forgot-request", async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      phone: { $in: [phone] }, // ✅ FIX
-    });
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password too short",
+      });
+    }
+
+    const user = await User.findOne({ phone });
 
     if (!user) {
       return res.status(404).json({
@@ -283,7 +277,11 @@ router.delete("/me", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= ADMIN GET USERS ================= */
+/* =========================================================
+   🔥 ADMIN SECTION 🔥
+========================================================= */
+
+/* ================= GET ALL USERS ================= */
 router.get("/admin/users", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -293,9 +291,7 @@ router.get("/admin/users", verifyToken, async (req, res) => {
       });
     }
 
-    const users = await User.find()
-      .select("-password")
-      .sort({ createdAt: -1 });
+    const users = await User.find().select("-password");
 
     res.json({
       success: true,
@@ -311,7 +307,7 @@ router.get("/admin/users", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= ADMIN UPDATE USER ================= */
+/* ================= UPDATE USER ================= */
 router.put("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -321,10 +317,22 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    const { name, phone, email, category, district, location, address } =
-      req.body;
+    const { name, phone, email, category, location, address } = req.body;
 
-    const user = await User.findById(req.params.id);
+    const update = {};
+
+    if (name) update.name = name;
+    if (phone) update.phone = phone.toString().trim();
+    if (email) update.email = email.toLowerCase().trim();
+    if (category) update.category = category;
+    if (location) update.location = location;
+    if (address) update.address = address;
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    ).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -333,34 +341,21 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    if (name) user.name = name;
-    if (phone) user.phone = [phone.toString().trim()]; // ✅ ARRAY FIX
-    if (email) user.email = email.toLowerCase().trim();
-    if (category) user.category = category;
-    if (district) user.district = district;
-    if (location) user.location = location;
-    if (address) user.address = address;
-
-    await user.save();
-
-    const safeUser = user.toObject();
-    delete safeUser.password;
-
     res.json({
       success: true,
-      user: safeUser,
+      user,
     });
   } catch (err) {
     console.log("ADMIN UPDATE ERROR 👉", err);
 
     res.status(500).json({
       success: false,
-      message: err.message || "Update failed",
+      message: "Update failed",
     });
   }
 });
 
-/* ================= ADMIN DELETE USER ================= */
+/* ================= DELETE USER ================= */
 router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -386,7 +381,9 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= ADMIN RESET PASSWORD ================= */
+
+
+/* ================= ADMIN RESET PASSWORD 🔥 ================= */
 router.put("/admin/reset-password", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -401,9 +398,21 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
     phone = phone?.toString().trim();
     newPassword = newPassword?.toString();
 
-    const user = await User.findOne({
-      phone: { $in: [phone] }, // ✅ FIX
-    });
+    if (!phone || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone & password required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password too short",
+      });
+    }
+
+    const user = await User.findOne({ phone });
 
     if (!user) {
       return res.status(404).json({
@@ -412,7 +421,10 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
       });
     }
 
+    /* ✅ HASH NEW PASSWORD */
     user.password = await bcrypt.hash(newPassword, 10);
+
+    /* ✅ CLEAR FORGOT FLAGS */
     user.forgotRequest = false;
     user.forgotRequestAt = null;
     user.requestedPassword = null;
@@ -432,5 +444,6 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
     });
   }
 });
+
 
 export default router;

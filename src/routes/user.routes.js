@@ -10,16 +10,14 @@ import r2 from "../config/r2.js";
 const router = express.Router();
 
 /* ================= MULTER ================= */
-
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 /* ==================================================
    UPLOAD PROFILE IMAGE
 ================================================== */
-
 router.post(
   "/upload-profile",
   verifyToken,
@@ -28,13 +26,11 @@ router.post(
 );
 
 /* ==================================================
-   IMAGE VIEW (OPTIONAL)
-   Only needed if you don't use R2 public URL
+   IMAGE VIEW (WEB + ANDROID SAFE)
 ================================================== */
-
+// ❌ DON'T use verifyToken here
 router.get("/image/*", async (req, res) => {
   try {
-
     const key = req.params[0];
 
     const command = new GetObjectCommand({
@@ -44,20 +40,12 @@ router.get("/image/*", async (req, res) => {
 
     const data = await r2.send(command);
 
-    res.setHeader("Content-Type", data.ContentType || "image/png");
-
+    res.setHeader("Content-Type", "image/png");
     data.Body.pipe(res);
-
   } catch (err) {
-
-    console.error("IMAGE FETCH ERROR:", err);
-
-    res.status(404).json({
-      success: false,
-      message: "Image not found",
-    });
-
+    res.status(404).end();
   }
 });
+
 
 export default router;

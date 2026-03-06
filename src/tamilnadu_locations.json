@@ -246,5 +246,51 @@
     "Srivilliputhur", "Vembakottai", "Watrap", "Alangulam", 
     "Chathirareddiyapatti", "Elayirampannai", "Kallupatti", 
     "Koomapatti", "Mallankinaru", "Mamsapuram"
-  ]
+  ],
+
+  "புதுச்சேரி": [
+  "Puducherry",
+  "Oulgaret",
+  "Villianur",
+  "Bahour",
+  "Ariyankuppam",
+  "Mudaliarpet",
+  "Reddiarpalayam",
+  "Lawspet",
+  "Muthialpet",
+  "Kottakuppam",
+  "Kalapet",
+  "Thavalakuppam",
+  "Kirumampakkam",
+  "Nonankuppam",
+  "Abishegapakkam",
+  "Manavely",
+  "Auroville"
+],
+
+"காரைக்கால்": [
+  "Karaikal",
+  "Thirunallar",
+  "Nedungadu",
+  "Neravy",
+  "Tirumalairayanpattinam",
+  "Kottucherry"
+],
+
+"மாஹே": [
+  "Mahe",
+  "Chalakkara",
+  "Palloor",
+  "Pandakkal",
+  "Chembra"
+],
+
+"யானம்": [
+  "Yanam",
+  "Kanakalapeta",
+  "Adavipolam",
+  "Jambavanodai",
+  "Kurasampeta",
+  "Mettakur"
+]
 }

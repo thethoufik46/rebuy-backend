@@ -52,7 +52,7 @@ const propertySchema = new mongoose.Schema(
     city: {
       type: String,
       default: null,
-      trim: true,
+      trim: false,
     },
 
     /* ==============================
@@ -67,7 +67,11 @@ const propertySchema = new mongoose.Schema(
 
     category: {
       type: String,
-      enum: ["residential", "commercial", "rental_income"],
+      enum: [
+        "Residential (வசிப்பிடம்)",
+        "Commercial (வணிகம்)",
+        "Rental Income (வாடகை வருமானம்)"
+      ],
       required: true,
     },
 
@@ -146,7 +150,7 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
 
-     audioNote: {
+    audioNote: {
       type: String,
       default: null,
     },
@@ -157,14 +161,14 @@ const propertySchema = new mongoose.Schema(
     },
 
     videos: {
-  type: [String],
-  default: [],
-},
+      type: [String],
+      default: [],
+    },
 
-videoLink: {
-  type: String,
-  default: null,
-},
+    videoLink: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

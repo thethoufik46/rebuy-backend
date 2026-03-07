@@ -126,12 +126,12 @@ const propertySchema = new mongoose.Schema(
     },
 
     landArea: {
-      type: Number,
+      type: String,
       default: null,
     },
 
     homeArea: {
-      type: Number,
+      type: String,
       default: null,
     },
 

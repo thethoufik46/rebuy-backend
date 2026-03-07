@@ -468,6 +468,7 @@ router.get("/my", verifyToken, async (req, res) => {
 ===================================================== */
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {
+
     const property = await Property.findById(req.params.id);
 
     if (!property) {
@@ -484,18 +485,26 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
       });
     }
 
-    property.status = "delete_requested";
-    await property.save();
+    await Property.findByIdAndUpdate(
+      req.params.id,
+      { status: "delete_requested" },
+      { new: true }
+    );
 
     res.json({
       success: true,
       message: "Delete request sent",
     });
-  } catch {
+
+  } catch (err) {
+
+    console.log("REQUEST DELETE ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Failed to request delete",
     });
+
   }
 });
 

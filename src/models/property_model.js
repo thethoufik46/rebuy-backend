@@ -129,11 +129,21 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
 
-    direction: {
-      type: String,
-      trim: true,
-      default: null,
-    },
+ direction: {
+  type: String,
+  trim: true,
+  enum: [
+    "East Facing (கிழக்கு நோக்கு)",
+    "West Facing (மேற்கு நோக்கு)",
+    "North Facing (வடக்கு நோக்கு)",
+    "South Facing (தெற்கு நோக்கு)",
+    "North-East Facing (வடகிழக்கு நோக்கு)",
+    "North-West Facing (வடமேற்கு நோக்கு)",
+    "South-East Facing (தென்கிழக்கு நோக்கு)",
+    "South-West Facing (தென்மேற்கு நோக்கு)"
+  ],
+  default: null,
+},
     /* ==============================
        STATUS FLOW
     ============================== */

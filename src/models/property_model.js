@@ -120,7 +120,7 @@ const propertySchema = new mongoose.Schema(
         "7 BHK",
         "8 BHK",
         "9 BHK",
-        "10 BHK+"
+        "10+ BHK"
       ],
       default: null,
     },

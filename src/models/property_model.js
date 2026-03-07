@@ -110,18 +110,7 @@ const propertySchema = new mongoose.Schema(
 
     bedrooms: {
       type: String,
-      enum: [
-        "1 BHK",
-        "2 BHK",
-        "3 BHK",
-        "4 BHK",
-        "5 BHK",
-        "6 BHK",
-        "7 BHK",
-        "8 BHK",
-        "9 BHK",
-        "10+ BHK"
-      ],
+     enum: ["1","2","3","4","5","6","7","8","9","10+"],
       default: null,
     },
 

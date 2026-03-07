@@ -109,7 +109,19 @@ const propertySchema = new mongoose.Schema(
     },
 
     bedrooms: {
-      type: Number,
+      type: String,
+      enum: [
+        "1 BHK",
+        "2 BHK",
+        "3 BHK",
+        "4 BHK",
+        "5 BHK",
+        "6 BHK",
+        "7 BHK",
+        "8 BHK",
+        "9 BHK",
+        "10 BHK+"
+      ],
       default: null,
     },
 
@@ -129,21 +141,21 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
 
- direction: {
-  type: String,
-  trim: true,
-  enum: [
-    "East Facing (கிழக்கு நோக்கு)",
-    "West Facing (மேற்கு நோக்கு)",
-    "North Facing (வடக்கு நோக்கு)",
-    "South Facing (தெற்கு நோக்கு)",
-    "North-East Facing (வடகிழக்கு நோக்கு)",
-    "North-West Facing (வடமேற்கு நோக்கு)",
-    "South-East Facing (தென்கிழக்கு நோக்கு)",
-    "South-West Facing (தென்மேற்கு நோக்கு)"
-  ],
-  default: null,
-},
+    direction: {
+      type: String,
+      trim: true,
+      enum: [
+        "East Facing (கிழக்கு நோக்கு)",
+        "West Facing (மேற்கு நோக்கு)",
+        "North Facing (வடக்கு நோக்கு)",
+        "South Facing (தெற்கு நோக்கு)",
+        "North-East Facing (வடகிழக்கு நோக்கு)",
+        "North-West Facing (வடமேற்கு நோக்கு)",
+        "South-East Facing (தென்கிழக்கு நோக்கு)",
+        "South-West Facing (தென்மேற்கு நோக்கு)"
+      ],
+      default: null,
+    },
     /* ==============================
        STATUS FLOW
     ============================== */

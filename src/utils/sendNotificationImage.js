@@ -5,6 +5,8 @@ const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 export const uploadNotificationImage = async (file) => {
+  if (!file) return "";
+
   const ext = file.mimetype.split("/")[1] || "jpg";
 
   const key = `notifications/${Date.now()}-${Math.random()
@@ -24,14 +26,18 @@ export const uploadNotificationImage = async (file) => {
 };
 
 export const deleteNotificationImage = async (url) => {
-  if (!url) return;
+  try {
+    if (!url) return;
 
-  const key = url.replace(`${PUBLIC_URL}/`, "");
+    const key = url.replace(`${PUBLIC_URL}/`, "");
 
-  await r2.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    })
-  );
+    await r2.send(
+      new DeleteObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+      })
+    );
+  } catch (err) {
+    console.error("R2 delete error:", err.message);
+  }
 };

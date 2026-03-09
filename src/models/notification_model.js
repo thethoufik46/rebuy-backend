@@ -6,6 +6,11 @@ const notificationSchema = new mongoose.Schema(
     description: { type: String, required: true, trim: true },
     image: { type: String, default: "" },
     link: { type: String, default: "" },
+
+    audioNote: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

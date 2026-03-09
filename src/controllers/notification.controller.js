@@ -6,7 +6,7 @@ import {
 
 export const addNotification = async (req, res) => {
   try {
-    const { title, description, link } = req.body;
+    const { title, description, link, audioNote } = req.body;
 
     let image = "";
     if (req.file) image = await uploadNotificationImage(req.file);
@@ -16,6 +16,7 @@ export const addNotification = async (req, res) => {
       description,
       image,
       link: link || "",
+      audioNote: audioNote || "", // 🔊 audio added
     });
 
     res.status(201).json({ success: true, notification });
@@ -27,6 +28,7 @@ export const addNotification = async (req, res) => {
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find().sort({ createdAt: -1 });
+
     res.json({ success: true, notifications });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -36,7 +38,7 @@ export const getNotifications = async (req, res) => {
 export const updateNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, link } = req.body;
+    const { title, description, link, audioNote } = req.body;
 
     const notification = await Notification.findById(id);
     if (!notification)
@@ -45,6 +47,7 @@ export const updateNotification = async (req, res) => {
     if (title) notification.title = title;
     if (description) notification.description = description;
     if (link !== undefined) notification.link = link;
+    if (audioNote !== undefined) notification.audioNote = audioNote; // 🔊 update audio
 
     if (req.file) {
       await deleteNotificationImage(notification.image);
@@ -52,6 +55,7 @@ export const updateNotification = async (req, res) => {
     }
 
     await notification.save();
+
     res.json({ success: true, notification });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -67,6 +71,7 @@ export const deleteNotification = async (req, res) => {
       return res.status(404).json({ success: false });
 
     await deleteNotificationImage(notification.image);
+
     await notification.deleteOne();
 
     res.json({ success: true });

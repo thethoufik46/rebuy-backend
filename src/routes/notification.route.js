@@ -9,9 +9,26 @@ import {
 
 const router = express.Router();
 
-router.post("/add", uploadNotification.single("image"), addNotification);
+router.post(
+  "/add",
+  uploadNotification.fields([
+    { name: "image", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  addNotification
+);
+
 router.get("/", getNotifications);
-router.put("/:id", uploadNotification.single("image"), updateNotification);
+
+router.put(
+  "/:id",
+  uploadNotification.fields([
+    { name: "image", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  updateNotification
+);
+
 router.delete("/:id", deleteNotification);
 
 export default router;

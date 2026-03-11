@@ -111,7 +111,7 @@ router.post(
 
 
 /* =====================================================
-   ✅ GET ALL CARS
+   ✅ GET ALL CARS (WITH DISTRICT FILTER)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -125,6 +125,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       transmission,
       owner,
       board,
+      district,       // ✅ NEW DISTRICT FILTER
       minPrice,
       maxPrice,
       minYear,
@@ -133,6 +134,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 
     if (brand) query.brand = brand;
     if (variant) query.variant = variant;
+
+    // ✅ Add district filter if provided
+    if (district) query.district = district;
 
     if (fuel) {
       query.fuel = { $in: fuel.split(",").map(f => f.toLowerCase()) };
@@ -453,12 +457,6 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
     });
   }
 });
-
-
-
-
-
-
 
 
 /* =====================================================

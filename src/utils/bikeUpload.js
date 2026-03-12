@@ -18,8 +18,15 @@ export const uploadBikeImage = async (file, folder) => {
       throw new Error("Invalid file upload");
     }
 
-    const mimeParts = file.mimetype.split("/");
-    const ext = mimeParts[1] || "jpg";
+    /* =========================================
+       SAFE EXTENSION DETECTION
+    ========================================= */
+    let ext = "jpg";
+
+    if (file.mimetype) {
+      const parts = file.mimetype.split("/");
+      ext = parts[1] || "jpg";
+    }
 
     const key = `${folder}/${Date.now()}-${Math.random()
       .toString(36)
@@ -27,13 +34,10 @@ export const uploadBikeImage = async (file, folder) => {
 
     let bufferToUpload = file.buffer;
 
-    /* =====================================================
-       ✅ APPLY WATERMARK ONLY FOR GALLERY IMAGES
-    ===================================================== */
-    if (
-      folder.includes("gallery") &&
-      file.mimetype.startsWith("image/")
-    ) {
+    /* =========================================
+       APPLY WATERMARK ONLY FOR GALLERY
+    ========================================= */
+    if (folder.includes("gallery")) {
       bufferToUpload = await addWatermarkBuffer(file.buffer);
     }
 
@@ -42,14 +46,15 @@ export const uploadBikeImage = async (file, folder) => {
         Bucket: BUCKET,
         Key: key,
         Body: bufferToUpload,
-        ContentType: file.mimetype,
+        ContentType: file.mimetype || "image/jpeg",
       })
     );
 
     return `${PUBLIC_URL}/${key}`;
+
   } catch (err) {
     console.error("BIKE UPLOAD ERROR:", err.message);
-    throw new Error("File upload failed");
+    throw new Error("Bike file upload failed");
   }
 };
 
@@ -61,6 +66,7 @@ export const deleteBikeImage = async (url) => {
     if (!url || !url.startsWith(PUBLIC_URL)) return;
 
     const key = url.replace(`${PUBLIC_URL}/`, "");
+
     if (!key) return;
 
     await r2.send(
@@ -69,6 +75,7 @@ export const deleteBikeImage = async (url) => {
         Key: key,
       })
     );
+
   } catch (err) {
     console.error("BIKE DELETE ERROR:", err.message);
   }

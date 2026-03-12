@@ -1,5 +1,3 @@
-// ======================= src/utils/propertyUpload.js =======================
-
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import r2 from "../config/r2.js";
 import { addWatermarkBuffer } from "./watermark.js";
@@ -9,7 +7,7 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 /* =====================================================
    ✅ UPLOAD PROPERTY MEDIA
-   - Gallery → Watermark
+   - Gallery Images → Watermark
    - Banner → Clean
 ===================================================== */
 export const uploadPropertyImage = async (file, folder) => {
@@ -22,8 +20,15 @@ export const uploadPropertyImage = async (file, folder) => {
       throw new Error("R2 config missing");
     }
 
-    const mimeParts = file.mimetype.split("/");
-    const ext = mimeParts[1] || "jpg";
+    /* =========================================
+       SAFE EXTENSION DETECTION
+    ========================================= */
+    let ext = "jpg";
+
+    if (file.mimetype) {
+      const parts = file.mimetype.split("/");
+      ext = parts[1] || "jpg";
+    }
 
     const key = `${folder}/${Date.now()}-${Math.random()
       .toString(36)
@@ -31,13 +36,10 @@ export const uploadPropertyImage = async (file, folder) => {
 
     let bufferToUpload = file.buffer;
 
-    /* =====================================================
-       🔥 APPLY WATERMARK ONLY FOR GALLERY IMAGES
-    ===================================================== */
-    if (
-      folder.includes("gallery") &&
-      file.mimetype.startsWith("image/")
-    ) {
+    /* =========================================
+       APPLY WATERMARK ONLY FOR GALLERY
+    ========================================= */
+    if (folder.includes("gallery")) {
       bufferToUpload = await addWatermarkBuffer(file.buffer);
     }
 
@@ -46,7 +48,7 @@ export const uploadPropertyImage = async (file, folder) => {
         Bucket: BUCKET,
         Key: key,
         Body: bufferToUpload,
-        ContentType: file.mimetype,
+        ContentType: file.mimetype || "image/jpeg",
       })
     );
 
@@ -63,12 +65,10 @@ export const uploadPropertyImage = async (file, folder) => {
 ===================================================== */
 export const deletePropertyImage = async (url) => {
   try {
-    if (!url || !PUBLIC_URL) return;
-
-    // Ensure file belongs to this bucket
-    if (!url.startsWith(PUBLIC_URL)) return;
+    if (!url || !url.startsWith(PUBLIC_URL)) return;
 
     const key = url.replace(`${PUBLIC_URL}/`, "");
+
     if (!key) return;
 
     await r2.send(

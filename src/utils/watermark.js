@@ -5,7 +5,7 @@ export const addWatermarkBuffer = async (imageBuffer) => {
   const logoPath = path.join(process.cwd(), "assets/logo.png");
 
   const logoBuffer = await sharp(logoPath)
-    .resize(170)              // 🔥 auto nice size
+    .resize(170)
     .png()
     .toBuffer();
 
@@ -13,12 +13,9 @@ export const addWatermarkBuffer = async (imageBuffer) => {
     .composite([
       {
         input: logoBuffer,
-        gravity: "south",      // ✅ bottom center (OLX style)
-        blend: "over",
+        gravity: "south",
       },
     ])
-    .jpeg({ quality: 100 })
+    .jpeg({ quality: 95 })
     .toBuffer();
 };
-
-

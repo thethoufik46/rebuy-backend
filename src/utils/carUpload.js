@@ -18,8 +18,15 @@ export const uploadCarImage = async (file, folder) => {
       throw new Error("Invalid file upload");
     }
 
-    const mimeParts = file.mimetype.split("/");
-    const ext = mimeParts[1] || "jpg";
+    /* =========================================
+       SAFE EXTENSION DETECTION
+    ========================================= */
+    let ext = "jpg";
+
+    if (file.mimetype) {
+      const parts = file.mimetype.split("/");
+      ext = parts[1] || "jpg";
+    }
 
     const key = `${folder}/${Date.now()}-${Math.random()
       .toString(36)
@@ -27,13 +34,10 @@ export const uploadCarImage = async (file, folder) => {
 
     let bufferToUpload = file.buffer;
 
-    /* =====================================================
-       ✅ APPLY WATERMARK ONLY FOR GALLERY IMAGES
-    ===================================================== */
-    if (
-      folder.includes("gallery") &&
-      file.mimetype.startsWith("image/")
-    ) {
+    /* =========================================
+       APPLY WATERMARK ONLY FOR GALLERY
+    ========================================= */
+    if (folder.includes("gallery")) {
       bufferToUpload = await addWatermarkBuffer(file.buffer);
     }
 
@@ -42,7 +46,7 @@ export const uploadCarImage = async (file, folder) => {
         Bucket: BUCKET,
         Key: key,
         Body: bufferToUpload,
-        ContentType: file.mimetype,
+        ContentType: file.mimetype || "image/jpeg",
       })
     );
 

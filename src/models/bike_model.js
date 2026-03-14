@@ -27,19 +27,21 @@ const bikeSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* ✅ LISTING OWNER */
+    /* ================= LISTING OWNER ================= */
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
-    /* ✅ LINKED USER (OPTIONAL) */
     sellerUser: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
+
+    /* ================= BRAND ================= */
 
     brand: {
       type: mongoose.Schema.Types.ObjectId,
@@ -47,11 +49,23 @@ const bikeSchema = new mongoose.Schema(
       required: true,
     },
 
+    /* ================= MODEL (DROPDOWN) ================= */
+
     model: {
-      type: String,
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BikeModel",
       required: true,
     },
+
+    /* ================= VARIANT (NEW FIELD) ================= */
+
+    variant: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    /* ================= BASIC DETAILS ================= */
 
     year: {
       type: Number,
@@ -93,7 +107,8 @@ const bikeSchema = new mongoose.Schema(
       default: "draft",
     },
 
-    /* ✅ DISPLAY CONTACT */
+    /* ================= CONTACT ================= */
+
     seller: {
       type: String,
       required: true,
@@ -106,6 +121,8 @@ const bikeSchema = new mongoose.Schema(
       required: true,
     },
 
+    /* ================= LOCATION ================= */
+
     district: {
       type: String,
       required: true,
@@ -117,10 +134,14 @@ const bikeSchema = new mongoose.Schema(
       default: null,
     },
 
+    /* ================= DESCRIPTION ================= */
+
     description: {
       type: String,
       default: null,
     },
+
+    /* ================= MEDIA ================= */
 
     bannerImage: {
       type: String,
@@ -132,19 +153,16 @@ const bikeSchema = new mongoose.Schema(
       default: [],
     },
 
-    /* 🎙️ AUDIO NOTE */
     audioNote: {
       type: String,
       default: null,
     },
 
-    /* 🎥 MULTIPLE VIDEOS */
     videos: {
       type: [String],
       default: [],
     },
 
-    /* 🎥 EXTERNAL VIDEO LINK */
     videoLink: {
       type: String,
       default: null,
@@ -159,6 +177,7 @@ const bikeSchema = new mongoose.Schema(
 bikeSchema.pre("save", async function (next) {
   try {
     /* 🔐 SELLER ENCRYPTION */
+
     if (this.seller) {
       this.seller = String(this.seller);
 
@@ -168,6 +187,7 @@ bikeSchema.pre("save", async function (next) {
     }
 
     /* 🔢 AUTO BIKE ID */
+
     if (!this.bikeId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "bikeId" },
@@ -179,6 +199,7 @@ bikeSchema.pre("save", async function (next) {
     }
 
     /* 📍 DISTRICT VALIDATION */
+
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -190,6 +211,7 @@ bikeSchema.pre("save", async function (next) {
     this.district = districtKey;
 
     /* 🏙️ CITY VALIDATION */
+
     if (this.city) {
       if (!locations[districtKey].includes(this.city)) {
         throw new Error("City does not belong to district");
@@ -205,7 +227,10 @@ bikeSchema.pre("save", async function (next) {
 /* =====================================================
    INDEXES
 ===================================================== */
+
 bikeSchema.index({ brand: 1 });
+bikeSchema.index({ model: 1 });
+bikeSchema.index({ variant: 1 });
 bikeSchema.index({ price: 1 });
 bikeSchema.index({ year: 1 });
 bikeSchema.index({ status: 1 });

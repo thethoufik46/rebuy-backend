@@ -17,9 +17,10 @@ import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/car_brand.routes.js";
-import bikeBrandRoutes from "./routes/bike_brand.routes.js"; // ✅ FIXED
+import bikeBrandRoutes from "./routes/bike_brand.routes.js";
 
 import variantRoutes from "./routes/car_variant.routes.js";
+import bikeModelRoutes from "./routes/bike.model.routes.js";
 
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
@@ -120,7 +121,9 @@ app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
 app.use("/api/variants", variantRoutes);
+
 app.use("/api/bike-brands", bikeBrandRoutes);
+app.use("/api/bike-models", bikeModelRoutes);
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);

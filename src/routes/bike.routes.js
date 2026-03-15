@@ -16,7 +16,7 @@ import { decryptSeller } from "../utils/sellerCrypto.js";
 const router = express.Router();
 
 /* =====================================================
-   ADD BIKE (ADMIN)
+   ADD BIKE (ADMIN) - with full validation
 ===================================================== */
 router.post(
   "/add",
@@ -30,8 +30,9 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      const { brand, model, variant, videoLink } = req.body;
+      const { brand, model, variant, videoLink, seller, sellerinfo } = req.body;
 
+      // Required checks
       if (!req.files?.banner) {
         return res.status(400).json({
           success: false,
@@ -53,6 +54,21 @@ router.post(
         });
       }
 
+      if (!seller) {
+        return res.status(400).json({
+          success: false,
+          message: "Seller phone number is required",
+        });
+      }
+
+      if (!sellerinfo) {
+        return res.status(400).json({
+          success: false,
+          message: "Seller info (Rc owner/Dealer/Verified) is required",
+        });
+      }
+
+      // Upload files
       const bannerImage = await uploadBikeImage(
         req.files.banner[0],
         "bikes/banner"
@@ -60,14 +76,13 @@ router.post(
 
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadBikeImage(img, "bikes/gallery")
+            req.files.gallery.map((img) =>
+              uploadBikeImage(img, "bikes/gallery")
+            )
           )
-        )
         : [];
 
       let audioNote = null;
-
       if (req.files?.audio) {
         audioNote = await uploadBikeImage(
           req.files.audio[0],
@@ -77,12 +92,13 @@ router.post(
 
       const videos = req.files?.video
         ? await Promise.all(
-          req.files.video.map((vid) =>
-            uploadBikeImage(vid, "bikes/videos")
+            req.files.video.map((vid) =>
+              uploadBikeImage(vid, "bikes/videos")
+            )
           )
-        )
         : [];
 
+      // Create bike
       const bike = await Bike.create({
         ...req.body,
         brand,
@@ -93,6 +109,8 @@ router.post(
         audioNote,
         videos,
         videoLink: videoLink || null,
+        seller,                // explicitly passed
+        sellerinfo,            // explicitly passed
         createdBy: req.user.id,
         status: "available",
       });
@@ -103,6 +121,7 @@ router.post(
         bike,
       });
     } catch (err) {
+      console.error("ADMIN ADD BIKE ERROR:", err);
       res.status(500).json({
         success: false,
         message: err.message,
@@ -111,10 +130,8 @@ router.post(
   }
 );
 
-
-
 /* =====================================================
-   GET ALL BIKES
+   GET ALL BIKES - with performance limit & safe population
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -136,26 +153,17 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       maxYear,
     } = req.query;
 
-    /* ===============================
-       FILTERS
-    =============================== */
-
+    // Filters
     if (brand) query.brand = brand;
-
     if (model) query.model = model;
-
     if (variant) query.variant = variant;
-
     if (owner) {
       query.owner = {
         $in: owner.split(","),
       };
     }
-
     if (insurance) query.insurance = insurance;
-
     if (district) query.district = district;
-
     if (city) query.city = city;
 
     if (minPrice || maxPrice) {
@@ -170,63 +178,45 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       if (maxYear) query.year.$lte = Number(maxYear);
     }
 
-    /* ===============================
-       HIDE DRAFT FOR USERS
-    =============================== */
-
+    // Hide drafts for non-admins
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
 
-    /* ===============================
-       FETCH DATA
-    =============================== */
-
+    // Fetch with population (only needed fields) and limit for performance
     const bikes = await Bike.find(query)
       .populate("brand", "name logoUrl")
-      .populate("model", "title imageUrl")
+      .populate("model", "title")          // imageUrl may not exist; safer to omit
       .sort({ createdAt: -1 })
+      .limit(100)                          // prevent large response
       .lean();
 
-    /* ===============================
-       DECRYPT SELLER (ADMIN ONLY)
-    =============================== */
-
+    // Decrypt seller for admin only
     const finalBikes = bikes.map((bike) => {
-
       if (
         isAdminUser &&
         typeof bike.seller === "string" &&
         bike.seller.includes(":")
       ) {
         try {
-
           const decrypted = decryptSeller(bike.seller);
-
           if (decrypted) {
             bike.seller = decrypted;
           }
-
         } catch (err) {
           console.log("SELLER DECRYPT ERROR:", err.message);
         }
       }
-
       return bike;
     });
-    /* ===============================
-       RESPONSE
-    =============================== */
 
     res.json({
       success: true,
       count: finalBikes.length,
       bikes: finalBikes,
     });
-
   } catch (err) {
-    console.error("GET BIKES ERROR:", err.message);
-
+    console.error("GET BIKES ERROR FULL:", err);
     res.status(500).json({
       success: false,
       message: "Failed to fetch bikes",
@@ -234,14 +224,9 @@ router.get("/", verifyTokenOptional, async (req, res) => {
   }
 });
 
-
 /* =====================================================
-   ✅ UPDATE BIKE (ADMIN - FINAL SAFE VERSION)
+   UPDATE BIKE (ADMIN) - safe field updates
 ===================================================== */
-/* =====================================================
-   UPDATE BIKE (ADMIN - FINAL SAFE VERSION)
-===================================================== */
-
 router.put(
   "/:id",
   verifyToken,
@@ -255,7 +240,6 @@ router.put(
   async (req, res) => {
     try {
       const bike = await Bike.findById(req.params.id);
-
       if (!bike) {
         return res.status(404).json({
           success: false,
@@ -263,28 +247,20 @@ router.put(
         });
       }
 
-      /* =====================================================
-         BANNER UPDATE
-      ===================================================== */
-
+      // Banner update
       if (req.files?.banner?.length) {
         if (bike.bannerImage) {
           await deleteBikeImage(bike.bannerImage);
         }
-
         bike.bannerImage = await uploadBikeImage(
           req.files.banner[0],
           "bikes/banner"
         );
       }
 
-      /* =====================================================
-         GALLERY UPDATE
-      ===================================================== */
-
+      // Gallery update
       if (req.body.existingGallery !== undefined) {
         let existingGallery;
-
         try {
           existingGallery = Array.isArray(req.body.existingGallery)
             ? req.body.existingGallery
@@ -292,16 +268,13 @@ router.put(
         } catch {
           existingGallery = bike.galleryImages || [];
         }
-
         if (Array.isArray(existingGallery)) {
           const imagesToDelete = (bike.galleryImages || []).filter(
             (img) => !existingGallery.includes(img)
           );
-
           for (const img of imagesToDelete) {
             await deleteBikeImage(img);
           }
-
           bike.galleryImages = existingGallery;
         }
       }
@@ -312,35 +285,26 @@ router.put(
             uploadBikeImage(img, "bikes/gallery")
           )
         );
-
         bike.galleryImages = [
           ...(bike.galleryImages || []),
           ...newGallery,
         ];
       }
 
-      /* =====================================================
-         AUDIO UPDATE
-      ===================================================== */
-
+      // Audio update
       if (req.files?.audio?.length) {
         if (bike.audioNote) {
           await deleteBikeImage(bike.audioNote);
         }
-
         bike.audioNote = await uploadBikeImage(
           req.files.audio[0],
           "bikes/audio"
         );
       }
 
-      /* =====================================================
-         VIDEO UPDATE
-      ===================================================== */
-
+      // Video files update
       if (req.body.existingVideos !== undefined) {
         let existingVideos;
-
         try {
           existingVideos = Array.isArray(req.body.existingVideos)
             ? req.body.existingVideos
@@ -348,16 +312,13 @@ router.put(
         } catch {
           existingVideos = bike.videos || [];
         }
-
         if (Array.isArray(existingVideos)) {
           const videosToDelete = (bike.videos || []).filter(
             (vid) => !existingVideos.includes(vid)
           );
-
           for (const vid of videosToDelete) {
             await deleteBikeImage(vid);
           }
-
           bike.videos = existingVideos;
         }
       }
@@ -368,25 +329,18 @@ router.put(
             uploadBikeImage(vid, "bikes/videos")
           )
         );
-
         bike.videos = [
           ...(bike.videos || []),
           ...newVideos,
         ];
       }
 
-      /* =====================================================
-         VIDEO LINK
-      ===================================================== */
-
+      // Video link
       if (req.body.videoLink !== undefined) {
         bike.videoLink = req.body.videoLink || null;
       }
 
-      /* =====================================================
-         SAFE FIELD UPDATE
-      ===================================================== */
-
+      // Allowed simple fields (seller included, pre-save hook will encrypt)
       const allowedFields = [
         "brand",
         "model",
@@ -397,6 +351,7 @@ router.put(
         "owner",
         "insurance",
         "status",
+        "seller",
         "sellerinfo",
         "district",
         "city",
@@ -416,10 +371,8 @@ router.put(
         message: "Bike updated successfully",
         bike,
       });
-
     } catch (err) {
-      console.log("BIKE UPDATE ERROR:", err);
-
+      console.error("BIKE UPDATE ERROR FULL:", err);
       res.status(500).json({
         success: false,
         message: "Bike update failed",
@@ -429,28 +382,23 @@ router.put(
 );
 
 /* =====================================================
-   ✅ DELETE BIKE (ADMIN)
+   DELETE BIKE (ADMIN)
 ===================================================== */
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const bike = await Bike.findById(req.params.id);
-    if (!bike)
+    if (!bike) {
       return res.status(404).json({
         success: false,
         message: "Bike not found",
       });
+    }
 
-    if (bike.bannerImage)
-      await deleteBikeImage(bike.bannerImage);
-
-    for (const img of bike.galleryImages || [])
-      await deleteBikeImage(img);
-
-    if (bike.audioNote)
-      await deleteBikeImage(bike.audioNote);
-
-    for (const vid of bike.videos || [])
-      await deleteBikeImage(vid);
+    // Delete associated files
+    if (bike.bannerImage) await deleteBikeImage(bike.bannerImage);
+    for (const img of bike.galleryImages || []) await deleteBikeImage(img);
+    if (bike.audioNote) await deleteBikeImage(bike.audioNote);
+    for (const vid of bike.videos || []) await deleteBikeImage(vid);
 
     await bike.deleteOne();
 
@@ -458,7 +406,6 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: "Bike deleted successfully",
     });
-
   } catch (err) {
     console.error("DELETE BIKE ERROR:", err.message);
     res.status(500).json({
@@ -468,9 +415,8 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-
 /* =====================================================
-   ✅ USER ADD BIKE (DRAFT FLOW)
+   USER ADD BIKE (DRAFT FLOW)
 ===================================================== */
 router.post(
   "/user-add",
@@ -484,20 +430,13 @@ router.post(
     try {
       const { brand, model, variant, videoLink } = req.body;
 
-      /* =========================
-         VALIDATE BRAND
-      ========================= */
-
+      // Validate IDs
       if (!mongoose.Types.ObjectId.isValid(brand)) {
         return res.status(400).json({
           success: false,
           message: "Invalid brand id",
         });
       }
-
-      /* =========================
-         VALIDATE MODEL
-      ========================= */
 
       if (!mongoose.Types.ObjectId.isValid(model)) {
         return res.status(400).json({
@@ -506,12 +445,8 @@ router.post(
         });
       }
 
-      /* =========================
-         GET USER
-      ========================= */
-
+      // Get user
       const user = await User.findById(req.user.id);
-
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -519,24 +454,16 @@ router.post(
         });
       }
 
-      /* =========================
-         UPLOAD GALLERY
-      ========================= */
-
+      // Upload files
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadBikeImage(img, "bikes/gallery")
+            req.files.gallery.map((img) =>
+              uploadBikeImage(img, "bikes/gallery")
+            )
           )
-        )
         : [];
 
-      /* =========================
-         UPLOAD AUDIO
-      ========================= */
-
       let audioNote = null;
-
       if (req.files?.audio) {
         audioNote = await uploadBikeImage(
           req.files.audio[0],
@@ -544,22 +471,15 @@ router.post(
         );
       }
 
-      /* =========================
-         UPLOAD VIDEOS
-      ========================= */
-
       const videos = req.files?.video
         ? await Promise.all(
-          req.files.video.map((vid) =>
-            uploadBikeImage(vid, "bikes/videos")
+            req.files.video.map((vid) =>
+              uploadBikeImage(vid, "bikes/videos")
+            )
           )
-        )
         : [];
 
-      /* =========================
-         CREATE BIKE
-      ========================= */
-
+      // Create bike (draft)
       const bike = await Bike.create({
         ...req.body,
         brand,
@@ -570,26 +490,21 @@ router.post(
         audioNote,
         videos,
         videoLink: videoLink || null,
-        seller: String(user.phone),
+        seller: String(user.phone),           // from user profile
         sellerUser: user._id,
         createdBy: user._id,
         status: "draft",
-        price: null,
+        price: null,                           // admin will set later
+        sellerinfo: req.body.sellerinfo ?? "Rc owner", // default using nullish coalescing
       });
-
-      /* =========================
-         RESPONSE
-      ========================= */
 
       res.status(201).json({
         success: true,
         message: "Bike submitted for admin approval",
         bike,
       });
-
     } catch (err) {
       console.error("USER ADD BIKE ERROR:", err.message);
-
       res.status(500).json({
         success: false,
         message: err.message,
@@ -597,6 +512,7 @@ router.post(
     }
   }
 );
+
 /* =====================================================
    GET MY BIKES (USER LISTINGS)
 ===================================================== */
@@ -610,6 +526,7 @@ router.get("/my", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    // Mask seller phone for non-admin (user sees own listings, but still mask)
     const safeBikes = bikes.map((bike) => {
       if (
         typeof bike.seller === "string" &&
@@ -625,10 +542,8 @@ router.get("/my", verifyToken, async (req, res) => {
       count: safeBikes.length,
       bikes: safeBikes,
     });
-
   } catch (err) {
     console.error("GET MY BIKES ERROR:", err.message);
-
     res.status(500).json({
       success: false,
       message: "Failed to fetch user bikes",
@@ -636,14 +551,12 @@ router.get("/my", verifyToken, async (req, res) => {
   }
 });
 
-
 /* =====================================================
    USER REQUEST DELETE (BIKE)
 ===================================================== */
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {
     const bike = await Bike.findById(req.params.id);
-
     if (!bike) {
       return res.status(404).json({
         success: false,
@@ -659,17 +572,14 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
     }
 
     bike.status = "delete_requested";
-
     await bike.save();
 
     res.json({
       success: true,
       message: "Delete request sent",
     });
-
   } catch (err) {
     console.error("REQUEST DELETE ERROR:", err.message);
-
     res.status(500).json({
       success: false,
       message: "Failed to request delete",

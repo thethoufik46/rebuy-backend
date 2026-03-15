@@ -163,10 +163,11 @@ router.post(
 );
 
 /* =====================================================
-   GET ALL BIKES - with performance limit & safe population
+   ✅ GET ALL BIKES (FILTER: BRAND, MODEL, DISTRICT, OWNER, YEAR, PRICE)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
+
     const isAdminUser = req.user?.role === "admin";
 
     const query = {};
@@ -174,85 +175,118 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const {
       brand,
       model,
-      variant,
       owner,
-      insurance,
       district,
-      city,
       minPrice,
       maxPrice,
       minYear,
       maxYear,
     } = req.query;
 
-    // Filters
+    /* ===============================
+       🔎 FILTERS
+    =============================== */
+
     if (brand) query.brand = brand;
+
     if (model) query.model = model;
-    if (variant) query.variant = variant;
+
+    if (district) query.district = district;
+
     if (owner) {
       query.owner = {
-        $in: owner.split(","),
+        $in: owner.split(",")
       };
     }
-    if (insurance) query.insurance = insurance;
-    if (district) query.district = district;
-    if (city) query.city = city;
+
+    /* ===============================
+       💰 PRICE FILTER
+    =============================== */
 
     if (minPrice || maxPrice) {
+
       query.price = {};
+
       if (minPrice) query.price.$gte = Number(minPrice);
+
       if (maxPrice) query.price.$lte = Number(maxPrice);
+
     }
+
+    /* ===============================
+       📅 YEAR FILTER
+    =============================== */
 
     if (minYear || maxYear) {
+
       query.year = {};
+
       if (minYear) query.year.$gte = Number(minYear);
+
       if (maxYear) query.year.$lte = Number(maxYear);
+
     }
 
-    // Hide drafts for non-admins
+    /* ===============================
+       🚫 HIDE DRAFT FOR USERS
+    =============================== */
+
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
 
-    // Fetch with population (only needed fields) and limit for performance
+    /* ===============================
+       📦 FETCH DATA
+    =============================== */
+
     const bikes = await Bike.find(query)
       .populate("brand", "name logoUrl")
-      .populate("model", "title")          // imageUrl may not exist; safer to omit
+      .populate("model", "title")
       .sort({ createdAt: -1 })
-      .limit(100)                          // prevent large response
       .lean();
 
-    // Decrypt seller for admin only
+    /* ===============================
+       🔐 DECRYPT SELLER (ADMIN ONLY)
+    =============================== */
+
     const finalBikes = bikes.map((bike) => {
+
       if (
         isAdminUser &&
         typeof bike.seller === "string" &&
         bike.seller.includes(":")
       ) {
         try {
-          const decrypted = decryptSeller(bike.seller);
-          if (decrypted) {
-            bike.seller = decrypted;
-          }
-        } catch (err) {
-          console.log("SELLER DECRYPT ERROR:", err.message);
-        }
+
+          bike.seller = decryptSeller(bike.seller);
+
+        } catch (_) {}
+
       }
+
       return bike;
+
     });
+
+    /* ===============================
+       📤 RESPONSE
+    =============================== */
 
     res.json({
       success: true,
       count: finalBikes.length,
       bikes: finalBikes,
     });
+
   } catch (err) {
-    console.error("GET BIKES ERROR FULL:", err);
+
+    console.error("GET BIKES ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch bikes",
     });
+
   }
 });
 

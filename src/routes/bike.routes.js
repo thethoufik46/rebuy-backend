@@ -30,8 +30,40 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      const { brand, model, variant, videoLink, seller, sellerinfo } = req.body;
+      const {
+        brand,
+        model,
+        variant,
+        videoLink,
+        seller,
+        sellerinfo,
+        year,
+        owner,
+        district
+      } = req.body;
 
+      const yearNumber = Number(year);
+
+      if (!year || isNaN(yearNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid year required"
+        });
+      }
+
+      if (!owner) {
+        return res.status(400).json({
+          success: false,
+          message: "Owner required"
+        });
+      }
+
+      if (!district || district.trim() === "") {
+        return res.status(400).json({
+          success: false,
+          message: "District required"
+        });
+      }
       // Required checks
       if (!req.files?.banner) {
         return res.status(400).json({
@@ -76,10 +108,10 @@ router.post(
 
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadBikeImage(img, "bikes/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadBikeImage(img, "bikes/gallery")
           )
+        )
         : [];
 
       let audioNote = null;
@@ -92,10 +124,10 @@ router.post(
 
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadBikeImage(vid, "bikes/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadBikeImage(vid, "bikes/videos")
           )
+        )
         : [];
 
       // Create bike
@@ -457,10 +489,10 @@ router.post(
       // Upload files
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadBikeImage(img, "bikes/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadBikeImage(img, "bikes/gallery")
           )
+        )
         : [];
 
       let audioNote = null;
@@ -473,10 +505,10 @@ router.post(
 
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadBikeImage(vid, "bikes/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadBikeImage(vid, "bikes/videos")
           )
+        )
         : [];
 
       // Create bike (draft)

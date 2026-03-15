@@ -60,10 +60,10 @@ router.post(
 
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadBikeImage(img, "bikes/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadBikeImage(img, "bikes/gallery")
           )
+        )
         : [];
 
       let audioNote = null;
@@ -77,10 +77,10 @@ router.post(
 
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadBikeImage(vid, "bikes/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadBikeImage(vid, "bikes/videos")
           )
+        )
         : [];
 
       const bike = await Bike.create({
@@ -193,19 +193,27 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     =============================== */
 
     const finalBikes = bikes.map((bike) => {
+
       if (
         isAdminUser &&
         typeof bike.seller === "string" &&
         bike.seller.includes(":")
       ) {
         try {
-          bike.seller = decryptSeller(bike.seller);
-        } catch (_) {}
+
+          const decrypted = decryptSeller(bike.seller);
+
+          if (decrypted) {
+            bike.seller = decrypted;
+          }
+
+        } catch (err) {
+          console.log("SELLER DECRYPT ERROR:", err.message);
+        }
       }
 
       return bike;
     });
-
     /* ===============================
        RESPONSE
     =============================== */
@@ -517,10 +525,10 @@ router.post(
 
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadBikeImage(img, "bikes/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadBikeImage(img, "bikes/gallery")
           )
+        )
         : [];
 
       /* =========================
@@ -542,10 +550,10 @@ router.post(
 
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadBikeImage(vid, "bikes/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadBikeImage(vid, "bikes/videos")
           )
+        )
         : [];
 
       /* =========================
@@ -598,7 +606,7 @@ router.get("/my", verifyToken, async (req, res) => {
 
     const bikes = await Bike.find({ createdBy: userId })
       .populate("brand", "name logoUrl")
-      .populate("model", "title imageUrl")
+      .populate("model", "title")
       .sort({ createdAt: -1 })
       .lean();
 

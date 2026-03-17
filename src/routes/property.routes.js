@@ -103,27 +103,91 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const query = {};
 
     const {
-      mainType,
-      category,
       district,
       city,
+      mainType,
+      category,
+      direction,
+      bedrooms,
       minPrice,
       maxPrice,
-      bedrooms,
+      minLandArea,
+      maxLandArea,
     } = req.query;
 
-    if (mainType) query.mainType = mainType;
-    if (category) query.category = category;
+    /* ==============================
+       📍 LOCATION FILTER
+    ============================== */
     if (district) query.district = district;
     if (city) query.city = city;
-    if (bedrooms) query.bedrooms = Number(bedrooms);
 
+    /* ==============================
+       🏠 TYPE FILTER
+    ============================== */
+    if (mainType) {
+      query.mainType = { $in: mainType.split(",") };
+    }
+
+    /* ==============================
+       📂 CATEGORY FILTER
+    ============================== */
+    if (category) {
+      query.category = { $in: category.split(",") };
+    }
+
+    /* ==============================
+       🧭 DIRECTION FILTER
+    ============================== */
+    if (direction) {
+      query.direction = { $in: direction.split(",") };
+    }
+
+    /* ==============================
+       🛏️ BEDROOM FILTER
+    ============================== */
+    if (bedrooms) {
+      query.bedrooms = { $in: bedrooms.split(",") };
+    }
+
+    /* ==============================
+       💰 PRICE RANGE
+    ============================== */
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
+    /* ==============================
+       📐 LAND AREA FILTER 🔥
+       (assuming string like "1200 sqft")
+    ============================== */
+    if (minLandArea || maxLandArea) {
+      query.$expr = {
+        $and: [
+          minLandArea
+            ? {
+                $gte: [
+                  { $toDouble: { $arrayElemAt: [{ $split: ["$landArea", " "] }, 0] } },
+                  Number(minLandArea),
+                ],
+              }
+            : {},
+          maxLandArea
+            ? {
+                $lte: [
+                  { $toDouble: { $arrayElemAt: [{ $split: ["$landArea", " "] }, 0] } },
+                  Number(maxLandArea),
+                ],
+              }
+            : {},
+        ],
+      };
+    }
+
+    /* ==============================
+       🚫 STATUS FILTER
+    ============================== */
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
@@ -137,14 +201,15 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       count: properties.length,
       properties,
     });
+
   } catch (err) {
+    console.log("FILTER ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Failed to fetch properties",
     });
   }
 });
-
 /* =====================================================
    ✅ UPDATE PROPERTY (ADMIN SAFE)
 ===================================================== */

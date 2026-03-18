@@ -116,82 +116,117 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     } = req.query;
 
     /* ==============================
-       📍 LOCATION FILTER
+       📍 LOCATION
     ============================== */
     if (district) query.district = district;
     if (city) query.city = city;
 
     /* ==============================
-       🏠 TYPE FILTER
+       🏠 MAIN TYPE
     ============================== */
     if (mainType) {
-      query.mainType = { $in: mainType.split(",") };
+      query.mainType = {
+        $in: mainType.split(",").map(v => v.trim())
+      };
     }
 
     /* ==============================
-       📂 CATEGORY FILTER
+       📂 CATEGORY
     ============================== */
     if (category) {
-      query.category = { $in: category.split(",") };
+      query.category = {
+        $in: category.split(",").map(v => v.trim())
+      };
     }
 
     /* ==============================
-       🧭 DIRECTION FILTER
+       🧭 DIRECTION
     ============================== */
     if (direction) {
-      query.direction = { $in: direction.split(",") };
+      query.direction = {
+        $in: direction.split(",").map(v => v.trim())
+      };
     }
 
     /* ==============================
-       🛏️ BEDROOM FILTER
+       🛏️ BEDROOMS
     ============================== */
     if (bedrooms) {
-      query.bedrooms = { $in: bedrooms.split(",") };
+      query.bedrooms = {
+        $in: bedrooms.split(",").map(v => v.trim())
+      };
     }
 
     /* ==============================
-       💰 PRICE RANGE
+       💰 PRICE
     ============================== */
     if (minPrice || maxPrice) {
       query.price = {};
+
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
     /* ==============================
-       📐 LAND AREA FILTER 🔥
-       (assuming string like "1200 sqft")
+       📐 LAND AREA (SAFE FIX 🔥)
     ============================== */
     if (minLandArea || maxLandArea) {
-      query.$expr = {
-        $and: [
-          minLandArea
-            ? {
-                $gte: [
-                  { $toDouble: { $arrayElemAt: [{ $split: ["$landArea", " "] }, 0] } },
-                  Number(minLandArea),
-                ],
+      const conditions = [];
+
+      if (minLandArea) {
+        conditions.push({
+          $gte: [
+            {
+              $toDouble: {
+                $arrayElemAt: [
+                  { $split: ["$landArea", " "] },
+                  0
+                ]
               }
-            : {},
-          maxLandArea
-            ? {
-                $lte: [
-                  { $toDouble: { $arrayElemAt: [{ $split: ["$landArea", " "] }, 0] } },
-                  Number(maxLandArea),
-                ],
+            },
+            Number(minLandArea)
+          ]
+        });
+      }
+
+      if (maxLandArea) {
+        conditions.push({
+          $lte: [
+            {
+              $toDouble: {
+                $arrayElemAt: [
+                  { $split: ["$landArea", " "] },
+                  0
+                ]
               }
-            : {},
-        ],
-      };
+            },
+            Number(maxLandArea)
+          ]
+        });
+      }
+
+      if (conditions.length > 0) {
+        query.$expr = { $and: conditions };
+      }
     }
 
     /* ==============================
        🚫 STATUS FILTER
     ============================== */
     if (!isAdminUser) {
-      query.status = { $nin: ["draft", "delete_requested"] };
+      query.status = {
+        $nin: ["draft", "delete_requested"]
+      };
     }
 
+    /* ==============================
+       🔍 DEBUG (IMPORTANT)
+    ============================== */
+    console.log("FINAL QUERY =>", JSON.stringify(query, null, 2));
+
+    /* ==============================
+       📦 FETCH DATA
+    ============================== */
     const properties = await Property.find(query)
       .sort({ createdAt: -1 })
       .lean();
@@ -203,13 +238,16 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     });
 
   } catch (err) {
-    console.log("FILTER ERROR:", err);
+    console.error("FILTER ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch properties",
     });
   }
 });
+
+
 /* =====================================================
    ✅ UPDATE PROPERTY (ADMIN SAFE)
 ===================================================== */

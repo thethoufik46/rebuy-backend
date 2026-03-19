@@ -167,13 +167,13 @@ const carSchema = new mongoose.Schema(
     },
 
    
-
+  /* app video  */
     videos: {
       type: [String],
       default: [],
     },
 
-    /* 🎥 CAR VIDEO */
+    /* 🎥 youtube upload and link  */
     videoLink: {
       type: String,
       default: null,

@@ -127,9 +127,9 @@ const propertySchema = new mongoose.Schema(
 },
 
     landArea: {
-      type: String,
-      default: null,
-    },
+  type: Number,
+  default: null,
+},
 
     homeArea: {
       type: String,
@@ -261,4 +261,4 @@ propertySchema.pre("save", async function (next) {
   }
 });
 
-export default mongoose.model("Property", propertySchema);
+export default mongoose.model("Property", propertySchema); 

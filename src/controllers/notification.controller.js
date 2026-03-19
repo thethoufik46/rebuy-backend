@@ -7,10 +7,10 @@ import {
 } from "../utils/sendNotificationImage.js";
 
 
-// ADD NOTIFICATION
+// ✅ ADD NOTIFICATION
 export const addNotification = async (req, res) => {
   try {
-    const { title, description, link } = req.body;
+    const { title, description, link, type } = req.body;
 
     let image = "";
     let audioNote = "";
@@ -29,6 +29,7 @@ export const addNotification = async (req, res) => {
       image,
       link: link || "",
       audioNote,
+      type: type || "notification", // ✅ NEW
     });
 
     res.status(201).json({
@@ -45,11 +46,18 @@ export const addNotification = async (req, res) => {
 };
 
 
-// GET ALL
+// ✅ GET ALL (with optional type filter)
 export const getNotifications = async (req, res) => {
   try {
+    const { type } = req.query;
 
-    const notifications = await Notification.find().sort({ createdAt: -1 });
+    const filter = {};
+
+    if (type) {
+      filter.type = type; // 🔥 filter by type
+    }
+
+    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -62,10 +70,9 @@ export const getNotifications = async (req, res) => {
 };
 
 
-// UPDATE
+// ✅ UPDATE
 export const updateNotification = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const notification = await Notification.findById(id);
@@ -84,6 +91,11 @@ export const updateNotification = async (req, res) => {
 
     if (req.body.link !== undefined) {
       notification.link = req.body.link;
+    }
+
+    // ✅ UPDATE TYPE
+    if (req.body.type) {
+      notification.type = req.body.type;
     }
 
     if (req.files?.image) {
@@ -113,10 +125,9 @@ export const updateNotification = async (req, res) => {
 };
 
 
-// DELETE
+// ✅ DELETE
 export const deleteNotification = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const notification = await Notification.findById(id);

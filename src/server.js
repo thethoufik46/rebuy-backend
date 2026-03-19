@@ -44,7 +44,7 @@ import linkRoutes from "./routes/link.routes.js";
 import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
-
+import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 // ================= ENV =================
 dotenv.config();
 
@@ -97,6 +97,9 @@ app.get("/refund-policy", (req, res) => {
   );
 });
 
+//youtube
+
+app.use("/", youtubeAuthRoutes);
 /* =========================
    DATABASE
 ========================= */

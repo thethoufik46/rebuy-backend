@@ -28,6 +28,14 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // ✅ NEW FIELD: TYPE (Dropdown)
+    type: {
+      type: String,
+      enum: ["notification", "driver_jobs"], // 🔥 restrict values
+      default: "notification",
+      required: true,
+    },
   },
   { timestamps: true }
 );

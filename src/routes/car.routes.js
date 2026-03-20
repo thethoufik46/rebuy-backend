@@ -111,7 +111,7 @@ router.post(
 
 
 /* =====================================================
-   ✅ GET ALL CARS (WITH DISTRICT FILTER)
+   ✅ GET ALL CARS (FINAL PRO FILTER VERSION 🔥)
 ===================================================== */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -125,52 +125,101 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       transmission,
       owner,
       board,
-      district,       // ✅ NEW DISTRICT FILTER
+      district,
       minPrice,
       maxPrice,
       minYear,
       maxYear,
     } = req.query;
 
-    if (brand) query.brand = brand;
-    if (variant) query.variant = variant;
+    /* ==============================
+       ✅ MULTI BRAND FILTER
+    ============================== */
+    if (brand) {
+      query.brand = {
+        $in: brand.split(",").map((b) => b.trim()),
+      };
+    }
 
-    // ✅ Add district filter if provided
-    if (district) query.district = district;
+    /* ==============================
+       ✅ MULTI VARIANT FILTER
+    ============================== */
+    if (variant) {
+      query.variant = {
+        $in: variant.split(",").map((v) => v.trim()),
+      };
+    }
 
+    /* ==============================
+       ✅ MULTI DISTRICT FILTER 🔥
+    ============================== */
+    if (district) {
+      query.district = {
+        $in: district.split(",").map((d) => d.trim()),
+      };
+    }
+
+    /* ==============================
+       ✅ FUEL FILTER
+    ============================== */
     if (fuel) {
-      query.fuel = { $in: fuel.split(",").map(f => f.toLowerCase()) };
+      query.fuel = {
+        $in: fuel.split(",").map((f) => f.toLowerCase().trim()),
+      };
     }
 
+    /* ==============================
+       ✅ OWNER FILTER
+    ============================== */
     if (owner) {
-      query.owner = { $in: owner.split(",").map(Number) };
+      query.owner = {
+        $in: owner.split(",").map((o) => Number(o)),
+      };
     }
 
+    /* ==============================
+       ✅ SIMPLE FILTERS
+    ============================== */
     if (transmission) query.transmission = transmission;
     if (board) query.board = board;
 
+    /* ==============================
+       ✅ PRICE FILTER
+    ============================== */
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
+    /* ==============================
+       ✅ YEAR FILTER
+    ============================== */
     if (minYear || maxYear) {
       query.year = {};
       if (minYear) query.year.$gte = Number(minYear);
       if (maxYear) query.year.$lte = Number(maxYear);
     }
 
+    /* ==============================
+       ✅ HIDE DRAFT FOR USERS
+    ============================== */
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
 
+    /* ==============================
+       ✅ FETCH DATA
+    ============================== */
     const cars = await Car.find(query)
       .populate("brand", "name logoUrl")
       .populate("variant", "title imageUrl")
       .sort({ createdAt: -1 })
       .lean();
 
+    /* ==============================
+       ✅ DECRYPT SELLER (ADMIN ONLY)
+    ============================== */
     const finalCars = cars.map((car) => {
       if (
         isAdminUser &&
@@ -184,19 +233,24 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       return car;
     });
 
+    /* ==============================
+       ✅ RESPONSE
+    ============================== */
     res.json({
       success: true,
       count: finalCars.length,
       cars: finalCars,
     });
-  } catch {
+
+  } catch (err) {
+    console.log("GET CARS ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch cars",
     });
   }
 });
-
 
 /* =====================================================
    ✅ UPDATE CAR (ADMIN - FINAL SAFE VERSION)

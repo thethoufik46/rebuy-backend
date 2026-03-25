@@ -287,7 +287,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 });
 
 /* =====================================================
-   UPDATE BIKE (ADMIN) - safe field updates
+   UPDATE BIKE (ADMIN) - FINAL CLEAN + FIXED
 ===================================================== */
 router.put(
   "/:id",
@@ -302,6 +302,7 @@ router.put(
   async (req, res) => {
     try {
       const bike = await Bike.findById(req.params.id);
+
       if (!bike) {
         return res.status(404).json({
           success: false,
@@ -309,20 +310,22 @@ router.put(
         });
       }
 
-      // Banner update
+      /* ================= BANNER ================= */
       if (req.files?.banner?.length) {
         if (bike.bannerImage) {
           await deleteBikeImage(bike.bannerImage);
         }
+
         bike.bannerImage = await uploadBikeImage(
           req.files.banner[0],
           "bikes/banner"
         );
       }
 
-      // Gallery update
+      /* ================= GALLERY ================= */
       if (req.body.existingGallery !== undefined) {
         let existingGallery;
+
         try {
           existingGallery = Array.isArray(req.body.existingGallery)
             ? req.body.existingGallery
@@ -330,13 +333,16 @@ router.put(
         } catch {
           existingGallery = bike.galleryImages || [];
         }
+
         if (Array.isArray(existingGallery)) {
           const imagesToDelete = (bike.galleryImages || []).filter(
             (img) => !existingGallery.includes(img)
           );
+
           for (const img of imagesToDelete) {
             await deleteBikeImage(img);
           }
+
           bike.galleryImages = existingGallery;
         }
       }
@@ -347,26 +353,29 @@ router.put(
             uploadBikeImage(img, "bikes/gallery")
           )
         );
+
         bike.galleryImages = [
           ...(bike.galleryImages || []),
           ...newGallery,
         ];
       }
 
-      // Audio update
+      /* ================= AUDIO ================= */
       if (req.files?.audio?.length) {
         if (bike.audioNote) {
           await deleteBikeImage(bike.audioNote);
         }
+
         bike.audioNote = await uploadBikeImage(
           req.files.audio[0],
           "bikes/audio"
         );
       }
 
-      // Video files update
+      /* ================= VIDEOS ================= */
       if (req.body.existingVideos !== undefined) {
         let existingVideos;
+
         try {
           existingVideos = Array.isArray(req.body.existingVideos)
             ? req.body.existingVideos
@@ -374,13 +383,16 @@ router.put(
         } catch {
           existingVideos = bike.videos || [];
         }
+
         if (Array.isArray(existingVideos)) {
           const videosToDelete = (bike.videos || []).filter(
             (vid) => !existingVideos.includes(vid)
           );
+
           for (const vid of videosToDelete) {
             await deleteBikeImage(vid);
           }
+
           bike.videos = existingVideos;
         }
       }
@@ -391,18 +403,19 @@ router.put(
             uploadBikeImage(vid, "bikes/videos")
           )
         );
+
         bike.videos = [
           ...(bike.videos || []),
           ...newVideos,
         ];
       }
 
-      // Video link
+      /* ================= VIDEO LINK ================= */
       if (req.body.videoLink !== undefined) {
         bike.videoLink = req.body.videoLink || null;
       }
 
-      // Allowed simple fields (seller included, pre-save hook will encrypt)
+      /* ================= BASIC FIELDS FIX ================= */
       const allowedFields = [
         "brand",
         "variant",
@@ -419,13 +432,23 @@ router.put(
         "description",
       ];
 
-     if (req.body.model !== undefined) {
-  bike.model =
-    req.body.model && mongoose.Types.ObjectId.isValid(req.body.model)
-      ? req.body.model
-      : null;
-}
+      /// 🔥 MAIN FIX (THIS WAS MISSING)
+      allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          bike[field] = req.body[field];
+        }
+      });
 
+      /* ================= MODEL (OPTIONAL) ================= */
+      if (req.body.model !== undefined) {
+        bike.model =
+          req.body.model &&
+          mongoose.Types.ObjectId.isValid(req.body.model)
+            ? req.body.model
+            : null; // ✅ empty வந்தா remove
+      }
+
+      /* ================= SAVE ================= */
       await bike.save();
 
       res.json({
@@ -433,8 +456,10 @@ router.put(
         message: "Bike updated successfully",
         bike,
       });
+
     } catch (err) {
       console.error("BIKE UPDATE ERROR FULL:", err);
+
       res.status(500).json({
         success: false,
         message: "Bike update failed",
@@ -442,6 +467,7 @@ router.put(
     }
   }
 );
+
 
 /* =====================================================
    DELETE BIKE (ADMIN)

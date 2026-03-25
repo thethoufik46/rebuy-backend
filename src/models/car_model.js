@@ -166,8 +166,8 @@ const carSchema = new mongoose.Schema(
       default: null,
     },
 
-   
-  /* app video  */
+
+    /* app video  */
     videos: {
       type: [String],
       default: [],
@@ -178,7 +178,7 @@ const carSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    
+
   },
   { timestamps: true }
 );

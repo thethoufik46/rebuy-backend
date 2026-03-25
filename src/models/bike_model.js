@@ -54,7 +54,7 @@ const bikeSchema = new mongoose.Schema(
     model: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "BikeModel",
-      required: true,
+      required: false,
     },
 
     /* ================= VARIANT (NEW FIELD) ================= */

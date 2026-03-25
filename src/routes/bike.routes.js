@@ -1,166 +1,6 @@
-import express from "express";
-import mongoose from "mongoose";
-import Bike from "../models/bike_model.js";
-import User from "../models/user_model.js";
-import { verifyToken, isAdmin } from "../middleware/auth.js";
-import { verifyTokenOptional } from "../middleware/verifyTokenOptional.js";
-import uploadBike from "../middleware/uploadBike.js";
 
-import {
-  uploadBikeImage,
-  deleteBikeImage,
-} from "../utils/bikeUpload.js";
 
-import { decryptSeller } from "../utils/sellerCrypto.js";
 
-const router = express.Router();
-
-/* =====================================================
-   ADD BIKE (ADMIN) - with full validation
-===================================================== */
-router.post(
-  "/add",
-  verifyToken,
-  isAdmin,
-  uploadBike.fields([
-    { name: "banner", maxCount: 1 },
-    { name: "gallery", maxCount: 10 },
-    { name: "audio", maxCount: 1 },
-    { name: "video", maxCount: 5 },
-  ]),
-  async (req, res) => {
-    try {
-      const {
-        brand,
-        model,
-        variant,
-        videoLink,
-        seller,
-        sellerinfo,
-        year,
-        owner,
-        district
-      } = req.body;
-
-      const yearNumber = Number(year);
-
-      if (!year || isNaN(yearNumber)) {
-        return res.status(400).json({
-          success: false,
-          message: "Valid year required"
-        });
-      }
-
-      if (!owner) {
-        return res.status(400).json({
-          success: false,
-          message: "Owner required"
-        });
-      }
-
-      if (!district || district.trim() === "") {
-        return res.status(400).json({
-          success: false,
-          message: "District required"
-        });
-      }
-      // Required checks
-      if (!req.files?.banner) {
-        return res.status(400).json({
-          success: false,
-          message: "Banner image required",
-        });
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(brand)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid brand id",
-        });
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(model)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid model id",
-        });
-      }
-
-      if (!seller) {
-        return res.status(400).json({
-          success: false,
-          message: "Seller phone number is required",
-        });
-      }
-
-      if (!sellerinfo) {
-        return res.status(400).json({
-          success: false,
-          message: "Seller info (Rc owner/Dealer/Verified) is required",
-        });
-      }
-
-      // Upload files
-      const bannerImage = await uploadBikeImage(
-        req.files.banner[0],
-        "bikes/banner"
-      );
-
-      const galleryImages = req.files?.gallery
-        ? await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadBikeImage(img, "bikes/gallery")
-          )
-        )
-        : [];
-
-      let audioNote = null;
-      if (req.files?.audio) {
-        audioNote = await uploadBikeImage(
-          req.files.audio[0],
-          "bikes/audio"
-        );
-      }
-
-      const videos = req.files?.video
-        ? await Promise.all(
-          req.files.video.map((vid) =>
-            uploadBikeImage(vid, "bikes/videos")
-          )
-        )
-        : [];
-
-      // Create bike
-      const bike = await Bike.create({
-        ...req.body,
-        brand,
-        model,
-        variant: variant || null,
-        bannerImage,
-        galleryImages,
-        audioNote,
-        videos,
-        videoLink: videoLink || null,
-        seller,                // explicitly passed
-        sellerinfo,            // explicitly passed
-        createdBy: req.user.id,
-        status: "available",
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "Bike added successfully",
-        bike,
-      });
-    } catch (err) {
-      console.error("ADMIN ADD BIKE ERROR:", err);
-      res.status(500).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  }
-);
 
 /* =====================================================
    ✅ GET ALL BIKES (FILTER: BRAND, MODEL, DISTRICT, OWNER, YEAR, PRICE)
@@ -260,7 +100,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 
           bike.seller = decryptSeller(bike.seller);
 
-        } catch (_) {}
+        } catch (_) { }
 
       }
 
@@ -409,7 +249,6 @@ router.put(
       // Allowed simple fields (seller included, pre-save hook will encrypt)
       const allowedFields = [
         "brand",
-        "model",
         "variant",
         "year",
         "price",
@@ -423,12 +262,12 @@ router.put(
         "city",
         "description",
       ];
-
-      allowedFields.forEach((field) => {
-        if (req.body[field] !== undefined) {
-          bike[field] = req.body[field];
-        }
-      });
+      if (req.body.model !== undefined) {
+        bike.model =
+          req.body.model && mongoose.Types.ObjectId.isValid(req.body.model)
+            ? req.body.model
+            : null;
+      }
 
       await bike.save();
 
@@ -504,12 +343,7 @@ router.post(
         });
       }
 
-      if (!mongoose.Types.ObjectId.isValid(model)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid model id",
-        });
-      }
+
 
       // Get user
       const user = await User.findById(req.user.id);
@@ -549,7 +383,9 @@ router.post(
       const bike = await Bike.create({
         ...req.body,
         brand,
-        model,
+        model: model && mongoose.Types.ObjectId.isValid(model)
+          ? model
+          : null,   // 🔥 optional safe
         variant: variant || null,
         bannerImage: null,
         galleryImages,

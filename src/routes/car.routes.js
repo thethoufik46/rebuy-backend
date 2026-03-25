@@ -60,10 +60,10 @@ router.post(
       /* Upload Gallery */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadCarImage(img, "cars/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadCarImage(img, "cars/gallery")
           )
+        )
         : [];
 
       /* Upload Audio */
@@ -78,10 +78,10 @@ router.post(
       /* Upload Videos */
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadCarImage(vid, "cars/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadCarImage(vid, "cars/videos")
           )
+        )
         : [];
 
       const car = await Car.create({
@@ -228,7 +228,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       ) {
         try {
           car.seller = decryptSeller(car.seller);
-        } catch (_) {}
+        } catch (_) { }
       }
       return car;
     });
@@ -562,10 +562,10 @@ router.post(
       ============================== */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
-            req.files.gallery.map((img) =>
-              uploadCarImage(img, "cars/gallery")
-            )
+          req.files.gallery.map((img) =>
+            uploadCarImage(img, "cars/gallery")
           )
+        )
         : [];
 
       /* ==============================
@@ -585,10 +585,10 @@ router.post(
       ============================== */
       const videos = req.files?.video
         ? await Promise.all(
-            req.files.video.map((vid) =>
-              uploadCarImage(vid, "cars/videos")
-            )
+          req.files.video.map((vid) =>
+            uploadCarImage(vid, "cars/videos")
           )
+        )
         : [];
 
       /* ==============================

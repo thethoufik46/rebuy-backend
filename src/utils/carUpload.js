@@ -18,7 +18,7 @@ export const uploadCarImage = async (file, folder) => {
       throw new Error("Invalid file upload");
     }
 
-    /* =========================================
+    /* =========================================  
        SAFE EXTENSION DETECTION
     ========================================= */
     let ext = "jpg";

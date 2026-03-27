@@ -45,6 +45,7 @@ import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
 import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
+import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 
 // ================= ENV =================
 dotenv.config();
@@ -152,6 +153,8 @@ app.use("/api/links", linkRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
+
+app.use("/api", recentlyViewedRoutes);
 
 /* =========================
    🔥 APP VERSION (UPDATE API)

@@ -1,9 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user_model.js";
 
-/* =====================================================
-   🔐 VERIFY TOKEN (PRODUCTION READY)
-===================================================== */
+/* ================= VERIFY TOKEN ================= */
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -12,14 +10,31 @@ export const verifyToken = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Authorization token missing",
+        message: "Token missing",
       });
     }
 
     const token = authHeader.split(" ")[1];
 
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Token missing",
+      });
+    }
+
+    /// ❌ SECRET NOT SET (safety)
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET not defined");
+      return res.status(500).json({
+        success: false,
+        message: "Server config error",
+      });
+    }
+
     let decoded;
 
+    /// ✅ VERIFY TOKEN (SAFE)
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
@@ -29,8 +44,10 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    /// 🔍 FETCH USER
-    const user = await User.findById(decoded.id).select("-password");
+    /// ✅ FETCH USER (FAST)
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .lean();
 
     if (!user) {
       return res.status(401).json({
@@ -39,7 +56,7 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    /// ✅ ATTACH USER DATA
+    /// ✅ ATTACH USER
     req.user = user;
     req.userId = user._id.toString();
 
@@ -49,20 +66,18 @@ export const verifyToken = async (req, res, next) => {
 
     return res.status(500).json({
       success: false,
-      message: "Server error in authentication",
+      message: "Server error",
     });
   }
 };
 
-/* =====================================================
-   👑 ADMIN ONLY
-===================================================== */
+/* ================= ADMIN ONLY ================= */
 export const isAdmin = (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== "admin") {
+    if (req.user?.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Access denied (Admin only)",
+        message: "Admins only",
       });
     }
 
@@ -70,35 +85,7 @@ export const isAdmin = (req, res, next) => {
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "Server error in admin check",
+      message: "Server error",
     });
-  }
-};
-
-/* =====================================================
-   🔥 OPTIONAL: OPTIONAL AUTH (Guest + Logged-in both)
-===================================================== */
-export const optionalAuth = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return next(); // 👉 allow guest
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (user) {
-      req.user = user;
-      req.userId = user._id.toString();
-    }
-
-    next();
-  } catch (err) {
-    next(); // 👉 fail silently (important)
   }
 };

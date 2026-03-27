@@ -11,7 +11,19 @@ const recentlyViewedSchema = new mongoose.Schema(
 
     items: [
       {
-        type: String, // "car_xxx", "bike_xxx"
+        itemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+        },
+        itemType: {
+          type: String,
+          enum: ["car", "bike", "property"],
+          required: true,
+        },
+        viewedAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
   },

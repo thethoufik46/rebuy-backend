@@ -211,174 +211,196 @@
     });
 
 
-    router.put(
-        "/:id",
-        verifyToken,
-        isAdmin,
-        uploadElectronics.fields([
-            { name: "banner", maxCount: 1 },
-            { name: "gallery", maxCount: 10 },
-            { name: "audio", maxCount: 1 },
-            { name: "video", maxCount: 5 },
-        ]),
-        async (req, res) => {
-            try {
-                const item = await Electronics.findById(req.params.id);
+  router.put(
+  "/:id",
+  verifyToken,
+  isAdmin,
+  uploadElectronics.fields([
+    { name: "banner", maxCount: 1 },
+    { name: "gallery", maxCount: 10 },
+    { name: "audio", maxCount: 1 },
+    { name: "video", maxCount: 5 },
+  ]),
+  async (req, res) => {
+    try {
+      const item = await Electronics.findById(req.params.id);
 
-                if (!item) {
-                    return res.status(404).json({
-                        success: false,
-                        message: "Electronics not found",
-                    });
-                }
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: "Electronics not found",
+        });
+      }
 
-                /* =========================
-                ✅ BANNER
-                ========================= */
-                if (req.files?.banner?.length) {
-                    if (item.bannerImage) {
-                        await deleteElectronicsMedia(item.bannerImage);
-                    }
-
-                    item.bannerImage = await uploadElectronicsMedia(
-                        req.files.banner[0],
-                        "electronics/banner"
-                    );
-                }
-
-                /* =========================
-                ✅ GALLERY
-                ========================= */
-                if (req.body.existingGallery !== undefined) {
-                    let existingGallery;
-
-                    try {
-                        existingGallery = Array.isArray(req.body.existingGallery)
-                            ? req.body.existingGallery
-                            : JSON.parse(req.body.existingGallery);
-                    } catch (_) {
-                        existingGallery = item.galleryImages || [];
-                    }
-
-                    const toDelete = (item.galleryImages || []).filter(
-                        (img) => !existingGallery.includes(img)
-                    );
-
-                    for (const img of toDelete) {
-                        await deleteElectronicsMedia(img);
-                    }
-
-                    item.galleryImages = existingGallery;
-                }
-
-                if (req.files?.gallery?.length) {
-                    const newImgs = await Promise.all(
-                        req.files.gallery.map((img) =>
-                            uploadElectronicsMedia(img, "electronics/gallery")
-                        )
-                    );
-
-                    item.galleryImages = [
-                        ...(item.galleryImages || []),
-                        ...newImgs,
-                    ];
-                }
-
-                /* =========================
-                ✅ AUDIO
-                ========================= */
-                if (req.files?.audio?.length) {
-                    if (item.audioNote) {
-                        await deleteElectronicsMedia(item.audioNote);
-                    }
-
-                    item.audioNote = await uploadElectronicsMedia(
-                        req.files.audio[0],
-                        "electronics/audio"
-                    );
-                }
-
-                /* =========================
-                ✅ VIDEOS
-                ========================= */
-                if (req.body.existingVideos !== undefined) {
-                    let existingVideos;
-
-                    try {
-                        existingVideos = Array.isArray(req.body.existingVideos)
-                            ? req.body.existingVideos
-                            : JSON.parse(req.body.existingVideos);
-                    } catch (_) {
-                        existingVideos = item.videos || [];
-                    }
-
-                    const toDelete = (item.videos || []).filter(
-                        (v) => !existingVideos.includes(v)
-                    );
-
-                    for (const v of toDelete) {
-                        await deleteElectronicsMedia(v);
-                    }
-
-                    item.videos = existingVideos;
-                }
-
-                if (req.files?.video?.length) {
-                    const newVideos = await Promise.all(
-                        req.files.video.map((vid) =>
-                            uploadElectronicsMedia(vid, "electronics/videos")
-                        )
-                    );
-
-                    item.videos = [
-                        ...(item.videos || []),
-                        ...newVideos,
-                    ];
-                }
-
-                /* =========================
-                ✅ VIDEO LINK
-                ========================= */
-                if (req.body.videoLink !== undefined) {
-                    item.videoLink = req.body.videoLink || null;
-                }
-
-                /* =========================
-                ✅ SAFE FIELDS
-                ========================= */
-                const allowedFields = [
-                    "category",
-                    "brand",
-                    "title",
-                    "description",
-                    "price",
-                    "seller",
-                    "sellerinfo",
-                    "status",
-                ];
-
-                allowedFields.forEach((f) => {
-                    if (req.body[f] !== undefined) {
-                        item[f] = req.body[f];
-                    }
-                });
-
-                await item.save();
-
-                res.json({
-                    success: true,
-                    message: "Electronics updated successfully",
-                    item,
-                });
-            } catch (err) {
-                console.log("UPDATE ERROR:", err);
-                res.status(500).json({
-                    success: false,
-                    message: "Update failed",
-                });
-            }
+      /* =====================================================
+         ✅ BANNER UPDATE (REPLACE SAFE)
+      ===================================================== */
+      if (req.files?.banner?.length) {
+        if (item.bannerImage) {
+          await deleteElectronicsMedia(item.bannerImage);
         }
-    );
+
+        item.bannerImage = await uploadElectronicsMedia(
+          req.files.banner[0],
+          "electronics/banner"
+        );
+      }
+
+      /* =====================================================
+         ✅ GALLERY UPDATE (SAFE DELETE + APPEND)
+      ===================================================== */
+      if (req.body.existingGallery !== undefined) {
+        let existingGallery;
+
+        try {
+          existingGallery = Array.isArray(req.body.existingGallery)
+            ? req.body.existingGallery
+            : JSON.parse(req.body.existingGallery);
+        } catch (err) {
+          existingGallery = item.galleryImages || [];
+        }
+
+        if (Array.isArray(existingGallery)) {
+          const imagesToDelete = (item.galleryImages || []).filter(
+            (img) => !existingGallery.includes(img)
+          );
+
+          for (const img of imagesToDelete) {
+            await deleteElectronicsMedia(img);
+          }
+
+          item.galleryImages = existingGallery;
+        }
+      }
+
+      // Append new gallery images
+      if (req.files?.gallery?.length) {
+        const newGallery = await Promise.all(
+          req.files.gallery.map((img) =>
+            uploadElectronicsMedia(img, "electronics/gallery")
+          )
+        );
+
+        item.galleryImages = [
+          ...(item.galleryImages || []),
+          ...newGallery,
+        ];
+      }
+
+      /* =====================================================
+         ✅ AUDIO UPDATE (REPLACE SAFE)
+      ===================================================== */
+      if (req.files?.audio?.length) {
+        if (item.audioNote) {
+          await deleteElectronicsMedia(item.audioNote);
+        }
+
+        item.audioNote = await uploadElectronicsMedia(
+          req.files.audio[0],
+          "electronics/audio"
+        );
+      }
+
+      /* =====================================================
+         ✅ VIDEO UPDATE (SAFE DELETE + APPEND)
+      ===================================================== */
+      if (req.body.existingVideos !== undefined) {
+        let existingVideos;
+
+        try {
+          existingVideos = Array.isArray(req.body.existingVideos)
+            ? req.body.existingVideos
+            : JSON.parse(req.body.existingVideos);
+        } catch (err) {
+          existingVideos = item.videos || [];
+        }
+
+        if (Array.isArray(existingVideos)) {
+          const videosToDelete = (item.videos || []).filter(
+            (vid) => !existingVideos.includes(vid)
+          );
+
+          for (const vid of videosToDelete) {
+            await deleteElectronicsMedia(vid);
+          }
+
+          item.videos = existingVideos;
+        }
+      }
+
+      // Append new videos
+      if (req.files?.video?.length) {
+        const newVideos = await Promise.all(
+          req.files.video.map((vid) =>
+            uploadElectronicsMedia(vid, "electronics/videos")
+          )
+        );
+
+        item.videos = [
+          ...(item.videos || []),
+          ...newVideos,
+        ];
+      }
+
+      /* =====================================================
+         ✅ VIDEO LINK UPDATE
+      ===================================================== */
+      if (req.body.videoLink !== undefined) {
+        item.videoLink = req.body.videoLink || null;
+      }
+
+      /* =====================================================
+         ✅ SAFE FIELD UPDATE
+      ===================================================== */
+      const allowedFields = [
+        "category",
+        "brand",
+        "title",
+        "description",
+        "price",
+        "seller",
+        "sellerinfo",
+        "status",
+        "district",
+        "city",
+      ];
+
+      allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          item[field] = req.body[field];
+        }
+      });
+
+      /* =====================================================
+         ✅ CATEGORY → BRAND MODEL FIX
+      ===================================================== */
+      if (req.body.category) {
+        const map = {
+          mobile: "MobileBrand",
+          laptop: "LaptopBrand",
+          pc: "PcBrand",
+        };
+
+        item.brandModel = map[req.body.category];
+      }
+
+      await item.save();
+
+      res.json({
+        success: true,
+        message: "Electronics updated successfully",
+        item,
+      });
+
+    } catch (err) {
+      console.log("UPDATE ERROR:", err);
+      res.status(500).json({
+        success: false,
+        message: "Electronics update failed",
+      });
+    }
+  }
+);
 
 
 

@@ -1,11 +1,10 @@
-// src/middleware/uploadCar.js
 import multer from "multer";
 
 const storage = multer.memoryStorage();
 
-const uploadCar = multer({
+const uploadElectronics = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 }, // optional
 });
 
-export default uploadCar;
+export default uploadElectronics;

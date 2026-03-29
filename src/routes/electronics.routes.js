@@ -35,9 +35,7 @@ router.post(
     try {
       const { brand, category, videoLink } = req.body;
 
-      if (!req.files?.banner) {
-        return res.status(400).json({ message: "Banner required" });
-      }
+      /* ❌ REMOVE banner required */
 
       if (!mongoose.Types.ObjectId.isValid(brand)) {
         return res.status(400).json({ message: "Invalid brand id" });
@@ -47,11 +45,17 @@ router.post(
         return res.status(400).json({ message: "Category required" });
       }
 
-      const bannerImage = await uploadElectronicsMedia(
-        req.files.banner[0],
-        "electronics/banner"
-      );
+      /* ✅ BANNER OPTIONAL */
+      let bannerImage = null;
 
+      if (req.files?.banner) {
+        bannerImage = await uploadElectronicsMedia(
+          req.files.banner[0],
+          "electronics/banner"
+        );
+      }
+
+      /* ✅ GALLERY */
       const galleryImages = req.files?.gallery
         ? await Promise.all(
             req.files.gallery.map((img) =>
@@ -60,6 +64,7 @@ router.post(
           )
         : [];
 
+      /* ✅ AUDIO */
       let audioNote = null;
       if (req.files?.audio) {
         audioNote = await uploadElectronicsMedia(
@@ -68,6 +73,7 @@ router.post(
         );
       }
 
+      /* ✅ VIDEOS */
       const videos = req.files?.video
         ? await Promise.all(
             req.files.video.map((vid) =>
@@ -76,6 +82,7 @@ router.post(
           )
         : [];
 
+      /* ✅ CREATE */
       const item = await Electronics.create({
         ...req.body,
         bannerImage,
@@ -83,7 +90,7 @@ router.post(
         audioNote,
         videos,
         videoLink: videoLink || null,
-       createdBy: req.user._id,
+        createdBy: req.user._id,
         status: "available",
       });
 
@@ -92,11 +99,14 @@ router.post(
         message: "Electronics added successfully",
         item,
       });
+
     } catch (err) {
+      console.log("ADD ERROR:", err);
       res.status(500).json({ message: err.message });
     }
   }
 );
+
 
 /* =====================================================
    ✅ GET ELECTRONICS (FILTER VERSION 🔥)

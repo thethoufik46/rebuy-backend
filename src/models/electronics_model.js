@@ -1,6 +1,22 @@
+// C:\flutter_projects\rebuy-backend\src\models\electronics_model.js
+
 import mongoose from "mongoose";
 import Counter from "./counter_model.js";
 import { encryptSeller } from "../utils/sellerCrypto.js";
+import fs from "fs";
+import path from "path";
+
+/* =====================================================
+   LOAD TAMIL NADU LOCATIONS
+===================================================== */
+const locationsPath = path.join(
+  process.cwd(),
+  "src/tamilnadu_locations.json"
+);
+
+const locations = JSON.parse(
+  fs.readFileSync(locationsPath, "utf-8")
+);
 
 /* =====================================================
    ELECTRONICS SCHEMA
@@ -14,14 +30,15 @@ const electronicsSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* ✅ CATEGORY (MOBILE / LAPTOP / PC) */
+    /* 📱 CATEGORY */
     category: {
       type: String,
       enum: ["mobile", "laptop", "pc"],
       required: true,
+      trim: true,
     },
 
-    /* ✅ OWNER */
+    /* 👤 OWNER */
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -34,7 +51,7 @@ const electronicsSchema = new mongoose.Schema(
       default: null,
     },
 
-    /* ✅ BRAND (dynamic based on category) */
+    /* 🏷️ BRAND (dynamic ref) */
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -43,11 +60,10 @@ const electronicsSchema = new mongoose.Schema(
 
     brandModel: {
       type: String,
-      required: true,
       enum: ["MobileBrand", "LaptopBrand", "PcBrand"],
     },
 
-    /* ✅ BASIC INFO */
+    /* 📄 BASIC INFO */
     title: {
       type: String,
       required: true,
@@ -57,6 +73,7 @@ const electronicsSchema = new mongoose.Schema(
     description: {
       type: String,
       default: null,
+      trim: true,
     },
 
     /* 💰 PRICE */
@@ -64,6 +81,19 @@ const electronicsSchema = new mongoose.Schema(
       type: Number,
       min: 0,
       default: null,
+    },
+
+    /* 📍 LOCATION */
+    district: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      default: null,
+      trim: true,
     },
 
     /* 🖼️ MEDIA */
@@ -129,7 +159,7 @@ electronicsSchema.pre("save", async function (next) {
       }
     }
 
-    /* 🔢 AUTO ID */
+    /* 🔢 AUTO INCREMENT ID */
     if (!this.electronicsId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "electronicsId" },
@@ -140,13 +170,35 @@ electronicsSchema.pre("save", async function (next) {
       this.electronicsId = counter.seq;
     }
 
-    /* 🔥 CATEGORY → BRAND MODEL MAP */
-    if (this.category === "mobile") {
-      this.brandModel = "MobileBrand";
-    } else if (this.category === "laptop") {
-      this.brandModel = "LaptopBrand";
-    } else if (this.category === "pc") {
-      this.brandModel = "PcBrand";
+    /* 🔥 CATEGORY → BRAND MODEL */
+    const categoryMap = {
+      mobile: "MobileBrand",
+      laptop: "LaptopBrand",
+      pc: "PcBrand",
+    };
+
+    this.brandModel = categoryMap[this.category];
+
+    if (!this.brandModel) {
+      throw new Error("Invalid category for brand mapping");
+    }
+
+    /* 📍 DISTRICT VALIDATION */
+    const districtKey = Object.keys(locations).find(
+      (d) => d.toLowerCase() === this.district.toLowerCase()
+    );
+
+    if (!districtKey) {
+      throw new Error("Invalid district");
+    }
+
+    this.district = districtKey;
+
+    /* 🏙️ CITY VALIDATION */
+    if (this.city) {
+      if (!locations[districtKey].includes(this.city)) {
+        throw new Error("City does not belong to district");
+      }
     }
 
     next();

@@ -1,5 +1,3 @@
-// C:\flutter_projects\rebuy-backend\src\models\electronics_model.js
-
 import mongoose from "mongoose";
 import Counter from "./counter_model.js";
 import { encryptSeller } from "../utils/sellerCrypto.js";
@@ -30,19 +28,20 @@ const electronicsSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* 📱 CATEGORY */
+    /* ✅ CATEGORY 🔥 */
     category: {
       type: String,
       enum: ["mobile", "laptop", "pc"],
       required: true,
-      trim: true,
+      index: true,
     },
 
-    /* 👤 OWNER */
+    /* ✅ OWNER */
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     sellerUser: {
@@ -51,16 +50,11 @@ const electronicsSchema = new mongoose.Schema(
       default: null,
     },
 
-    /* 🏷️ BRAND (dynamic ref) */
+    /* ✅ BRAND (dynamic based on category) */
     brand: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      refPath: "brandModel",
-    },
-
-    brandModel: {
-      type: String,
-      enum: ["MobileBrand", "LaptopBrand", "PcBrand"],
+      index: true,
     },
 
     /* 📄 BASIC INFO */
@@ -93,7 +87,6 @@ const electronicsSchema = new mongoose.Schema(
     city: {
       type: String,
       default: null,
-      trim: true,
     },
 
     /* 🖼️ MEDIA */
@@ -122,7 +115,7 @@ const electronicsSchema = new mongoose.Schema(
       default: null,
     },
 
-    /* 👤 SELLER */
+    /* ✅ SELLER */
     seller: {
       type: String,
       required: true,
@@ -135,10 +128,16 @@ const electronicsSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* 📌 STATUS */
+    /* ✅ STATUS */
     status: {
       type: String,
-      enum: ["available", "booking", "sold", "draft", "delete_requested"],
+      enum: [
+        "available",
+        "booking",
+        "sold",
+        "draft",
+        "delete_requested"
+      ],
       default: "draft",
     },
   },
@@ -150,8 +149,8 @@ const electronicsSchema = new mongoose.Schema(
 ===================================================== */
 electronicsSchema.pre("save", async function (next) {
   try {
-    /* 🔐 SELLER ENCRYPT */
-    if (this.seller) {
+    /* 🔐 SELLER SAFE */
+    if (this.isModified("seller") && this.seller) {
       this.seller = String(this.seller);
 
       if (!this.seller.includes(":")) {
@@ -159,7 +158,7 @@ electronicsSchema.pre("save", async function (next) {
       }
     }
 
-    /* 🔢 AUTO INCREMENT ID */
+    /* 🔢 AUTO ID */
     if (!this.electronicsId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "electronicsId" },
@@ -168,19 +167,6 @@ electronicsSchema.pre("save", async function (next) {
       );
 
       this.electronicsId = counter.seq;
-    }
-
-    /* 🔥 CATEGORY → BRAND MODEL */
-    const categoryMap = {
-      mobile: "MobileBrand",
-      laptop: "LaptopBrand",
-      pc: "PcBrand",
-    };
-
-    this.brandModel = categoryMap[this.category];
-
-    if (!this.brandModel) {
-      throw new Error("Invalid category for brand mapping");
     }
 
     /* 📍 DISTRICT VALIDATION */
@@ -196,9 +182,17 @@ electronicsSchema.pre("save", async function (next) {
 
     /* 🏙️ CITY VALIDATION */
     if (this.city) {
-      if (!locations[districtKey].includes(this.city)) {
+      const validCities = locations[districtKey].map((c) =>
+        c.toLowerCase()
+      );
+
+      if (!validCities.includes(this.city.toLowerCase())) {
         throw new Error("City does not belong to district");
       }
+
+      this.city = locations[districtKey].find(
+        (c) => c.toLowerCase() === this.city.toLowerCase()
+      );
     }
 
     next();

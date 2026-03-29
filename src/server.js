@@ -19,6 +19,7 @@ import bikeBrandRoutes from "./routes/bike_brand.routes.js";
 import mobileBrandRoutes from "./routes/mobile_brand.routes.js"; // 🔥 ADD
 import pcBrandRoutes from "./routes/pc_brand.routes.js";
 import laptopBrandRoutes from "./routes/laptop_brand.routes.js";
+import electronicsRoutes from "./routes/electronics.routes.js";
 
 import variantRoutes from "./routes/car_variant.routes.js";
 import bikeModelRoutes from "./routes/bike.model.routes.js";
@@ -129,6 +130,7 @@ app.use("/api/brands", brandRoutes);
 app.use("/api/mobile-brands", mobileBrandRoutes); // 🔥 ADD
 app.use("/api/laptop-brands", laptopBrandRoutes);
 app.use("/api/pc-brands", pcBrandRoutes);
+app.use("/api/electronics", electronicsRoutes);
 app.use("/api/variants", variantRoutes);
 
 app.use("/api/bike-brands", bikeBrandRoutes);
@@ -136,6 +138,7 @@ app.use("/api/bike-models", bikeModelRoutes);
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
+
 
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);

@@ -83,7 +83,7 @@ router.post(
         audioNote,
         videos,
         videoLink: videoLink || null,
-        createdBy: req.user.id,
+       createdBy: req.user._id,
         status: "available",
       });
 
@@ -467,7 +467,7 @@ router.post(
 ===================================================== */
 router.get("/my", verifyToken, async (req, res) => {
   try {
-    const items = await Electronics.find({ createdBy: req.user.id })
+    const items = await Electronics.find({ createdBy: req.user._id })
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 })
       .lean();

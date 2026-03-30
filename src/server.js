@@ -1,5 +1,3 @@
-// ======================= server.js =======================
-
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -18,6 +16,10 @@ import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/car_brand.routes.js";
 import bikeBrandRoutes from "./routes/bike_brand.routes.js";
+import mobileBrandRoutes from "./routes/mobile_brand.routes.js"; // 🔥 ADD
+import pcBrandRoutes from "./routes/pc_brand.routes.js";
+import laptopBrandRoutes from "./routes/laptop_brand.routes.js";
+import electronicsRoutes from "./routes/electronics.routes.js";
 
 import variantRoutes from "./routes/car_variant.routes.js";
 import bikeModelRoutes from "./routes/bike.model.routes.js";
@@ -45,13 +47,15 @@ import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
 import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
+import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
+
 // ================= ENV =================
 dotenv.config();
 
 const app = express();
 
 /* =========================
-   FIX __dirname (ES MODULE)
+   FIX __dirname
 ========================= */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,9 +101,9 @@ app.get("/refund-policy", (req, res) => {
   );
 });
 
-//youtube
-
+// youtube
 app.use("/", youtubeAuthRoutes);
+
 /* =========================
    DATABASE
 ========================= */
@@ -123,6 +127,10 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
+app.use("/api/mobile-brands", mobileBrandRoutes); // 🔥 ADD
+app.use("/api/laptop-brands", laptopBrandRoutes);
+app.use("/api/pc-brands", pcBrandRoutes);
+app.use("/api/electronics", electronicsRoutes);
 app.use("/api/variants", variantRoutes);
 
 app.use("/api/bike-brands", bikeBrandRoutes);
@@ -130,6 +138,7 @@ app.use("/api/bike-models", bikeModelRoutes);
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
+
 
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);
@@ -152,6 +161,20 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
 
+app.use("/api", recentlyViewedRoutes);
+
+/* =========================
+   APP VERSION
+========================= */
+app.get("/api/app/version", (req, res) => {
+  res.json({
+    latest_version: "1.0.1",
+    force_update: true,
+    update_url:
+      "https://play.google.com/store/apps/details?id=com.re2buy.app",
+  });
+});
+
 /* =========================
    HEALTH CHECK
 ========================= */
@@ -163,7 +186,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   404 HANDLER
+   404
 ========================= */
 app.use((req, res) => {
   res.status(404).json({
@@ -173,7 +196,7 @@ app.use((req, res) => {
 });
 
 /* =========================
-   GLOBAL ERROR HANDLER
+   ERROR HANDLER
 ========================= */
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
@@ -184,7 +207,7 @@ app.use((err, req, res, next) => {
 });
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 const PORT = process.env.PORT || 5000;
 

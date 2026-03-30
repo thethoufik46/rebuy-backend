@@ -6,23 +6,19 @@ const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 /* =====================================================
-   ✅ UPLOAD PROPERTY MEDIA
-   - Gallery Images → Watermark
-   - Banner → Watermark 🔥 NEW
+   ✅ UPLOAD ELECTRONICS MEDIA
+   - Banner → Watermark
+   - Gallery → Watermark
+   - Audio → Clean
+   - Video → Clean
 ===================================================== */
-export const uploadPropertyImage = async (file, folder) => {
+export const uploadElectronicsMedia = async (file, folder) => {
   try {
     if (!file || !file.buffer) {
       throw new Error("Invalid file upload");
     }
 
-    if (!BUCKET || !PUBLIC_URL) {
-      throw new Error("R2 config missing");
-    }
-
-    /* =========================================
-       SAFE EXTENSION DETECTION
-    ========================================= */
+    /* 🔥 SAFE EXTENSION */
     let ext = "jpg";
 
     if (file.mimetype) {
@@ -36,11 +32,7 @@ export const uploadPropertyImage = async (file, folder) => {
 
     let bufferToUpload = file.buffer;
 
-    /* =========================================
-       ✅ APPLY WATERMARK FOR:
-       - GALLERY
-       - BANNER 🔥 NEW
-    ========================================= */
+    /* 🔥 WATERMARK ONLY FOR IMAGES */
     if (
       folder.includes("gallery") ||
       folder.includes("banner")
@@ -58,17 +50,16 @@ export const uploadPropertyImage = async (file, folder) => {
     );
 
     return `${PUBLIC_URL}/${key}`;
-
   } catch (err) {
-    console.error("PROPERTY UPLOAD ERROR:", err.message);
-    throw new Error("Property file upload failed");
+    console.error("UPLOAD ERROR:", err.message);
+    throw new Error("Electronics upload failed");
   }
 };
 
 /* =====================================================
-   ✅ DELETE PROPERTY MEDIA FROM R2
+   ✅ DELETE ELECTRONICS MEDIA
 ===================================================== */
-export const deletePropertyImage = async (url) => {
+export const deleteElectronicsMedia = async (url) => {
   try {
     if (!url || !url.startsWith(PUBLIC_URL)) return;
 
@@ -82,8 +73,7 @@ export const deletePropertyImage = async (url) => {
         Key: key,
       })
     );
-
   } catch (err) {
-    console.error("PROPERTY DELETE ERROR:", err.message);
+    console.error("DELETE ERROR:", err.message);
   }
 };

@@ -8,7 +8,7 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 /* =====================================================
    ✅ UPLOAD BIKE MEDIA
    - Gallery Images → Watermark
-   - Banner → Clean
+   - Banner → Watermark 🔥 NEW
    - Audio → Clean
    - Video → Clean
 ===================================================== */
@@ -35,9 +35,14 @@ export const uploadBikeImage = async (file, folder) => {
     let bufferToUpload = file.buffer;
 
     /* =========================================
-       APPLY WATERMARK ONLY FOR GALLERY
+       ✅ APPLY WATERMARK FOR:
+       - GALLERY
+       - BANNER 🔥 NEW
     ========================================= */
-    if (folder.includes("gallery")) {
+    if (
+      folder.includes("gallery") ||
+      folder.includes("banner")
+    ) {
       bufferToUpload = await addWatermarkBuffer(file.buffer);
     }
 

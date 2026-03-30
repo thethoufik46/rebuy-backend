@@ -16,7 +16,7 @@ const wishlistSchema = new mongoose.Schema(
 
     itemType: {
       type: String,
-      enum: ["Car", "Bike"],
+      enum: ["Car", "Bike", "Property"], // 🔥 added Property
       required: true,
     },
   },

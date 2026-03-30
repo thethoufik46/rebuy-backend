@@ -45,8 +45,6 @@ import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
 import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
-import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
-
 // ================= ENV =================
 dotenv.config();
 
@@ -99,9 +97,9 @@ app.get("/refund-policy", (req, res) => {
   );
 });
 
-// youtube
-app.use("/", youtubeAuthRoutes);
+//youtube
 
+app.use("/", youtubeAuthRoutes);
 /* =========================
    DATABASE
 ========================= */
@@ -153,20 +151,6 @@ app.use("/api/links", linkRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
-
-app.use("/api", recentlyViewedRoutes);
-
-/* =========================
-   🔥 APP VERSION (UPDATE API)
-========================= */
-app.get("/api/app/version", (req, res) => {
-  res.json({
-    latest_version: "1.0.1", // 🔁 change when you update app
-    force_update: true, // true = force update
-    update_url:
-      "https://play.google.com/store/apps/details?id=com.re2buy.app",
-  });
-});
 
 /* =========================
    HEALTH CHECK

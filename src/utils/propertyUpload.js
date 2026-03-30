@@ -8,7 +8,7 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 /* =====================================================
    ✅ UPLOAD PROPERTY MEDIA
    - Gallery Images → Watermark
-   - Banner → Watermark 🔥 NEW
+   - Banner → Clean
 ===================================================== */
 export const uploadPropertyImage = async (file, folder) => {
   try {
@@ -37,14 +37,9 @@ export const uploadPropertyImage = async (file, folder) => {
     let bufferToUpload = file.buffer;
 
     /* =========================================
-       ✅ APPLY WATERMARK FOR:
-       - GALLERY
-       - BANNER 🔥 NEW
+       APPLY WATERMARK ONLY FOR GALLERY
     ========================================= */
-    if (
-      folder.includes("gallery") ||
-      folder.includes("banner")
-    ) {
+    if (folder.includes("gallery")) {
       bufferToUpload = await addWatermarkBuffer(file.buffer);
     }
 

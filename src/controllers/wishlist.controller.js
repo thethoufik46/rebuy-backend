@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Wishlist from "../models/wishlist_model.js";
 import Car from "../models/car_model.js";
 import Bike from "../models/bike_model.js";
-import Property from "../models/property_model.js"; // 🔥 added
 
 /* ==============================
    TOGGLE WISHLIST
@@ -14,7 +13,7 @@ export const toggleWishlist = async (req, res) => {
 
     if (
       !mongoose.Types.ObjectId.isValid(itemId) ||
-      !["Car", "Bike", "Property"].includes(itemType) // 🔥 added Property
+      !["Car", "Bike"].includes(itemType)
     ) {
       return res.status(400).json({
         success: false,
@@ -46,7 +45,7 @@ export const toggleWishlist = async (req, res) => {
 };
 
 /* ==============================
-   GET WISHLIST
+   GET WISHLIST (FIXED)
 ============================== */
 export const getWishlist = async (req, res) => {
   try {
@@ -67,10 +66,6 @@ export const getWishlist = async (req, res) => {
 
       if (w.itemType === "Bike") {
         data = await Bike.findById(w.itemId).populate("brand", "name logoUrl");
-      }
-
-      if (w.itemType === "Property") {
-        data = await Property.findById(w.itemId); // 🔥 added
       }
 
       if (data) {

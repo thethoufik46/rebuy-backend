@@ -111,74 +111,105 @@ router.post(
 /* =====================================================
    ✅ GET ELECTRONICS (FILTER VERSION 🔥)
 ===================================================== */
+
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const isAdminUser = req.user?.role === "admin";
     const query = {};
 
-    const { category, brand, district, minPrice, maxPrice } = req.query;
+    const {
+      category,
+      brand,
+      district,
+      minPrice,
+      maxPrice,
+    } = req.query;
 
-    /* CATEGORY */
+    /* ==============================
+       CATEGORY FILTER
+    ============================== */
     if (category) {
       query.category = {
         $in: category.split(",").map((c) => c.trim()),
       };
     }
 
-    /* BRAND */
+    /* ==============================
+       BRAND FILTER
+    ============================== */
     if (brand) {
       query.brand = {
         $in: brand.split(",").map((b) => b.trim()),
       };
     }
 
-    /* DISTRICT */
+    /* ==============================
+       DISTRICT FILTER
+    ============================== */
     if (district) {
       query.district = {
         $in: district.split(",").map((d) => d.trim()),
       };
     }
 
-    /* PRICE */
+    /* ==============================
+       PRICE FILTER
+    ============================== */
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    /* HIDE DRAFT */
+    /* ==============================
+       🔥 SAME AS CAR (IMPORTANT)
+    ============================== */
     if (!isAdminUser) {
       query.status = { $nin: ["draft", "delete_requested"] };
     }
 
-    const items = await Electronics.find(query)
+    /* ==============================
+       FETCH
+    ============================== */
+    const electronics = await Electronics.find(query)
       .populate("brand", "name logoUrl")
       .sort({ createdAt: -1 })
       .lean();
 
-    const finalItems = items.map((item) => {
+    /* ==============================
+       ADMIN SELLER DECRYPT
+    ============================== */
+    const finalElectronics = electronics.map((item) => {
       if (
         isAdminUser &&
-        item.seller?.includes(":")
+        typeof item.seller === "string" &&
+        item.seller.includes(":")
       ) {
         try {
           item.seller = decryptSeller(item.seller);
-        } catch {}
+        } catch (_) {}
       }
       return item;
     });
 
+    /* ==============================
+       ✅ FINAL RESPONSE (MATCH CAR)
+    ============================== */
     res.json({
       success: true,
-      count: finalItems.length,
-      items: finalItems,
+      count: finalElectronics.length,
+      electronics: finalElectronics, // 🔥 NOT items
     });
 
   } catch (err) {
-    res.status(500).json({ message: "Fetch failed" });
+    console.log("GET ELECTRONICS ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch electronics",
+    });
   }
 });
-
 /* =====================================================
    ✅ UPDATE ELECTRONICS (ADMIN)
 ===================================================== */

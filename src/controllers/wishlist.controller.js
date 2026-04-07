@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import Wishlist from "../models/wishlist_model.js";
 import Car from "../models/car_model.js";
 import Bike from "../models/bike_model.js";
-import Property from "../models/property_model.js"; // 🔥 added
+import Property from "../models/property_model.js";
+import Electronics from "../models/electronics_model.js"; // 🔥 added
 
 /* ==============================
    TOGGLE WISHLIST
@@ -14,7 +15,7 @@ export const toggleWishlist = async (req, res) => {
 
     if (
       !mongoose.Types.ObjectId.isValid(itemId) ||
-      !["Car", "Bike", "Property"].includes(itemType) // 🔥 added Property
+      !["Car", "Bike", "Property", "Electronics"].includes(itemType) // 🔥 added
     ) {
       return res.status(400).json({
         success: false,
@@ -70,7 +71,12 @@ export const getWishlist = async (req, res) => {
       }
 
       if (w.itemType === "Property") {
-        data = await Property.findById(w.itemId); // 🔥 added
+        data = await Property.findById(w.itemId);
+      }
+
+      if (w.itemType === "Electronics") {
+        data = await Electronics.findById(w.itemId)
+          .populate("brand", "name logoUrl"); // 🔥 added (same like car/bike)
       }
 
       if (data) {

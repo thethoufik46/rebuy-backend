@@ -17,7 +17,7 @@ const recentlyViewedSchema = new mongoose.Schema(
         },
         itemType: {
           type: String,
-          enum: ["car", "bike", "property"],
+          enum: ["car", "bike", "property", "electronics"], // ✅ added
           required: true,
         },
         viewedAt: {

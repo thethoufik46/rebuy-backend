@@ -4,6 +4,7 @@ import RecentlyViewed from "../models/recently_viewed_model.js";
 import Car from "../models/car_model.js";
 import Bike from "../models/bike_model.js";
 import Property from "../models/property_model.js";
+import Electronics from "../models/electronics_model.js"; // 🔥 ADDED
 
 /* =====================================================
    ➕ ADD RECENT ITEM
@@ -64,7 +65,7 @@ export const addRecentlyViewed = async (req, res) => {
 };
 
 /* =====================================================
-   📥 GET RECENT ITEMS (CAR + BIKE + PROPERTY)
+   📥 GET RECENT ITEMS (CAR + BIKE + PROPERTY + ELECTRONICS)
 ===================================================== */
 export const getRecentlyViewed = async (req, res) => {
   try {
@@ -94,11 +95,16 @@ export const getRecentlyViewed = async (req, res) => {
       .filter((i) => i.itemType === "property")
       .map((i) => i.itemId);
 
+    const electronicsIds = items
+      .filter((i) => i.itemType === "electronics")
+      .map((i) => i.itemId);
+
     /// 🔥 FETCH ALL IN PARALLEL
-    const [cars, bikes, properties] = await Promise.all([
+    const [cars, bikes, properties, electronics] = await Promise.all([
       Car.find({ _id: { $in: carIds } }),
       Bike.find({ _id: { $in: bikeIds } }),
       Property.find({ _id: { $in: propertyIds } }),
+      Electronics.find({ _id: { $in: electronicsIds } }), // 🔥 ADDED
     ]);
 
     /// 🔥 MAP FOR FAST ACCESS
@@ -107,8 +113,11 @@ export const getRecentlyViewed = async (req, res) => {
     const propertyMap = new Map(
       properties.map((p) => [p._id.toString(), p])
     );
+    const electronicsMap = new Map(
+      electronics.map((e) => [e._id.toString(), e])
+    ); // 🔥 ADDED
 
-    /// 🔥 PRESERVE ORDER (VERY IMPORTANT)
+    /// 🔥 PRESERVE ORDER
     const finalItems = items
       .map((i) => {
         const id = i.itemId.toString();
@@ -123,6 +132,10 @@ export const getRecentlyViewed = async (req, res) => {
 
         if (i.itemType === "property" && propertyMap.has(id)) {
           return { type: "property", data: propertyMap.get(id) };
+        }
+
+        if (i.itemType === "electronics" && electronicsMap.has(id)) {
+          return { type: "electronics", data: electronicsMap.get(id) };
         }
 
         return null;

@@ -1,41 +1,92 @@
-// ======================= buycar.controller.js =======================
+// ======================= buycar.controller.js (FINAL UPDATED) =======================
+
 import BuyCar from "../models/buycar_model.js";
 
-/* 🟢 ADD BUY CAR (USER) */
+/* 🟢 ADD BUY REQUEST (USER) */
 export const addBuyCar = async (req, res) => {
   try {
-    const car = new BuyCar({
-      ...req.body,
+    const {
+      type,
+      name,
+      phone,
+      location,
+      description,
+      audioNote,
+
+      car,
+      bike,
+      property,
+      electronics,
+    } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ message: "Type is required" });
+    }
+
+    // 🔥 TYPE VALIDATION
+    if (type === "car" && !car?.model) {
+      return res.status(400).json({ message: "Car details required" });
+    }
+
+    if (type === "bike" && !bike?.model) {
+      return res.status(400).json({ message: "Bike details required" });
+    }
+
+    if (type === "property" && !property?.category) {
+      return res.status(400).json({ message: "Property details required" });
+    }
+
+    if (type === "electronics" && !electronics?.category) {
+      return res.status(400).json({ message: "Electronics details required" });
+    }
+
+    const newRequest = new BuyCar({
+      type,
+      name,
+      phone,
+      location,
+      description,
+      audioNote: audioNote || null,
+
       user: req.user._id,
       userId: req.user._id.toString(),
+
+      car,
+      bike,
+      property,
+      electronics,
     });
 
-    await car.save();
+    await newRequest.save();
 
     res.status(201).json({
       success: true,
-      message: "Buy car request submitted",
-      car,
+      message: "Request submitted successfully",
+      data: newRequest,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🟢 GET MY BUY CARS (USER) */
+/* 🟢 GET MY REQUESTS */
 export const getMyBuyCars = async (req, res) => {
   try {
     const cars = await BuyCar.find({ user: req.user._id }).sort({
       createdAt: -1,
     });
 
-    res.json({ success: true, count: cars.length, cars });
+    res.json({
+      success: true,
+      count: cars.length,
+      cars,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🟢 UPDATE MY BUY CAR (USER) */
+/* 🟢 UPDATE MY REQUEST */
 export const updateMyBuyCar = async (req, res) => {
   try {
     const car = await BuyCar.findOneAndUpdate(
@@ -48,13 +99,16 @@ export const updateMyBuyCar = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
-    res.json({ success: true, car });
+    res.json({
+      success: true,
+      car,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🟢 DELETE MY BUY CAR (USER) */
+/* 🟢 DELETE MY REQUEST */
 export const deleteMyBuyCar = async (req, res) => {
   try {
     const car = await BuyCar.findOneAndDelete({
@@ -66,26 +120,33 @@ export const deleteMyBuyCar = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
-    res.json({ success: true, message: "Buy car request deleted" });
+    res.json({
+      success: true,
+      message: "Request deleted",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🔵 GET ALL BUY CARS (ADMIN) */
+/* 🔵 GET ALL REQUESTS (ADMIN) */
 export const getBuyCars = async (req, res) => {
   try {
     const cars = await BuyCar.find()
       .populate("user", "name email")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, count: cars.length, cars });
+    res.json({
+      success: true,
+      count: cars.length,
+      cars,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🔵 GET SINGLE BUY CAR (ADMIN) */
+/* 🔵 GET SINGLE REQUEST */
 export const getBuyCarById = async (req, res) => {
   try {
     const car = await BuyCar.findById(req.params.id).populate(
@@ -97,7 +158,10 @@ export const getBuyCarById = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
-    res.json({ success: true, car });
+    res.json({
+      success: true,
+      car,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -118,17 +182,32 @@ export const updateBuyCarStatus = async (req, res) => {
       { new: true }
     );
 
-    res.json({ success: true, car });
+    if (!car) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    res.json({
+      success: true,
+      car,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/* 🔴 DELETE BUY CAR (ADMIN) */
+/* 🔴 DELETE REQUEST (ADMIN) */
 export const deleteBuyCar = async (req, res) => {
   try {
-    await BuyCar.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Buy car deleted" });
+    const car = await BuyCar.findByIdAndDelete(req.params.id);
+
+    if (!car) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Deleted successfully",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -39,12 +39,11 @@ router.post("/register", async (req, res) => {
       phone,
       email: email ? email.toLowerCase() : undefined,
       password: hashedPassword,
-
       role: "user",
       category,
-
       district,
       address: address || "NA",
+      // verification field will default to "others" as per schema
     });
 
     const token = jwt.sign(
@@ -65,11 +64,11 @@ router.post("/register", async (req, res) => {
         category: user.category,
         district: user.district,
         address: user.address,
+        verification: user.verification,   // ✅ added
       },
     });
   } catch (err) {
     console.error("REGISTER ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: err.message || "Registration failed",
@@ -92,10 +91,7 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await User.findOne({
-      $or: [
-        { phone: identifier },
-        { email: identifier.toLowerCase() },
-      ],
+      $or: [{ phone: identifier }, { email: identifier.toLowerCase() }],
     });
 
     if (!user) {
@@ -123,11 +119,10 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       token,
-      user,
+      user,   // includes verification field automatically
     });
   } catch (err) {
     console.log("LOGIN ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Login failed",
@@ -139,7 +134,7 @@ router.post("/login", async (req, res) => {
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
-    user: req.user,
+    user: req.user,   // includes verification if middleware attaches full user
   });
 });
 
@@ -151,11 +146,12 @@ router.put("/me", verifyToken, async (req, res) => {
     email = email?.toString().toLowerCase().trim();
 
     const update = {};
-
     if (name) update.name = name;
     if (email) update.email = email;
     if (district) update.district = district;
     if (address) update.address = address;
+
+    // Do NOT allow user to update verification themselves
 
     const user = await User.findByIdAndUpdate(req.userId, update, {
       new: true,
@@ -167,7 +163,6 @@ router.put("/me", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.log("UPDATE ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Update failed",
@@ -190,9 +185,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-
     user.password = await bcrypt.hash(newPassword, 10);
-
     await user.save();
 
     res.json({
@@ -201,7 +194,6 @@ router.put("/change-password", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.log("PASSWORD ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Change failed",
@@ -243,7 +235,6 @@ router.post("/forgot-request", async (req, res) => {
     user.forgotRequest = true;
     user.forgotRequestAt = Date.now();
     user.requestedPassword = newPassword;
-
     await user.save();
 
     res.json({
@@ -252,7 +243,6 @@ router.post("/forgot-request", async (req, res) => {
     });
   } catch (err) {
     console.log("FORGOT ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Request failed",
@@ -264,14 +254,12 @@ router.post("/forgot-request", async (req, res) => {
 router.delete("/me", verifyToken, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.userId);
-
     res.json({
       success: true,
       message: "Account deleted successfully",
     });
   } catch (err) {
     console.log("DELETE ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Delete failed",
@@ -293,15 +281,13 @@ router.get("/admin/users", verifyToken, async (req, res) => {
       });
     }
 
-    const users = await User.find().select("-password");
-
+    const users = await User.find().select("-password"); // includes verification
     res.json({
       success: true,
       users,
     });
   } catch (err) {
     console.log("ADMIN USERS ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Failed to load users",
@@ -309,7 +295,7 @@ router.get("/admin/users", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= UPDATE USER ================= */
+/* ================= UPDATE USER (ADMIN) ================= */
 router.put("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -319,22 +305,20 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    const { name, phone, email, category, district, address } = req.body;
+    const { name, phone, email, category, district, address, verification } = req.body;
 
     const update = {};
-
     if (name) update.name = name;
     if (phone) update.phone = phone.toString().trim();
     if (email) update.email = email.toLowerCase().trim();
     if (category) update.category = category;
     if (district) update.district = district;
     if (address) update.address = address;
+    if (verification) update.verification = verification;   // ✅ admin can change verification
 
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    ).select("-password");
+    const user = await User.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -349,7 +333,6 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.log("ADMIN UPDATE ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Update failed",
@@ -357,7 +340,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= DELETE USER ================= */
+/* ================= DELETE USER (ADMIN) ================= */
 router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -368,14 +351,12 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
-
     res.json({
       success: true,
       message: "User deleted",
     });
   } catch (err) {
     console.log("ADMIN DELETE ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Delete failed",
@@ -383,10 +364,7 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
   }
 });
 
-
-
-
-/* ================= ADMIN RESET PASSWORD 🔥 ================= */
+/* ================= ADMIN RESET PASSWORD ================= */
 router.put("/admin/reset-password", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -424,14 +402,10 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
       });
     }
 
-    /* ✅ HASH NEW PASSWORD */
     user.password = await bcrypt.hash(newPassword, 10);
-
-    /* ✅ CLEAR FORGOT FLAGS */
     user.forgotRequest = false;
     user.forgotRequestAt = null;
     user.requestedPassword = null;
-
     await user.save();
 
     res.json({
@@ -440,13 +414,11 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.log("RESET PASSWORD ERROR 👉", err);
-
     res.status(500).json({
       success: false,
       message: "Reset failed",
     });
   }
 });
-
 
 export default router;

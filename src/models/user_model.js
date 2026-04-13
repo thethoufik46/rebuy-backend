@@ -60,6 +60,12 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    verification: {
+      type: String,
+      enum: ["verified", "mediator", "dealer", "premium", "others", "partner"],
+      default: "others",
+    },
+
     /* 📍 DISTRICT DROPDOWN */
     district: {
       type: String,

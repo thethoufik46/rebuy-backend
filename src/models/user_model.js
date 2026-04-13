@@ -62,7 +62,7 @@ const userSchema = new mongoose.Schema(
 
     verification: {
       type: String,
-      enum: ["verified", "mediator", "dealer", "premium", "others", "partner"],
+      enum: ["verified", "mediator", "dealer", "premium", "others", "partner","black",],
       default: "others",
     },
 

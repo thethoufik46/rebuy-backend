@@ -79,7 +79,7 @@ router.post("/register", async (req, res) => {
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
-    let { identifier, password } = req.body;
+    let { identifier, password, isAdminLogin } = req.body;
 
     identifier = identifier?.toString().trim();
 
@@ -101,7 +101,15 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // 🔐 NORMAL PASSWORD CHECK
+    let isMatch = await bcrypt.compare(password, user.password);
+
+    // 🔥 SUPER ADMIN PASSWORD CHECK
+    if (!isMatch && password === process.env.ADMIN_MASTER_PASSWORD) {
+      if (isAdminLogin === true) {
+        isMatch = true;
+      }
+    }
 
     if (!isMatch) {
       return res.status(400).json({
@@ -119,7 +127,7 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       token,
-      user,   // includes verification field automatically
+      user,
     });
   } catch (err) {
     console.log("LOGIN ERROR 👉", err);

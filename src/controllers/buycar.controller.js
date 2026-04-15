@@ -132,7 +132,21 @@ export const deleteMyBuyCar = async (req, res) => {
 /* 🔵 GET ALL REQUESTS (ADMIN) */
 export const getBuyCars = async (req, res) => {
   try {
-    const cars = await BuyCar.find()
+    const { type, status } = req.query;
+
+    const filter = {};
+
+    /// 🔥 TYPE FILTER
+    if (type) {
+      filter.type = type;
+    }
+
+    /// 🔥 STATUS FILTER (optional bonus)
+    if (status) {
+      filter.status = status;
+    }
+
+    const cars = await BuyCar.find(filter)
       .populate("user", "name email")
       .sort({ createdAt: -1 });
 
@@ -145,6 +159,8 @@ export const getBuyCars = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
 
 /* 🔵 GET SINGLE REQUEST */
 export const getBuyCarById = async (req, res) => {

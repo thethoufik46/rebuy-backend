@@ -169,7 +169,7 @@ app.use("/api", recentlyViewedRoutes);
 app.get("/api/app/version", (req, res) => {
   res.json({
     latest_version: "1.0.1",
-    force_update: true,
+    force_update: false,
     update_url:
       "https://play.google.com/store/apps/details?id=com.re2buy.app",
   });

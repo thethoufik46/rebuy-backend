@@ -1,4 +1,8 @@
 import Lead from "../models/lead_model.js";
+import {
+  uploadLeadAudio,
+  deleteLeadAudio,
+} from "../utils/sendLeads.js";
 
 /* =====================================================
    ADD LEAD
@@ -18,7 +22,6 @@ export const addLead = async (req, res) => {
       review,
       description,
       reason,
-      adminNote,
     } = req.body;
 
     if (
@@ -36,6 +39,12 @@ export const addLead = async (req, res) => {
       });
     }
 
+    let audioNote = null;
+
+    if (req.file) {
+      audioNote = await uploadLeadAudio(req.file);
+    }
+
     const lead = await Lead.create({
       phone,
       district,
@@ -49,7 +58,7 @@ export const addLead = async (req, res) => {
       review: review || "",
       description: description || "",
       reason: reason || "",
-      adminNote: adminNote || "",
+      audioNote,
     });
 
     res.status(201).json({
@@ -146,7 +155,6 @@ export const updateLead = async (req, res) => {
       "review",
       "description",
       "reason",
-      "adminNote",
     ];
 
     fields.forEach((field) => {
@@ -154,6 +162,14 @@ export const updateLead = async (req, res) => {
         lead[field] = req.body[field];
       }
     });
+
+    if (req.file) {
+      if (lead.audioNote) {
+        await deleteLeadAudio(lead.audioNote);
+      }
+
+      lead.audioNote = await uploadLeadAudio(req.file);
+    }
 
     await lead.save();
 
@@ -184,6 +200,10 @@ export const deleteLead = async (req, res) => {
         success: false,
         message: "Lead not found",
       });
+    }
+
+    if (lead.audioNote) {
+      await deleteLeadAudio(lead.audioNote);
     }
 
     await lead.deleteOne();

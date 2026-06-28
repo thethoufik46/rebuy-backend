@@ -99,11 +99,10 @@ const leadSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* 📝 ADMIN NOTE */
-    adminNote: {
+    /* 🎤 AUDIO NOTE */
+    audioNote: {
       type: String,
-      default: "",
-      trim: true,
+      default: null,
     },
   },
   { timestamps: true }

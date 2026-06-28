@@ -1,4 +1,8 @@
-import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+
 import r2 from "../config/r2.js";
 
 const BUCKET = process.env.R2_BUCKET;
@@ -17,31 +21,36 @@ export const uploadLeadAudio = async (
     }
 
     /* =========================================
-       SAFE EXTENSION DETECTION
+       SAFE EXTENSION
     ========================================= */
     let ext = "m4a";
 
-    if (file.mimetype) {
+    if (file.originalname) {
+      const parts = file.originalname.split(".");
+      if (parts.length > 1) {
+        ext = parts.pop().toLowerCase();
+      }
+    } else if (file.mimetype) {
       const parts = file.mimetype.split("/");
       ext = parts[1] || "m4a";
     }
 
     const key = `${folder}/${Date.now()}-${Math.random()
       .toString(36)
-      .slice(2)}.${ext}`;
+      .substring(2, 12)}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: BUCKET,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype || "audio/m4a",
+        ContentType: file.mimetype || "audio/mp4",
       })
     );
 
     return `${PUBLIC_URL}/${key}`;
   } catch (err) {
-    console.error("UPLOAD AUDIO ERROR:", err.message);
+    console.error("UPLOAD LEAD AUDIO ERROR 👉", err);
     throw new Error("Audio upload failed");
   }
 };
@@ -51,7 +60,9 @@ export const uploadLeadAudio = async (
 ===================================================== */
 export const deleteLeadAudio = async (url) => {
   try {
-    if (!url || !url.startsWith(PUBLIC_URL)) return;
+    if (!url) return;
+
+    if (!url.startsWith(PUBLIC_URL)) return;
 
     const key = url.replace(`${PUBLIC_URL}/`, "");
 
@@ -64,6 +75,6 @@ export const deleteLeadAudio = async (url) => {
       })
     );
   } catch (err) {
-    console.error("DELETE AUDIO ERROR:", err.message);
+    console.error("DELETE LEAD AUDIO ERROR 👉", err);
   }
 };

@@ -48,6 +48,7 @@ import testimonialRoutes from "./routes/testimonial.route.js";
 import storyRoutes from "./routes/story.route.js";
 import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
+import leadRoutes from "./routes/lead.routes.js";
 
 // ================= ENV =================
 dotenv.config();
@@ -160,6 +161,7 @@ app.use("/api/links", linkRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/stories", storyRoutes);
+app.use("/api/leads", leadRoutes);
 
 app.use("/api", recentlyViewedRoutes);
 

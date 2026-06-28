@@ -23,49 +23,56 @@ const leadSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      set: (v) => v?.toString().replace(/\s+/g, ""),
+      set: (v) => v?.toString().replace(/\D/g, ""),
+      match: [/^[6-9]\d{9}$/, "Invalid phone number"],
     },
 
-    /* 📍 DISTRICT */
-    district: {
+    description: {
       type: String,
       required: true,
       trim: true,
     },
 
+    district: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     address: {
       type: String,
-      default: "NA",
+      default: "",
+      trim: true,
     },
 
     type: {
       type: String,
       enum: ["car", "bike", "other"],
-      required: true,
+      default: null,
     },
 
     payment: {
       type: String,
       enum: ["cash", "finance"],
-      required: true,
+      default: null,
     },
 
     buyer: {
       type: String,
       enum: ["customer", "mediator", "dealer"],
-      required: true,
+      default: null,
     },
 
     board: {
       type: String,
       enum: ["tboard", "own"],
-      required: true,
+      default: null,
     },
 
     transmission: {
       type: String,
-      enum: ["MT", "AMT"],
-      required: true,
+      enum: ["MT", "AMT", "AT", "CVT", "DCT"],
+      default: null,
     },
 
     status: {
@@ -87,53 +94,44 @@ const leadSchema = new mongoose.Schema(
       trim: true,
     },
 
-    description: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
     reason: {
       type: String,
       default: "",
       trim: true,
     },
 
-    /* 🎤 AUDIO NOTE */
     audioNote: {
       type: String,
       default: null,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 /* =====================================================
    DISTRICT VALIDATION
 ===================================================== */
 leadSchema.pre("save", function (next) {
-  try {
-    const districtKey = Object.keys(locations).find(
-      (d) => d.toLowerCase() === this.district.toLowerCase()
-    );
+  if (!this.district) return next();
 
-    if (!districtKey) {
-      throw new Error("Invalid district");
-    }
+  const districtKey = Object.keys(locations).find(
+    (d) => d.toLowerCase() === this.district.toLowerCase()
+  );
 
-    this.district = districtKey;
-
-    next();
-  } catch (err) {
-    next(err);
+  if (!districtKey) {
+    return next(new Error("Invalid district"));
   }
+
+  this.district = districtKey;
+  next();
 });
 
 /* =====================================================
    INDEXES
 ===================================================== */
 leadSchema.index({ phone: 1 });
-leadSchema.index({ district: 1 });
 leadSchema.index({ status: 1 });
 leadSchema.index({ createdAt: -1 });
 

@@ -24,18 +24,11 @@ export const addLead = async (req, res) => {
       reason,
     } = req.body;
 
-    if (
-      !phone ||
-      !district ||
-      !type ||
-      !payment ||
-      !buyer ||
-      !board ||
-      !transmission
-    ) {
+    // Only required fields
+    if (!phone || !description) {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing",
+        message: "Phone and description are required",
       });
     }
 
@@ -47,34 +40,36 @@ export const addLead = async (req, res) => {
 
     const lead = await Lead.create({
       phone,
-      district,
-      address: address || "NA",
-      type,
-      payment,
-      buyer,
-      board,
-      transmission,
+      description,
+      district: district || "",
+      address: address || "",
+      type: type || null,
+      payment: payment || null,
+      buyer: buyer || null,
+      board: board || null,
+      transmission: transmission || null,
       status: status || "pending",
       review: review || "",
-      description: description || "",
       reason: reason || "",
       audioNote,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Lead added successfully",
       lead,
     });
   } catch (err) {
-    console.log("ADD LEAD ERROR 👉", err);
+    console.error("ADD LEAD ERROR 👉", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 };
+
+
 
 /* =====================================================
    GET ALL LEADS

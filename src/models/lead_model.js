@@ -71,7 +71,7 @@ const leadSchema = new mongoose.Schema(
 
     transmission: {
       type: String,
-      enum: ["MT", "AMT", "AT", "CVT", "DCT"],
+      enum: ["MT", "AMT"],
       default: null,
     },
 

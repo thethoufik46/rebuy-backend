@@ -24,11 +24,22 @@ export const addLead = async (req, res) => {
       reason,
     } = req.body;
 
-    // Only required fields
     if (!phone || !description) {
       return res.status(400).json({
         success: false,
         message: "Phone and description are required",
+      });
+    }
+
+    const cleanPhone = phone.toString().replace(/\D/g, "");
+
+    // Check duplicate phone
+    const existingLead = await Lead.findOne({ phone: cleanPhone });
+
+    if (existingLead) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number already registered",
       });
     }
 
@@ -39,7 +50,7 @@ export const addLead = async (req, res) => {
     }
 
     const lead = await Lead.create({
-      phone,
+      phone: cleanPhone,
       description,
       district: district || "",
       address: address || "",
@@ -62,14 +73,19 @@ export const addLead = async (req, res) => {
   } catch (err) {
     console.error("ADD LEAD ERROR 👉", err);
 
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number already registered",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 };
-
-
 
 /* =====================================================
    GET ALL LEADS
@@ -80,7 +96,7 @@ export const getLeads = async (req, res) => {
       createdAt: -1,
     });
 
-    res.json({
+    return res.json({
       success: true,
       total: leads.length,
       leads,
@@ -88,7 +104,7 @@ export const getLeads = async (req, res) => {
   } catch (err) {
     console.log("GET LEADS ERROR 👉", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -109,14 +125,14 @@ export const getLead = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       lead,
     });
   } catch (err) {
     console.log("GET LEAD ERROR 👉", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -137,8 +153,26 @@ export const updateLead = async (req, res) => {
       });
     }
 
+    // Duplicate phone check
+    if (req.body.phone !== undefined) {
+      const cleanPhone = req.body.phone.toString().replace(/\D/g, "");
+
+      const existingLead = await Lead.findOne({
+        phone: cleanPhone,
+        _id: { $ne: lead._id },
+      });
+
+      if (existingLead) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone number already registered",
+        });
+      }
+
+      lead.phone = cleanPhone;
+    }
+
     const fields = [
-      "phone",
       "district",
       "address",
       "type",
@@ -168,7 +202,7 @@ export const updateLead = async (req, res) => {
 
     await lead.save();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Lead updated successfully",
       lead,
@@ -176,7 +210,14 @@ export const updateLead = async (req, res) => {
   } catch (err) {
     console.log("UPDATE LEAD ERROR 👉", err);
 
-    res.status(500).json({
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number already registered",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -203,14 +244,14 @@ export const deleteLead = async (req, res) => {
 
     await lead.deleteOne();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Lead deleted successfully",
     });
   } catch (err) {
     console.log("DELETE LEAD ERROR 👉", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });

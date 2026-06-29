@@ -75,18 +75,20 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
-    status: {
-      type: String,
-      enum: [
-        "pending",
-        "sent",
-        "meet",
-        "finance",
-        "delivered",
-        "another",
-      ],
-      default: "pending",
-    },
+ status: {
+  type: String,
+  enum: [
+    "pending",
+  
+    "sent",
+    "meet",
+    "finance",
+    "delivered",
+    "another",
+      "urgent",
+  ],
+  default: "pending",
+},
 
     review: {
       type: String,

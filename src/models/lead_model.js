@@ -22,6 +22,7 @@ const leadSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
+      unique: true, // ✅ Prevent duplicate phone numbers
       trim: true,
       set: (v) => v?.toString().replace(/\D/g, ""),
       match: [/^[6-9]\d{9}$/, "Invalid phone number"],
@@ -75,20 +76,19 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
- status: {
-  type: String,
-  enum: [
-    "pending",
-  
-    "sent",
-    "meet",
-    "finance",
-    "delivered",
-    "another",
-      "urgent",
-  ],
-  default: "pending",
-},
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "sent",
+        "meet",
+        "finance",
+        "delivered",
+        "another",
+        "urgent",
+      ],
+      default: "pending",
+    },
 
     review: {
       type: String,
@@ -133,7 +133,7 @@ leadSchema.pre("save", function (next) {
 /* =====================================================
    INDEXES
 ===================================================== */
-leadSchema.index({ phone: 1 });
+leadSchema.index({ phone: 1 }, { unique: true }); // ✅ Unique index
 leadSchema.index({ status: 1 });
 leadSchema.index({ createdAt: -1 });
 

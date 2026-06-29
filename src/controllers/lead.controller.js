@@ -33,10 +33,19 @@ export const addLead = async (req, res) => {
 
     const cleanPhone = phone.toString().replace(/\D/g, "");
 
-    // Check duplicate phone
+    // Check if phone exists (including soft‑deleted)
     const existingLead = await Lead.findOne({ phone: cleanPhone });
 
     if (existingLead) {
+      // If the lead is soft‑deleted, suggest restore instead
+      if (existingLead.isDeleted) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone number already exists in Recently Deleted. Please restore it instead.",
+          leadId: existingLead._id,
+        });
+      }
+
       return res.status(400).json({
         success: false,
         message: "Phone number already registered",
@@ -44,7 +53,6 @@ export const addLead = async (req, res) => {
     }
 
     let audioNote = null;
-
     if (req.file) {
       audioNote = await uploadLeadAudio(req.file);
     }
@@ -88,11 +96,11 @@ export const addLead = async (req, res) => {
 };
 
 /* =====================================================
-   GET ALL LEADS
+   GET ALL ACTIVE LEADS (excludes soft‑deleted)
 ===================================================== */
 export const getLeads = async (req, res) => {
   try {
-    const leads = await Lead.find().sort({
+    const leads = await Lead.find({ isDeleted: false }).sort({
       createdAt: -1,
     });
 
@@ -103,7 +111,6 @@ export const getLeads = async (req, res) => {
     });
   } catch (err) {
     console.log("GET LEADS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -112,12 +119,11 @@ export const getLeads = async (req, res) => {
 };
 
 /* =====================================================
-   GET SINGLE LEAD
+   GET SINGLE LEAD (any – including deleted)
 ===================================================== */
 export const getLead = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -131,7 +137,6 @@ export const getLead = async (req, res) => {
     });
   } catch (err) {
     console.log("GET LEAD ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -140,12 +145,11 @@ export const getLead = async (req, res) => {
 };
 
 /* =====================================================
-   UPDATE LEAD
+   UPDATE LEAD (active leads only)
 ===================================================== */
 export const updateLead = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -153,22 +157,27 @@ export const updateLead = async (req, res) => {
       });
     }
 
-    // Duplicate phone check
+    // ❌ Prevent updating soft‑deleted leads
+    if (lead.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update a deleted lead. Restore it first.",
+      });
+    }
+
+    // Duplicate phone check (exclude self)
     if (req.body.phone !== undefined) {
       const cleanPhone = req.body.phone.toString().replace(/\D/g, "");
-
       const existingLead = await Lead.findOne({
         phone: cleanPhone,
         _id: { $ne: lead._id },
       });
-
       if (existingLead) {
         return res.status(400).json({
           success: false,
           message: "Phone number already registered",
         });
       }
-
       lead.phone = cleanPhone;
     }
 
@@ -196,7 +205,6 @@ export const updateLead = async (req, res) => {
       if (lead.audioNote) {
         await deleteLeadAudio(lead.audioNote);
       }
-
       lead.audioNote = await uploadLeadAudio(req.file);
     }
 
@@ -209,14 +217,12 @@ export const updateLead = async (req, res) => {
     });
   } catch (err) {
     console.log("UPDATE LEAD ERROR 👉", err);
-
     if (err.code === 11000) {
       return res.status(400).json({
         success: false,
         message: "Phone number already registered",
       });
     }
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -225,12 +231,11 @@ export const updateLead = async (req, res) => {
 };
 
 /* =====================================================
-   DELETE LEAD
+   SOFT DELETE LEAD
 ===================================================== */
 export const deleteLead = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -238,6 +243,168 @@ export const deleteLead = async (req, res) => {
       });
     }
 
+    // Already deleted?
+    if (lead.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Lead is already deleted",
+      });
+    }
+
+    // Soft delete – we do NOT delete audio yet (keep it for restore)
+    lead.isDeleted = true;
+    lead.deletedAt = new Date();
+    await lead.save();
+
+    return res.json({
+      success: true,
+      message: "Lead moved to trash",
+      lead,
+    });
+  } catch (err) {
+    console.log("DELETE LEAD ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
+   GET RECENTLY DELETED LEADS
+===================================================== */
+export const getDeletedLeads = async (req, res) => {
+  try {
+    const leads = await Lead.find({ isDeleted: true }).sort({
+      deletedAt: -1,
+    });
+
+    return res.json({
+      success: true,
+      total: leads.length,
+      leads,
+    });
+  } catch (err) {
+    console.log("GET DELETED LEADS ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
+   RESTORE SINGLE LEAD
+===================================================== */
+export const restoreLead = async (req, res) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: "Lead not found",
+      });
+    }
+
+    if (!lead.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Lead is not deleted",
+      });
+    }
+
+    lead.isDeleted = false;
+    lead.deletedAt = null;
+    await lead.save();
+
+    return res.json({
+      success: true,
+      message: "Lead restored successfully",
+      lead,
+    });
+  } catch (err) {
+    console.log("RESTORE LEAD ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
+   RESTORE MULTIPLE LEADS
+   ✅ Returns restored IDs for Flutter
+===================================================== */
+export const restoreManyLeads = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of lead IDs",
+      });
+    }
+
+    // Find all deleted leads matching the IDs
+    const leads = await Lead.find({
+      _id: { $in: ids },
+      isDeleted: true,
+    });
+
+    if (leads.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No deleted leads found for the provided IDs",
+      });
+    }
+
+    // Extract IDs of the leads we're going to restore
+    const restoredIds = leads.map((lead) => lead._id);
+
+    // Restore them
+    await Lead.updateMany(
+      { _id: { $in: restoredIds } },
+      { isDeleted: false, deletedAt: null }
+    );
+
+    return res.json({
+      success: true,
+      message: `${restoredIds.length} leads restored successfully`,
+      restoredIds, // ✅ Send back the restored IDs
+      modifiedCount: restoredIds.length,
+    });
+  } catch (err) {
+    console.log("RESTORE MANY LEADS ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================================
+   PERMANENT DELETE SINGLE LEAD (also removes audio)
+===================================================== */
+export const permanentDeleteLead = async (req, res) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: "Lead not found",
+      });
+    }
+
+    // ✅ Only allow permanent deletion of deleted leads
+    if (!lead.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot permanently delete an active lead. Delete it first.",
+      });
+    }
+
+    // Delete audio file if exists
     if (lead.audioNote) {
       await deleteLeadAudio(lead.audioNote);
     }
@@ -246,11 +413,69 @@ export const deleteLead = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Lead deleted successfully",
+      message: "Lead permanently deleted",
     });
   } catch (err) {
-    console.log("DELETE LEAD ERROR 👉", err);
+    console.log("PERMANENT DELETE LEAD ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
+/* =====================================================
+   PERMANENT DELETE MULTIPLE LEADS
+   ✅ Only allows deletion of soft‑deleted leads
+===================================================== */
+export const permanentDeleteManyLeads = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of lead IDs",
+      });
+    }
+
+    // ✅ Only fetch deleted leads (safety check)
+    const leads = await Lead.find({
+      _id: { $in: ids },
+      isDeleted: true,
+    });
+
+    if (leads.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No deleted leads found for the provided IDs",
+      });
+    }
+
+    // Extract IDs of leads to delete
+    const deleteIds = leads.map((lead) => lead._id);
+
+    // Delete all audio files in parallel
+    const audioDeletions = leads
+      .filter((lead) => lead.audioNote)
+      .map((lead) => deleteLeadAudio(lead.audioNote));
+
+    await Promise.all(audioDeletions);
+
+    // ✅ Permanently delete only the deleted leads
+    const result = await Lead.deleteMany({
+      _id: { $in: deleteIds },
+      isDeleted: true,
+    });
+
+    return res.json({
+      success: true,
+      message: `${result.deletedCount} leads permanently deleted`,
+      deletedIds: deleteIds, // ✅ Send back deleted IDs for UI update
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    console.log("PERMANENT DELETE MANY LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,

@@ -22,7 +22,7 @@ const leadSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
-      unique: true, // ✅ Prevent duplicate phone numbers
+      unique: true,
       trim: true,
       set: (v) => v?.toString().replace(/\D/g, ""),
       match: [/^[6-9]\d{9}$/, "Invalid phone number"],
@@ -106,6 +106,21 @@ const leadSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    /* ==========================
+       SOFT DELETE
+    ========================== */
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -133,8 +148,11 @@ leadSchema.pre("save", function (next) {
 /* =====================================================
    INDEXES
 ===================================================== */
-leadSchema.index({ phone: 1 }, { unique: true }); // ✅ Unique index
+
+leadSchema.index({ phone: 1 }, { unique: true });
 leadSchema.index({ status: 1 });
+leadSchema.index({ isDeleted: 1 });
+leadSchema.index({ deletedAt: -1 });
 leadSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Lead", leadSchema);

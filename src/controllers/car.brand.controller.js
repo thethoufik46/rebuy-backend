@@ -54,18 +54,26 @@ export const addBrand = async (req, res) => {
 /* =====================================================
    GET BRANDS
 ===================================================== */
+/* =====================================================
+   GET BRANDS
+===================================================== */
 export const getBrands = async (req, res) => {
   try {
     let brands = await Brand.find();
 
-    // Toyota always first, others alphabetical
     brands.sort((a, b) => {
       const aName = a.name.trim().toLowerCase();
       const bName = b.name.trim().toLowerCase();
 
+      // 1. Toyota always first
       if (aName === "toyota") return -1;
       if (bName === "toyota") return 1;
 
+      // 2. Maruti Suzuki always second
+      if (aName === "maruti suzuki") return -1;
+      if (bName === "maruti suzuki") return 1;
+
+      // 3. Others alphabetical
       return a.name.localeCompare(b.name);
     });
 

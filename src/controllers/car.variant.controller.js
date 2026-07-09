@@ -270,26 +270,50 @@ export const getSelectedVariants = async (req, res) => {
 /* =====================================================
    VARIANTS BY BRAND
 ===================================================== */
-
-/* =====================================================
-   VARIANTS BY BRAND
-===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
 
-    const variants = await Variant.find({ brand: brandId })
-      .populate("brand", "name logoUrl");
+    const variants = await Variant.find({ brand: brandId }).populate(
+      "brand",
+      "name logoUrl"
+    );
 
-    // ✅ Crysta always first
+    // ✅ Priority Order
+    const priority = [
+      "crysta",
+      "ertiga",
+      "swift",
+      "wagon r",
+    ];
+
     variants.sort((a, b) => {
       const aTitle = (a.title || "").trim().toLowerCase();
       const bTitle = (b.title || "").trim().toLowerCase();
 
-      if (aTitle.startsWith("crysta")) return -1;
-      if (bTitle.startsWith("crysta")) return 1;
+      // Match only the beginning of the title
+      const aIndex = priority.findIndex((item) =>
+        aTitle.startsWith(item)
+      );
+      const bIndex = priority.findIndex((item) =>
+        bTitle.startsWith(item)
+      );
 
-      return a.title.localeCompare(b.title);
+      // Both are priority items
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+
+      // Only A is priority
+      if (aIndex !== -1) return -1;
+
+      // Only B is priority
+      if (bIndex !== -1) return 1;
+
+      // Remaining variants in alphabetical order
+      return a.title.localeCompare(b.title, "en", {
+        sensitivity: "base",
+      });
     });
 
     const data = variants.map((v) => ({

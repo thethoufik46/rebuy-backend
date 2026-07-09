@@ -282,6 +282,7 @@ export const getVariantsByBrand = async (req, res) => {
     // ✅ Priority Order
     const priority = [
       "crysta",
+      "innova",
       "ertiga",
       "swift",
       "wagon r",

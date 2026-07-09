@@ -270,13 +270,27 @@ export const getSelectedVariants = async (req, res) => {
 /* =====================================================
    VARIANTS BY BRAND
 ===================================================== */
+
+/* =====================================================
+   VARIANTS BY BRAND
+===================================================== */
 export const getVariantsByBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     const variants = await Variant.find({ brand: brandId })
-      .sort({ title: 1 })
       .populate("brand", "name logoUrl");
+
+    // ✅ Crysta always first
+    variants.sort((a, b) => {
+      const aTitle = (a.title || "").trim().toLowerCase();
+      const bTitle = (b.title || "").trim().toLowerCase();
+
+      if (aTitle.startsWith("crysta")) return -1;
+      if (bTitle.startsWith("crysta")) return 1;
+
+      return a.title.localeCompare(b.title);
+    });
 
     const data = variants.map((v) => ({
       _id: v._id.toString(),

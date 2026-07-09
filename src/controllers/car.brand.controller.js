@@ -56,7 +56,18 @@ export const addBrand = async (req, res) => {
 ===================================================== */
 export const getBrands = async (req, res) => {
   try {
-    const brands = await Brand.find().sort({ name: 1 });
+    let brands = await Brand.find();
+
+    // Toyota always first, others alphabetical
+    brands.sort((a, b) => {
+      const aName = a.name.trim().toLowerCase();
+      const bName = b.name.trim().toLowerCase();
+
+      if (aName === "toyota") return -1;
+      if (bName === "toyota") return 1;
+
+      return a.name.localeCompare(b.name);
+    });
 
     return res.status(200).json({
       success: true,

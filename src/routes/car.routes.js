@@ -132,23 +132,23 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       maxYear,
     } = req.query;
 
-    /* ==============================
-       ✅ MULTI BRAND FILTER
-    ============================== */
-    if (brand) {
-      query.brand = {
-        $in: brand.split(",").map((b) => b.trim()),
-      };
-    }
+  if (brand) {
+  query.brand = {
+    $in: brand
+      .split(",")
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id)),
+  };
+}
 
-    /* ==============================
-       ✅ MULTI VARIANT FILTER
-    ============================== */
-    if (variant) {
-      query.variant = {
-        $in: variant.split(",").map((v) => v.trim()),
-      };
-    }
+if (variant) {
+  query.variant = {
+    $in: variant
+      .split(",")
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id)),
+  };
+}
 
     /* ==============================
        ✅ MULTI DISTRICT FILTER 🔥

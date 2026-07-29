@@ -1,9 +1,9 @@
+// ======================= src/controllers/media.controller.js =======================
 import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import r2 from "../config/r2.js";
 import User from "../models/user_model.js";
@@ -23,7 +23,6 @@ export const uploadProfileImage = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -31,7 +30,6 @@ export const uploadProfileImage = async (req, res) => {
       });
     }
 
-    /* Delete old profile image */
     if (user.profileImage) {
       try {
         await r2.send(
@@ -44,7 +42,6 @@ export const uploadProfileImage = async (req, res) => {
     }
 
     const ext = req.file.mimetype.split("/")[1] || "jpg";
-
     const key = `users/profile/${req.user.id}-${Date.now()}.${ext}`;
 
     await r2.send(
@@ -66,7 +63,6 @@ export const uploadProfileImage = async (req, res) => {
     });
   } catch (err) {
     console.error("PROFILE UPLOAD ERROR:", err);
-
     res.status(500).json({
       success: false,
       message: "Profile upload failed",
@@ -75,7 +71,7 @@ export const uploadProfileImage = async (req, res) => {
 };
 
 /* =====================================================
-   UPLOAD MULTIPLE PROOF IMAGES
+   UPLOAD MULTIPLE PROOF IMAGES (FIXED)
 ===================================================== */
 export const uploadProofImages = async (req, res) => {
   try {
@@ -87,7 +83,6 @@ export const uploadProofImages = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -95,19 +90,23 @@ export const uploadProofImages = async (req, res) => {
       });
     }
 
-    const documentTypes = Array.isArray(req.body.documentTypes)
-      ? req.body.documentTypes
-      : req.body.documentTypes
-      ? [req.body.documentTypes]
-      : [];
+    // Parse documentTypes – support both comma-separated string and array
+    let documentTypes = req.body.documentTypes;
+    if (typeof documentTypes === "string") {
+      documentTypes = documentTypes.split(",").map(s => s.trim());
+    }
+    if (!Array.isArray(documentTypes) || documentTypes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "documentTypes required as array or comma-separated string",
+      });
+    }
 
     const uploadedProofs = [];
 
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
-
       const ext = file.mimetype.split("/")[1] || "jpg";
-
       const key = `users/proofs/${req.user.id}-${Date.now()}-${i}.${ext}`;
 
       await r2.send(
@@ -126,7 +125,6 @@ export const uploadProofImages = async (req, res) => {
     }
 
     user.proofs.push(...uploadedProofs);
-
     await user.save();
 
     res.json({
@@ -136,7 +134,6 @@ export const uploadProofImages = async (req, res) => {
     });
   } catch (err) {
     console.error("PROOF UPLOAD ERROR:", err);
-
     res.status(500).json({
       success: false,
       message: "Proof upload failed",
@@ -150,7 +147,6 @@ export const uploadProofImages = async (req, res) => {
 export const getSignedMediaUrl = async (req, res) => {
   try {
     const { key } = req.query;
-
     if (!key) {
       return res.status(400).json({
         success: false,
@@ -164,9 +160,7 @@ export const getSignedMediaUrl = async (req, res) => {
         Bucket: BUCKET,
         Key: key,
       }),
-      {
-        expiresIn: 60,
-      }
+      { expiresIn: 60 }
     );
 
     res.json({
@@ -175,7 +169,6 @@ export const getSignedMediaUrl = async (req, res) => {
     });
   } catch (err) {
     console.error("SIGNED URL ERROR:", err);
-
     res.status(500).json({
       success: false,
       message: "Signed URL generation failed",

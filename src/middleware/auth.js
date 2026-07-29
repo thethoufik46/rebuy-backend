@@ -1,3 +1,5 @@
+// src/middleware/auth.js
+
 import jwt from "jsonwebtoken";
 import User from "../models/user_model.js";
 
@@ -9,16 +11,16 @@ export const verifyToken = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Token missing",
+        message: "Authorization token missing or malformed",
       });
     }
 
     const token = authHeader.split(" ")[1];
 
-    /// ✅ VERIFY TOKEN
+    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    /// ✅ FETCH USER
+    // Fetch user (exclude password)
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
@@ -28,29 +30,43 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    /// ✅ ATTACH USER
+    // Attach user to request
     req.user = user;
     req.userId = user._id;
 
     next();
   } catch (err) {
+    // Provide clear error messages for different JWT errors
+    let message = "Invalid or expired token";
+    if (err.name === "JsonWebTokenError") {
+      message = "Invalid token";
+    } else if (err.name === "TokenExpiredError") {
+      message = "Token expired";
+    }
 
-    /// ✅ DEBUG FRIENDLY ERROR 🔥
-    console.log("AUTH ERROR 👉", err.message);
+    console.error("AUTH ERROR:", err.message);
 
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message,
     });
   }
 };
 
 /* ================= ADMIN ONLY ================= */
 export const isAdmin = (req, res, next) => {
-  if (req.user?.role !== "admin") {
+  // Ensure user is attached (should be done by verifyToken)
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthenticated",
+    });
+  }
+
+  if (req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
-      message: "Admins only",
+      message: "Admin access required",
     });
   }
 

@@ -17,7 +17,6 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// Upload profile image
 router.post(
   "/upload-profile",
   verifyToken,
@@ -25,7 +24,6 @@ router.post(
   uploadProfileImage
 );
 
-// Upload multiple proof images
 router.post(
   "/upload-proof",
   verifyToken,
@@ -33,14 +31,12 @@ router.post(
   uploadProofImages
 );
 
-// Generate signed URL for proof images
 router.get(
   "/signed-url",
   verifyToken,
   getSignedMediaUrl
 );
 
-// View image (no auth required)
 router.get("/image/*", async (req, res) => {
   try {
     const key = req.params[0];

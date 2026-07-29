@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema(
         required: true,
         trim: true,
         set: (v) => v?.toString().replace(/\s+/g, ""),
-      },
+      }
     ],
 
     email: {
@@ -62,19 +62,11 @@ const userSchema = new mongoose.Schema(
 
     verification: {
       type: String,
-      enum: [
-        "verified",
-        "mediator",
-        "dealer",
-        "premium",
-        "others",
-        "partner",
-        "black",
-      ],
+      enum: ["verified", "mediator", "dealer", "premium", "others", "partner","black",],
       default: "others",
     },
 
-    /* 📍 DISTRICT */
+    /* 📍 DISTRICT DROPDOWN */
     district: {
       type: String,
       required: true,
@@ -86,38 +78,10 @@ const userSchema = new mongoose.Schema(
       default: "NA",
     },
 
-    /* 👤 PROFILE IMAGE */
     profileImage: {
       type: String,
       default: "",
     },
-
-    /* 📄 MULTIPLE PROOF DOCUMENTS */
-    proofs: [
-      {
-        documentType: {
-          type: String,
-          enum: [
-            "aadhaar",
-            "driving_license",
-            "pan",
-            "office",
-          ],
-          required: true,
-        },
-
-        image: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-
-        uploadedAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
 
     forgotRequest: {
       type: Boolean,
@@ -134,9 +98,7 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 /* =====================================================
@@ -144,6 +106,7 @@ const userSchema = new mongoose.Schema(
 ===================================================== */
 userSchema.pre("save", function (next) {
   try {
+
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -155,6 +118,7 @@ userSchema.pre("save", function (next) {
     this.district = districtKey;
 
     next();
+
   } catch (error) {
     next(error);
   }

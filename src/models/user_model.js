@@ -19,20 +19,23 @@ const locations = JSON.parse(
 ===================================================== */
 const userSchema = new mongoose.Schema(
   {
+    /* ================= BASIC ================= */
+
     name: {
       type: String,
       required: true,
       trim: true,
     },
 
-    /* ✅ MULTIPLE PHONE NUMBERS */
+    /* ================= PHONE NUMBERS ================= */
+
     phone: [
       {
         type: String,
         required: true,
         trim: true,
         set: (v) => v?.toString().replace(/\s+/g, ""),
-      }
+      },
     ],
 
     email: {
@@ -62,11 +65,20 @@ const userSchema = new mongoose.Schema(
 
     verification: {
       type: String,
-      enum: ["verified", "mediator", "dealer", "premium", "others", "partner","black",],
+      enum: [
+        "verified",
+        "mediator",
+        "dealer",
+        "premium",
+        "others",
+        "partner",
+        "black",
+      ],
       default: "others",
     },
 
-    /* 📍 DISTRICT DROPDOWN */
+    /* ================= LOCATION ================= */
+
     district: {
       type: String,
       required: true,
@@ -78,10 +90,21 @@ const userSchema = new mongoose.Schema(
       default: "NA",
     },
 
+    /* ================= PROFILE ================= */
+
     profileImage: {
       type: String,
       default: "",
     },
+
+    /* ================= GALLERY ================= */
+
+    galleryImages: {
+      type: [String],
+      default: [],
+    },
+
+    /* ================= PASSWORD REQUEST ================= */
 
     forgotRequest: {
       type: Boolean,
@@ -98,7 +121,9 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 /* =====================================================
@@ -106,7 +131,6 @@ const userSchema = new mongoose.Schema(
 ===================================================== */
 userSchema.pre("save", function (next) {
   try {
-
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -118,7 +142,6 @@ userSchema.pre("save", function (next) {
     this.district = districtKey;
 
     next();
-
   } catch (error) {
     next(error);
   }
@@ -127,6 +150,7 @@ userSchema.pre("save", function (next) {
 /* =====================================================
    INDEXES
 ===================================================== */
+
 userSchema.index({ district: 1 });
 userSchema.index({ phone: 1 });
 

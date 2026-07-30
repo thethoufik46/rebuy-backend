@@ -390,15 +390,14 @@ router.put(
       });
 
     } catch (err) {
+  console.error("UPDATE USER ERROR:", err);
 
-      console.error("UPDATE USER ERROR:", err);
-
-      res.status(500).json({
-        success: false,
-        message: "Failed to update user",
-      });
-
-    }
+  res.status(500).json({
+    success: false,
+    message: err.message,
+    stack: err.stack,
+  });
+}
   }
 );
 

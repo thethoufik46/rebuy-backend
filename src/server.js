@@ -11,12 +11,14 @@ import { createAdminUser } from "./config/createAdmin.js";
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import adminUserRoutes from "./routes/admin.user.routes.js"; // ✅ ADDED
+
 import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 
 import brandRoutes from "./routes/car_brand.routes.js";
 import bikeBrandRoutes from "./routes/bike_brand.routes.js";
-import mobileBrandRoutes from "./routes/mobile_brand.routes.js"; // 🔥 ADD
+import mobileBrandRoutes from "./routes/mobile_brand.routes.js";
 import pcBrandRoutes from "./routes/pc_brand.routes.js";
 import laptopBrandRoutes from "./routes/laptop_brand.routes.js";
 import electronicsRoutes from "./routes/electronics.routes.js";
@@ -123,12 +125,16 @@ connectDB()
 ========================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+
+// ✅ ADMIN ROUTES (all under /api/admin)
+app.use("/api/admin", adminUserRoutes);
+
 app.use("/api/reports", reportRoutes);
 
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/brands", brandRoutes);
-app.use("/api/mobile-brands", mobileBrandRoutes); // 🔥 ADD
+app.use("/api/mobile-brands", mobileBrandRoutes);
 app.use("/api/laptop-brands", laptopBrandRoutes);
 app.use("/api/pc-brands", pcBrandRoutes);
 app.use("/api/electronics", electronicsRoutes);
@@ -139,7 +145,6 @@ app.use("/api/bike-models", bikeModelRoutes);
 
 app.use("/api/cars", carRoutes);
 app.use("/api/bikes", bikeRoutes);
-
 
 app.use("/api/search", searchRoutes);
 app.use("/api/wishlist", wishlistRoutes);

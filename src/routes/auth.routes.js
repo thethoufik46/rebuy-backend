@@ -43,7 +43,7 @@ router.post("/register", async (req, res) => {
       category,
       district,
       address: address || "NA",
-      // verification field will default to "others" as per schema
+      // verification defaults to "others" per schema
     });
 
     const token = jwt.sign(
@@ -64,7 +64,7 @@ router.post("/register", async (req, res) => {
         category: user.category,
         district: user.district,
         address: user.address,
-        verification: user.verification,   // ✅ added
+        verification: user.verification,
       },
     });
   } catch (err) {
@@ -101,6 +101,16 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // ✅ BLOCKED USER CHECK (before password verification)
+    if (user.verification === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked. Please contact support.",
+        blocked: true,
+        logout: true,
+      });
+    }
+
     // 🔐 NORMAL PASSWORD CHECK
     let isMatch = await bcrypt.compare(password, user.password);
 
@@ -124,13 +134,17 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // Remove sensitive fields before sending
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     res.json({
       success: true,
       token,
-      user,
+      user: userResponse,
     });
   } catch (err) {
-    console.log("LOGIN ERROR 👉", err);
+    console.error("LOGIN ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Login failed",
@@ -142,7 +156,7 @@ router.post("/login", async (req, res) => {
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
-    user: req.user,   // includes verification if middleware attaches full user
+    user: req.user, // includes verification field
   });
 });
 
@@ -165,12 +179,19 @@ router.put("/me", verifyToken, async (req, res) => {
       new: true,
     }).select("-password");
 
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     res.json({
       success: true,
       user,
     });
   } catch (err) {
-    console.log("UPDATE ERROR 👉", err);
+    console.error("UPDATE ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Update failed",
@@ -193,6 +214,13 @@ router.put("/change-password", verifyToken, async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
@@ -201,7 +229,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
       message: "Password updated",
     });
   } catch (err) {
-    console.log("PASSWORD ERROR 👉", err);
+    console.error("PASSWORD ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Change failed",
@@ -240,6 +268,14 @@ router.post("/forgot-request", async (req, res) => {
       });
     }
 
+    // Blocked users cannot request password reset
+    if (user.verification === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is blocked. Please contact support.",
+      });
+    }
+
     user.forgotRequest = true;
     user.forgotRequestAt = Date.now();
     user.requestedPassword = newPassword;
@@ -250,7 +286,7 @@ router.post("/forgot-request", async (req, res) => {
       message: "Request sent to admin",
     });
   } catch (err) {
-    console.log("FORGOT ERROR 👉", err);
+    console.error("FORGOT ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Request failed",
@@ -261,13 +297,24 @@ router.post("/forgot-request", async (req, res) => {
 /* ================= DELETE MY ACCOUNT ================= */
 router.delete("/me", verifyToken, async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Clean up images before deletion (if you have image cleanup logic)
+    // This is handled separately if needed
+
     await User.findByIdAndDelete(req.userId);
     res.json({
       success: true,
       message: "Account deleted successfully",
     });
   } catch (err) {
-    console.log("DELETE ERROR 👉", err);
+    console.error("DELETE ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Delete failed",
@@ -289,13 +336,13 @@ router.get("/admin/users", verifyToken, async (req, res) => {
       });
     }
 
-    const users = await User.find().select("-password"); // includes verification
+    const users = await User.find().select("-password");
     res.json({
       success: true,
       users,
     });
   } catch (err) {
-    console.log("ADMIN USERS ERROR 👉", err);
+    console.error("ADMIN USERS ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Failed to load users",
@@ -313,7 +360,8 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    const { name, phone, email, category, district, address, verification } = req.body;
+    const { name, phone, email, category, district, address, verification } =
+      req.body;
 
     const update = {};
     if (name) update.name = name;
@@ -322,7 +370,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
     if (category) update.category = category;
     if (district) update.district = district;
     if (address) update.address = address;
-    if (verification) update.verification = verification;   // ✅ admin can change verification
+    if (verification) update.verification = verification; // ✅ Admin can update verification
 
     const user = await User.findByIdAndUpdate(req.params.id, update, {
       new: true,
@@ -340,7 +388,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
       user,
     });
   } catch (err) {
-    console.log("ADMIN UPDATE ERROR 👉", err);
+    console.error("ADMIN UPDATE ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Update failed",
@@ -358,13 +406,24 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Clean up images if you have that logic
+    // await deleteUserImages(user);
+
     await User.findByIdAndDelete(req.params.id);
     res.json({
       success: true,
-      message: "User deleted",
+      message: "User deleted successfully",
     });
   } catch (err) {
-    console.log("ADMIN DELETE ERROR 👉", err);
+    console.error("ADMIN DELETE ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Delete failed",
@@ -421,7 +480,7 @@ router.put("/admin/reset-password", verifyToken, async (req, res) => {
       message: "Password updated successfully",
     });
   } catch (err) {
-    console.log("RESET PASSWORD ERROR 👉", err);
+    console.error("RESET PASSWORD ERROR 👉", err);
     res.status(500).json({
       success: false,
       message: "Reset failed",

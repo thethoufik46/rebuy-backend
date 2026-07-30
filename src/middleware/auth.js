@@ -14,33 +14,38 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
-    /// ✅ VERIFY TOKEN
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    /// ✅ FETCH USER
     const user = await User.findById(decoded.id).select("-password");
 
+    // ✅ User deleted
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "User not found",
+        logout: true,
       });
     }
 
-    /// ✅ ATTACH USER
+    // ✅ User blocked
+    if (user.verification === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "You are blocked.",
+        blocked: true,
+        logout: true,
+      });
+    }
+
     req.user = user;
     req.userId = user._id;
-
     next();
   } catch (err) {
-
-    /// ✅ DEBUG FRIENDLY ERROR 🔥
-    console.log("AUTH ERROR 👉", err.message);
-
+    console.error("AUTH ERROR 👉", err.message);
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
+      logout: true,
     });
   }
 };
@@ -53,6 +58,5 @@ export const isAdmin = (req, res, next) => {
       message: "Admins only",
     });
   }
-
   next();
 };

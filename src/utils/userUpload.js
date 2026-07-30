@@ -10,8 +10,6 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 /* =====================================================
    ✅ UPLOAD USER IMAGE
-   - Profile  -> No Watermark
-   - Gallery  -> No Watermark
 ===================================================== */
 
 export const uploadUserImage = async (file, folder) => {
@@ -42,7 +40,7 @@ export const uploadUserImage = async (file, folder) => {
 
     return `${PUBLIC_URL}/${key}`;
   } catch (err) {
-    console.error("USER UPLOAD ERROR:", err.message);
+    console.error("USER UPLOAD ERROR:", err);
     throw new Error("User image upload failed");
   }
 };
@@ -53,11 +51,16 @@ export const uploadUserImage = async (file, folder) => {
 
 export const deleteUserImage = async (url) => {
   try {
-    if (!url || !url.startsWith(PUBLIC_URL)) return;
+    if (!url) return;
 
-    const key = url.replace(`${PUBLIC_URL}/`, "");
+    // Works for both workers.dev and r2.dev URLs
+    const { pathname } = new URL(url);
+
+    const key = pathname.replace(/^\/+/, "");
 
     if (!key) return;
+
+    console.log("Deleting R2 object:", key);
 
     await r2.send(
       new DeleteObjectCommand({
@@ -65,7 +68,9 @@ export const deleteUserImage = async (url) => {
         Key: key,
       })
     );
+
+    console.log("Deleted successfully:", key);
   } catch (err) {
-    console.error("USER DELETE ERROR:", err.message);
+    console.error("USER DELETE ERROR:", err);
   }
 };

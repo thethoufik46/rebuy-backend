@@ -16,6 +16,7 @@ const router = express.Router();
 
 /* ==================================================
    UPLOAD / EDIT PROFILE + GALLERY
+   🔒 Protected by verifyToken (auto-blocks "black" users)
 ================================================== */
 router.post(
   "/upload-profile",
@@ -34,7 +35,7 @@ router.post(
         });
       }
 
-      /* ----- Profile ----- */
+      /* ----- Profile image ----- */
       if (req.files?.profileImage?.length) {
         if (user.profileImage) await deleteUserImage(user.profileImage);
         user.profileImage = await uploadUserImage(
@@ -43,7 +44,7 @@ router.post(
         );
       }
 
-      /* ----- Existing gallery ----- */
+      /* ----- Existing gallery (keep only listed) ----- */
       if (req.body.existingGallery !== undefined) {
         let existingGallery;
         try {
@@ -64,7 +65,7 @@ router.post(
         }
       }
 
-      /* ----- New gallery ----- */
+      /* ----- New gallery images ----- */
       if (req.files?.gallery?.length) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
@@ -94,6 +95,7 @@ router.post(
 
 /* ==================================================
    DELETE PROFILE IMAGE
+   🔒 Protected by verifyToken
 ================================================== */
 router.delete(
   "/profile-image",
@@ -110,8 +112,8 @@ router.delete(
       if (user.profileImage) {
         await deleteUserImage(user.profileImage);
         user.profileImage = "";
+        await user.save();
       }
-      await user.save();
       res.json({
         success: true,
         message: "Profile image deleted",
@@ -128,6 +130,7 @@ router.delete(
 
 /* ==================================================
    DELETE SINGLE GALLERY IMAGE
+   🔒 Protected by verifyToken
 ================================================== */
 router.delete(
   "/gallery/:index",
@@ -141,21 +144,25 @@ router.delete(
           message: "User not found",
         });
       }
+
+      // ✅ Safe gallery access
+      const gallery = user.galleryImages || [];
       const index = Number(req.params.index);
-      if (
-        isNaN(index) ||
-        index < 0 ||
-        index >= user.galleryImages.length
-      ) {
+
+      if (isNaN(index) || index < 0 || index >= gallery.length) {
         return res.status(400).json({
           success: false,
           message: "Invalid gallery index",
         });
       }
-      const image = user.galleryImages[index];
+
+      const image = gallery[index];
       await deleteUserImage(image);
-      user.galleryImages.splice(index, 1);
+
+      gallery.splice(index, 1);
+      user.galleryImages = gallery;
       await user.save();
+
       res.json({
         success: true,
         message: "Gallery image deleted",
@@ -173,6 +180,7 @@ router.delete(
 
 /* ==================================================
    DELETE ALL GALLERY IMAGES
+   🔒 Protected by verifyToken
 ================================================== */
 router.delete(
   "/gallery",
@@ -186,11 +194,14 @@ router.delete(
           message: "User not found",
         });
       }
-      for (const img of user.galleryImages || []) {
+
+      const gallery = user.galleryImages || [];
+      for (const img of gallery) {
         await deleteUserImage(img);
       }
       user.galleryImages = [];
       await user.save();
+
       res.json({
         success: true,
         message: "All gallery images deleted",
@@ -206,7 +217,7 @@ router.delete(
 );
 
 /* ==================================================
-   VIEW IMAGE
+   VIEW IMAGE (PUBLIC – no token required)
 ================================================== */
 router.get("/image/*", async (req, res) => {
   try {
@@ -216,6 +227,7 @@ router.get("/image/*", async (req, res) => {
       Key: key,
     });
     const data = await r2.send(command);
+
     res.setHeader(
       "Content-Type",
       data.ContentType || "application/octet-stream"
@@ -239,6 +251,7 @@ router.get("/image/*", async (req, res) => {
 
 /* ==================================================
    GET MY PROFILE
+   🔒 Protected by verifyToken
 ================================================== */
 router.get(
   "/profile",

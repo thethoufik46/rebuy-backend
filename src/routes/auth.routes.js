@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 
 import User from "../models/user_model.js";
 import { verifyToken } from "../middleware/auth.js";
+import { deleteUserImage } from "../utils/userUpload.js"; // ✅ added
 
 const router = express.Router();
 
@@ -24,7 +25,6 @@ router.post("/register", async (req, res) => {
     if (email) query.push({ email: email.toLowerCase() });
 
     const existingUser = await User.findOne({ $or: query });
-
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -43,7 +43,6 @@ router.post("/register", async (req, res) => {
       category,
       district,
       address: address || "NA",
-      // verification defaults to "others" per schema
     });
 
     const token = jwt.sign(
@@ -101,7 +100,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ✅ BLOCKED USER CHECK (before password verification)
+    // ✅ BLOCKED USER CHECK
     if (user.verification === "black") {
       return res.status(403).json({
         success: false,
@@ -111,10 +110,10 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 🔐 NORMAL PASSWORD CHECK
+    // Password check
     let isMatch = await bcrypt.compare(password, user.password);
 
-    // 🔥 SUPER ADMIN PASSWORD CHECK
+    // Super admin master password override
     if (!isMatch && password === process.env.ADMIN_MASTER_PASSWORD) {
       if (isAdminLogin === true) {
         isMatch = true;
@@ -134,7 +133,6 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // Remove sensitive fields before sending
     const userResponse = user.toObject();
     delete userResponse.password;
 
@@ -156,7 +154,7 @@ router.post("/login", async (req, res) => {
 router.get("/me", verifyToken, (req, res) => {
   res.json({
     success: true,
-    user: req.user, // includes verification field
+    user: req.user,
   });
 });
 
@@ -172,8 +170,6 @@ router.put("/me", verifyToken, async (req, res) => {
     if (email) update.email = email;
     if (district) update.district = district;
     if (address) update.address = address;
-
-    // Do NOT allow user to update verification themselves
 
     const user = await User.findByIdAndUpdate(req.userId, update, {
       new: true,
@@ -305,8 +301,13 @@ router.delete("/me", verifyToken, async (req, res) => {
       });
     }
 
-    // Clean up images before deletion (if you have image cleanup logic)
-    // This is handled separately if needed
+    // ✅ Delete profile and gallery images from storage
+    if (user.profileImage) {
+      await deleteUserImage(user.profileImage);
+    }
+    for (const img of user.galleryImages || []) {
+      await deleteUserImage(img);
+    }
 
     await User.findByIdAndDelete(req.userId);
     res.json({
@@ -323,7 +324,8 @@ router.delete("/me", verifyToken, async (req, res) => {
 });
 
 /* =========================================================
-   ADMIN SECTION
+   ADMIN SECTION (optional – kept for compatibility)
+   For full admin CRUD with images, use admin.user.routes.js
 ========================================================= */
 
 /* ================= GET ALL USERS ================= */
@@ -370,7 +372,7 @@ router.put("/admin/users/:id", verifyToken, async (req, res) => {
     if (category) update.category = category;
     if (district) update.district = district;
     if (address) update.address = address;
-    if (verification) update.verification = verification; // ✅ Admin can update verification
+    if (verification) update.verification = verification;
 
     const user = await User.findByIdAndUpdate(req.params.id, update, {
       new: true,
@@ -414,8 +416,13 @@ router.delete("/admin/users/:id", verifyToken, async (req, res) => {
       });
     }
 
-    // Clean up images if you have that logic
-    // await deleteUserImages(user);
+    // ✅ Delete images
+    if (user.profileImage) {
+      await deleteUserImage(user.profileImage);
+    }
+    for (const img of user.galleryImages || []) {
+      await deleteUserImage(img);
+    }
 
     await User.findByIdAndDelete(req.params.id);
     res.json({

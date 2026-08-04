@@ -1,5 +1,5 @@
 import Chat from "../models/chat_model.js";
-
+import { io } from "../server.js";
 /* USER SEND MESSAGE */
 export const sendUserMessage = async (req, res) => {
   try {
@@ -12,30 +12,37 @@ export const sendUserMessage = async (req, res) => {
 
     let chat = await Chat.findOne({ userId });
 
-    if (!chat) {
-      chat = await Chat.create({
-        userId,
-        messages: [
-          {
-            sender: "admin",
-            message: "👋 Welcome! Our support team will reply soon.",
-            isRead: false,
-            adminRead: true,
-          },
-          {
-            sender: "user",
-            message,
-            isRead: true,
-            adminRead: false,
-          },
-        ],
-      });
+  if (!chat) {
+  chat = await Chat.create({
+    userId,
+    messages: [
+      {
+        sender: "admin",
+        message: "👋 Welcome! Our support team will reply soon.",
+        isRead: false,
+        adminRead: true,
+      },
+      {
+        sender: "user",
+        message,
+        isRead: true,
+        adminRead: false,
+      },
+    ],
+  });
 
-      return res.status(201).json({
-        success: true,
-        data: chat.messages,
-      });
-    }
+  io.to("admin").emit("new_message", {
+    chatId: chat._id,
+    userId,
+    sender: "user",
+    message,
+  });
+
+  return res.status(201).json({
+    success: true,
+    data: chat.messages,
+  });
+}
 
     chat.messages.push({
       sender: "user",
@@ -45,6 +52,13 @@ export const sendUserMessage = async (req, res) => {
     });
 
     await chat.save();
+
+    io.to("admin").emit("new_message", {
+  chatId: chat._id,
+  userId,
+  sender: "user",
+  message,
+});
 
     res.json({
       success: true,
@@ -77,6 +91,12 @@ export const sendAdminReply = async (req, res) => {
     });
 
     await chat.save();
+
+    io.to(userId.toString()).emit("new_message", {
+  chatId: chat._id,
+  sender: "admin",
+  message,
+});
 
     res.json({
       success: true,

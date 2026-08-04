@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import http from "http";
+import { Server } from "socket.io";
 
 // ================= DATABASE & ADMIN =================
 import { connectDB } from "./config/db.js";
@@ -56,6 +58,19 @@ import leadRoutes from "./routes/lead.routes.js";
 dotenv.config();
 
 const app = express();
+
+
+
+
+const server = http.createServer(app);
+
+export const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
 
 /* =========================
    FIX __dirname
@@ -213,11 +228,31 @@ app.use((err, req, res, next) => {
   });
 });
 
+
+io.on("connection", (socket) => {
+  console.log("🟢 Socket Connected:", socket.id);
+
+  // User room
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`User Joined: ${userId}`);
+  });
+
+  // 👇 Idha inga add pannunga
+  socket.on("join-admin", () => {
+    socket.join("admin");
+    console.log("👨‍💼 Admin Joined");
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔴 Socket Disconnected");
+  });
+});
 /* =========================
    START
 ========================= */
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });

@@ -215,6 +215,15 @@ export const updateLead = async (req, res) => {
       }
     });
 
+    // Delete existing audio if requested
+    if (req.body.removeAudio === "true") {
+      if (lead.audioNote) {
+        await deleteLeadAudio(lead.audioNote);
+      }
+      lead.audioNote = null;
+    }
+
+    // Upload new audio if provided
     if (req.file) {
       if (lead.audioNote) {
         await deleteLeadAudio(lead.audioNote);

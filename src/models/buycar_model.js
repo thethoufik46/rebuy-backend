@@ -1,26 +1,15 @@
+// ======================= buycar_model.js =======================
+
 import mongoose from "mongoose";
 
 const buyCarSchema = new mongoose.Schema(
   {
-    /* =====================================================
-       TYPE
-    ===================================================== */
-
     type: {
       type: String,
       required: true,
-      enum: [
-        "car",
-        "bike",
-        "property",
-        "electronics",
-      ],
+      enum: ["car", "bike", "property", "electronics"],
       index: true,
     },
-
-    /* =====================================================
-       USER
-    ===================================================== */
 
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,197 +22,112 @@ const buyCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* =====================================================
-       USER DETAILS
-    ===================================================== */
-
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    location: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    /* =====================================================
-       CAR
-    ===================================================== */
+    name: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    location: { type: String, required: true, trim: true },
 
     car: {
       model: String,
-
       budget: Number,
-
       paymentType: {
         type: String,
         enum: ["Cash", "Finance"],
       },
-
       boardType: {
         type: String,
         enum: ["Own Board", "T Board"],
       },
-
       timeline: {
         type: String,
-        enum: [
-          "Immediate",
-          "One Week",
-          "15 Days",
-        ],
+        enum: ["Immediate", "One Week", "15 Days"],
       },
     },
 
-    /* =====================================================
-       BIKE
-    ===================================================== */
-
     bike: {
       model: String,
-
       budget: Number,
-
       paymentType: {
         type: String,
         enum: ["Cash", "Finance"],
       },
-
       timeline: {
         type: String,
-        enum: [
-          "Immediate",
-          "One Week",
-          "15 Days",
-        ],
+        enum: ["Immediate", "One Week", "15 Days"],
       },
     },
-
-    /* =====================================================
-       PROPERTY
-    ===================================================== */
 
     property: {
       category: {
         type: String,
         enum: ["Home", "Land"],
       },
-
       preferredLocation: String,
-
       budget: Number,
-
       timeline: {
         type: String,
-        enum: [
-          "Immediate",
-          "One Week",
-          "15 Days",
-        ],
+        enum: ["Immediate", "One Week", "15 Days"],
       },
     },
-
-    /* =====================================================
-       ELECTRONICS
-    ===================================================== */
 
     electronics: {
       category: {
         type: String,
-        enum: [
-          "Mobile",
-          "Laptop",
-          "PC",
-        ],
+        enum: ["Mobile", "Laptop", "PC"],
       },
-
       budget: Number,
-
       timeline: {
         type: String,
-        enum: [
-          "Immediate",
-          "One Week",
-          "15 Days",
-        ],
+        enum: ["Immediate", "One Week", "15 Days"],
       },
     },
-
-    /* =====================================================
-       COMMON
-    ===================================================== */
 
     description: {
       type: String,
       trim: true,
-      default: "",
     },
-
-    /*
-     * IMPORTANT:
-     * This must contain R2 PUBLIC URL.
-     *
-     * Example:
-     * https://cdn.example.com/buycar/audio/xxx.m4a
-     */
 
     audioNote: {
       type: String,
       default: null,
-      trim: true,
     },
-
-    /* =====================================================
-       ADMIN
-    ===================================================== */
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "approved",
-        "rejected",
-      ],
+      enum: ["pending", "approved", "rejected"],
       default: "pending",
+    },
+
+    adminNote: String,
+
+    // ============================================================
+    // RECENTLY DELETED / 24-HOUR RECOVERY
+    // MongoDB TTL automatically removes the document 24 hours
+    // after deletedAt is set.
+    // ============================================================
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
       index: true,
     },
 
-    adminNote: {
-      type: String,
-      default: "",
-      trim: true,
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
     },
   },
-
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* =====================================================
-   INDEXES
-===================================================== */
-
-buyCarSchema.index({
-  user: 1,
-  createdAt: -1,
-});
-
-buyCarSchema.index({
-  type: 1,
-  status: 1,
-});
-
-export default mongoose.model(
-  "BuyCar",
-  buyCarSchema
+// Exact 24-hour automatic permanent deletion.
+// MongoDB TTL monitor normally checks approximately once per minute.
+buyCarSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 }
 );
+
+buyCarSchema.index({ user: 1, isDeleted: 1, createdAt: -1 });
+buyCarSchema.index({ type: 1, status: 1, isDeleted: 1 });
+
+export default mongoose.model("BuyCar", buyCarSchema);

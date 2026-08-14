@@ -5,7 +5,6 @@ import express from "express";
 import {
   addBuyCar,
   getMyBuyCars,
-  getMyDeletedBuyCars,
   updateMyBuyCar,
   deleteMyBuyCar,
   restoreMyBuyCar,
@@ -14,7 +13,6 @@ import {
   getBuyCarById,
   updateBuyCarStatus,
   deleteBuyCar,
-  getDeletedBuyCars,
 } from "../controllers/buycar.controller.js";
 
 import {
@@ -22,68 +20,59 @@ import {
   isAdmin,
 } from "../middleware/auth.js";
 
-import uploadBuyCar from "../middleware/uploadBuyCar.js";
+const router =
+  express.Router();
 
-const router = express.Router();
+/* ============================================================
+   USER ROUTES
+============================================================ */
 
-/* =====================================================
-   USER
-===================================================== */
-
+/* ADD */
 router.post(
   "/add",
   verifyToken,
-  uploadBuyCar.single("audio"),
   addBuyCar
 );
 
+/* MY REQUESTS */
 router.get(
   "/my",
   verifyToken,
   getMyBuyCars
 );
 
-router.get(
-  "/my/deleted",
-  verifyToken,
-  getMyDeletedBuyCars
-);
-
-router.put(
-  "/my/:id",
-  verifyToken,
-  uploadBuyCar.single("audio"),
-  updateMyBuyCar
-);
-
-router.delete(
-  "/my/:id",
-  verifyToken,
-  deleteMyBuyCar
-);
-
+/* RESTORE
+   MUST COME BEFORE /:id
+*/
 router.put(
   "/my/:id/restore",
   verifyToken,
   restoreMyBuyCar
 );
 
-/* =====================================================
-   ADMIN
-===================================================== */
+/* UPDATE MY REQUEST */
+router.put(
+  "/my/:id",
+  verifyToken,
+  updateMyBuyCar
+);
+
+/* SOFT DELETE MY REQUEST */
+router.delete(
+  "/my/:id",
+  verifyToken,
+  deleteMyBuyCar
+);
+
+/* ============================================================
+   ADMIN ROUTES
+============================================================ */
 
 router.get(
   "/",
   verifyToken,
   isAdmin,
   getBuyCars
-);
-
-router.get(
-  "/deleted",
-  verifyToken,
-  isAdmin,
-  getDeletedBuyCars
 );
 
 router.get(

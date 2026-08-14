@@ -4,9 +4,10 @@ import mongoose from "mongoose";
 
 const buyCarSchema = new mongoose.Schema(
   {
-    /* =========================
+    /* ============================================================
        TYPE
-    ========================= */
+    ============================================================ */
+
     type: {
       type: String,
       required: true,
@@ -14,23 +15,27 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* =========================
+    /* ============================================================
        USER
-    ========================= */
+    ============================================================ */
+
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     userId: {
       type: String,
       required: true,
+      index: true,
     },
 
-    /* =========================
-       USER INFORMATION
-    ========================= */
+    /* ============================================================
+       USER DETAILS
+    ============================================================ */
+
     name: {
       type: String,
       required: true,
@@ -49,11 +54,13 @@ const buyCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* =========================
+    /* ============================================================
        CAR
-    ========================= */
+    ============================================================ */
+
     car: {
       model: String,
+
       budget: Number,
 
       paymentType: {
@@ -72,11 +79,13 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* =========================
+    /* ============================================================
        BIKE
-    ========================= */
+    ============================================================ */
+
     bike: {
       model: String,
+
       budget: Number,
 
       paymentType: {
@@ -90,9 +99,10 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* =========================
+    /* ============================================================
        PROPERTY
-    ========================= */
+    ============================================================ */
+
     property: {
       category: {
         type: String,
@@ -109,9 +119,10 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* =========================
+    /* ============================================================
        ELECTRONICS
-    ========================= */
+    ============================================================ */
+
     electronics: {
       category: {
         type: String,
@@ -126,37 +137,49 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* =========================
+    /* ============================================================
        COMMON
-    ========================= */
+    ============================================================ */
+
     description: {
       type: String,
       trim: true,
       default: "",
     },
 
+    /*
+      IMPORTANT:
+      This must contain R2 public URL for new uploads.
+
+      Example:
+      https://your-r2-domain.com/buycar/audio/file.m4a
+    */
+
     audioNote: {
       type: String,
       default: null,
     },
 
-    /* =========================
-       STATUS
-    ========================= */
+    /* ============================================================
+       ADMIN STATUS
+    ============================================================ */
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
+      index: true,
     },
 
     adminNote: {
       type: String,
       default: "",
+      trim: true,
     },
 
-    /* =========================
-       RECENTLY DELETED
-    ========================= */
+    /* ============================================================
+       SOFT DELETE
+    ============================================================ */
 
     isDeleted: {
       type: Boolean,
@@ -169,25 +192,42 @@ const buyCarSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+
+    /*
+      This field tells us exactly when the
+      24 hour recovery period ends.
+    */
+
+    deleteExpiresAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-/* =========================
+/* ============================================================
    INDEXES
-========================= */
+============================================================ */
 
 buyCarSchema.index({
   user: 1,
   isDeleted: 1,
-  createdAt: -1,
 });
 
 buyCarSchema.index({
   isDeleted: 1,
-  deletedAt: -1,
+  deleteExpiresAt: 1,
 });
 
-export default mongoose.model("BuyCar", buyCarSchema);
+buyCarSchema.index({
+  createdAt: -1,
+});
+
+export default mongoose.model(
+  "BuyCar",
+  buyCarSchema
+);

@@ -5,13 +5,16 @@ import express from "express";
 import {
   addBuyCar,
   getMyBuyCars,
+  getMyDeletedBuyCars,
   updateMyBuyCar,
   deleteMyBuyCar,
   restoreMyBuyCar,
+
   getBuyCars,
   getBuyCarById,
   updateBuyCarStatus,
   deleteBuyCar,
+  getDeletedBuyCars,
 } from "../controllers/buycar.controller.js";
 
 import {
@@ -19,15 +22,18 @@ import {
   isAdmin,
 } from "../middleware/auth.js";
 
+import uploadBuyCar from "../middleware/uploadBuyCar.js";
+
 const router = express.Router();
 
-/* ============================================================
-   USER ROUTES
-============================================================ */
+/* =====================================================
+   USER
+===================================================== */
 
 router.post(
   "/add",
   verifyToken,
+  uploadBuyCar.single("audio"),
   addBuyCar
 );
 
@@ -37,17 +43,17 @@ router.get(
   getMyBuyCars
 );
 
+router.get(
+  "/my/deleted",
+  verifyToken,
+  getMyDeletedBuyCars
+);
+
 router.put(
   "/my/:id",
   verifyToken,
+  uploadBuyCar.single("audio"),
   updateMyBuyCar
-);
-
-// IMPORTANT: restore route is explicit and user-only.
-router.put(
-  "/my/:id/restore",
-  verifyToken,
-  restoreMyBuyCar
 );
 
 router.delete(
@@ -56,15 +62,28 @@ router.delete(
   deleteMyBuyCar
 );
 
-/* ============================================================
-   ADMIN ROUTES
-============================================================ */
+router.put(
+  "/my/:id/restore",
+  verifyToken,
+  restoreMyBuyCar
+);
+
+/* =====================================================
+   ADMIN
+===================================================== */
 
 router.get(
   "/",
   verifyToken,
   isAdmin,
   getBuyCars
+);
+
+router.get(
+  "/deleted",
+  verifyToken,
+  isAdmin,
+  getDeletedBuyCars
 );
 
 router.get(

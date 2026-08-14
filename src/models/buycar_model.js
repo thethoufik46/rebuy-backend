@@ -4,6 +4,9 @@ import mongoose from "mongoose";
 
 const buyCarSchema = new mongoose.Schema(
   {
+    /* =========================
+       TYPE
+    ========================= */
     type: {
       type: String,
       required: true,
@@ -11,6 +14,9 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
 
+    /* =========================
+       USER
+    ========================= */
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -22,68 +28,111 @@ const buyCarSchema = new mongoose.Schema(
       required: true,
     },
 
-    name: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, trim: true },
-    location: { type: String, required: true, trim: true },
+    /* =========================
+       USER INFORMATION
+    ========================= */
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    /* =========================
+       CAR
+    ========================= */
     car: {
       model: String,
       budget: Number,
+
       paymentType: {
         type: String,
         enum: ["Cash", "Finance"],
       },
+
       boardType: {
         type: String,
         enum: ["Own Board", "T Board"],
       },
+
       timeline: {
         type: String,
         enum: ["Immediate", "One Week", "15 Days"],
       },
     },
 
+    /* =========================
+       BIKE
+    ========================= */
     bike: {
       model: String,
       budget: Number,
+
       paymentType: {
         type: String,
         enum: ["Cash", "Finance"],
       },
+
       timeline: {
         type: String,
         enum: ["Immediate", "One Week", "15 Days"],
       },
     },
 
+    /* =========================
+       PROPERTY
+    ========================= */
     property: {
       category: {
         type: String,
         enum: ["Home", "Land"],
       },
+
       preferredLocation: String,
+
       budget: Number,
+
       timeline: {
         type: String,
         enum: ["Immediate", "One Week", "15 Days"],
       },
     },
 
+    /* =========================
+       ELECTRONICS
+    ========================= */
     electronics: {
       category: {
         type: String,
         enum: ["Mobile", "Laptop", "PC"],
       },
+
       budget: Number,
+
       timeline: {
         type: String,
         enum: ["Immediate", "One Week", "15 Days"],
       },
     },
 
+    /* =========================
+       COMMON
+    ========================= */
     description: {
       type: String,
       trim: true,
+      default: "",
     },
 
     audioNote: {
@@ -91,19 +140,23 @@ const buyCarSchema = new mongoose.Schema(
       default: null,
     },
 
+    /* =========================
+       STATUS
+    ========================= */
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
 
-    adminNote: String,
+    adminNote: {
+      type: String,
+      default: "",
+    },
 
-    // ============================================================
-    // RECENTLY DELETED / 24-HOUR RECOVERY
-    // MongoDB TTL automatically removes the document 24 hours
-    // after deletedAt is set.
-    // ============================================================
+    /* =========================
+       RECENTLY DELETED
+    ========================= */
 
     isDeleted: {
       type: Boolean,
@@ -117,17 +170,24 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Exact 24-hour automatic permanent deletion.
-// MongoDB TTL monitor normally checks approximately once per minute.
-buyCarSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 60 * 60 * 24 }
-);
+/* =========================
+   INDEXES
+========================= */
 
-buyCarSchema.index({ user: 1, isDeleted: 1, createdAt: -1 });
-buyCarSchema.index({ type: 1, status: 1, isDeleted: 1 });
+buyCarSchema.index({
+  user: 1,
+  isDeleted: 1,
+  createdAt: -1,
+});
+
+buyCarSchema.index({
+  isDeleted: 1,
+  deletedAt: -1,
+});
 
 export default mongoose.model("BuyCar", buyCarSchema);

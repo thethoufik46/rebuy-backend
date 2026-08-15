@@ -11,7 +11,12 @@ const buyCarSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["car", "bike", "property", "electronics"],
+      enum: [
+        "car",
+        "bike",
+        "property",
+        "electronics",
+      ],
       index: true,
     },
 
@@ -65,17 +70,27 @@ const buyCarSchema = new mongoose.Schema(
 
       paymentType: {
         type: String,
-        enum: ["Cash", "Finance"],
+        enum: [
+          "Cash",
+          "Finance",
+        ],
       },
 
       boardType: {
         type: String,
-        enum: ["Own Board", "T Board"],
+        enum: [
+          "Own Board",
+          "T Board",
+        ],
       },
 
       timeline: {
         type: String,
-        enum: ["Immediate", "One Week", "15 Days"],
+        enum: [
+          "Immediate",
+          "One Week",
+          "15 Days",
+        ],
       },
     },
 
@@ -90,12 +105,19 @@ const buyCarSchema = new mongoose.Schema(
 
       paymentType: {
         type: String,
-        enum: ["Cash", "Finance"],
+        enum: [
+          "Cash",
+          "Finance",
+        ],
       },
 
       timeline: {
         type: String,
-        enum: ["Immediate", "One Week", "15 Days"],
+        enum: [
+          "Immediate",
+          "One Week",
+          "15 Days",
+        ],
       },
     },
 
@@ -106,7 +128,10 @@ const buyCarSchema = new mongoose.Schema(
     property: {
       category: {
         type: String,
-        enum: ["Home", "Land"],
+        enum: [
+          "Home",
+          "Land",
+        ],
       },
 
       preferredLocation: String,
@@ -115,7 +140,11 @@ const buyCarSchema = new mongoose.Schema(
 
       timeline: {
         type: String,
-        enum: ["Immediate", "One Week", "15 Days"],
+        enum: [
+          "Immediate",
+          "One Week",
+          "15 Days",
+        ],
       },
     },
 
@@ -126,14 +155,22 @@ const buyCarSchema = new mongoose.Schema(
     electronics: {
       category: {
         type: String,
-        enum: ["Mobile", "Laptop", "PC"],
+        enum: [
+          "Mobile",
+          "Laptop",
+          "PC",
+        ],
       },
 
       budget: Number,
 
       timeline: {
         type: String,
-        enum: ["Immediate", "One Week", "15 Days"],
+        enum: [
+          "Immediate",
+          "One Week",
+          "15 Days",
+        ],
       },
     },
 
@@ -147,13 +184,15 @@ const buyCarSchema = new mongoose.Schema(
       default: "",
     },
 
-    /*
-      IMPORTANT:
-      This must contain R2 public URL for new uploads.
+    /* ============================================================
+       AUDIO
 
-      Example:
-      https://your-r2-domain.com/buycar/audio/file.m4a
-    */
+       IMPORTANT:
+       Store the R2 PUBLIC URL here.
+
+       Example:
+       https://your-r2-domain.com/buycar/audio/file.m4a
+    ============================================================ */
 
     audioNote: {
       type: String,
@@ -166,7 +205,11 @@ const buyCarSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: [
+        "pending",
+        "approved",
+        "rejected",
+      ],
       default: "pending",
       index: true,
     },
@@ -181,12 +224,19 @@ const buyCarSchema = new mongoose.Schema(
        SOFT DELETE
     ============================================================ */
 
+    /*
+      false = normal active request
+      true  = Recently Deleted
+    */
     isDeleted: {
       type: Boolean,
       default: false,
       index: true,
     },
 
+    /*
+      Exact time when user deleted the request.
+    */
     deletedAt: {
       type: Date,
       default: null,
@@ -194,16 +244,15 @@ const buyCarSchema = new mongoose.Schema(
     },
 
     /*
-      This field tells us exactly when the
-      24 hour recovery period ends.
+      Exact time when 24-hour recovery period ends.
     */
-
     deleteExpiresAt: {
       type: Date,
       default: null,
       index: true,
     },
   },
+
   {
     timestamps: true,
   }
@@ -213,16 +262,25 @@ const buyCarSchema = new mongoose.Schema(
    INDEXES
 ============================================================ */
 
+/*
+  Fast My Needs query
+*/
 buyCarSchema.index({
   user: 1,
   isDeleted: 1,
 });
 
+/*
+  Useful for expired soft-delete cleanup
+*/
 buyCarSchema.index({
   isDeleted: 1,
   deleteExpiresAt: 1,
 });
 
+/*
+  Latest requests first
+*/
 buyCarSchema.index({
   createdAt: -1,
 });

@@ -20,8 +20,7 @@ import {
   isAdmin,
 } from "../middleware/auth.js";
 
-const router =
-  express.Router();
+const router = express.Router();
 
 /* ============================================================
    USER ROUTES
@@ -41,8 +40,10 @@ router.get(
   getMyBuyCars
 );
 
-/* RESTORE
-   MUST COME BEFORE /:id
+/*
+  RESTORE
+  IMPORTANT:
+  Keep this BEFORE /:id
 */
 router.put(
   "/my/:id/restore",
@@ -57,7 +58,16 @@ router.put(
   updateMyBuyCar
 );
 
-/* SOFT DELETE MY REQUEST */
+/*
+  SOFT DELETE MY REQUEST
+
+  This MUST NOT permanently delete.
+  Controller should set:
+
+  isDeleted = true
+  deletedAt = now
+  deleteExpiresAt = now + 24 hours
+*/
 router.delete(
   "/my/:id",
   verifyToken,
@@ -68,6 +78,7 @@ router.delete(
    ADMIN ROUTES
 ============================================================ */
 
+/* GET ALL */
 router.get(
   "/",
   verifyToken,
@@ -75,6 +86,7 @@ router.get(
   getBuyCars
 );
 
+/* GET SINGLE */
 router.get(
   "/:id",
   verifyToken,
@@ -82,6 +94,7 @@ router.get(
   getBuyCarById
 );
 
+/* UPDATE STATUS */
 router.put(
   "/:id/status",
   verifyToken,
@@ -89,6 +102,7 @@ router.put(
   updateBuyCarStatus
 );
 
+/* ADMIN PERMANENT DELETE */
 router.delete(
   "/:id",
   verifyToken,

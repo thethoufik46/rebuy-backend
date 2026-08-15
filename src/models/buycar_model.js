@@ -64,7 +64,10 @@ const buyCarSchema = new mongoose.Schema(
     ============================================================ */
 
     car: {
-      model: String,
+      model: {
+        type: String,
+        trim: true,
+      },
 
       budget: Number,
 
@@ -99,7 +102,10 @@ const buyCarSchema = new mongoose.Schema(
     ============================================================ */
 
     bike: {
-      model: String,
+      model: {
+        type: String,
+        trim: true,
+      },
 
       budget: Number,
 
@@ -134,7 +140,10 @@ const buyCarSchema = new mongoose.Schema(
         ],
       },
 
-      preferredLocation: String,
+      preferredLocation: {
+        type: String,
+        trim: true,
+      },
 
       budget: Number,
 
@@ -186,17 +195,13 @@ const buyCarSchema = new mongoose.Schema(
 
     /* ============================================================
        AUDIO
-
-       IMPORTANT:
-       Store the R2 PUBLIC URL here.
-
-       Example:
-       https://your-r2-domain.com/buycar/audio/file.m4a
+       R2 PUBLIC URL
     ============================================================ */
 
     audioNote: {
       type: String,
       default: null,
+      trim: true,
     },
 
     /* ============================================================
@@ -224,19 +229,12 @@ const buyCarSchema = new mongoose.Schema(
        SOFT DELETE
     ============================================================ */
 
-    /*
-      false = normal active request
-      true  = Recently Deleted
-    */
     isDeleted: {
       type: Boolean,
       default: false,
       index: true,
     },
 
-    /*
-      Exact time when user deleted the request.
-    */
     deletedAt: {
       type: Date,
       default: null,
@@ -244,8 +242,10 @@ const buyCarSchema = new mongoose.Schema(
     },
 
     /*
-      Exact time when 24-hour recovery period ends.
+      24 HOURS AFTER THIS TIME:
+      document becomes permanently deleted.
     */
+
     deleteExpiresAt: {
       type: Date,
       default: null,
@@ -262,25 +262,16 @@ const buyCarSchema = new mongoose.Schema(
    INDEXES
 ============================================================ */
 
-/*
-  Fast My Needs query
-*/
 buyCarSchema.index({
   user: 1,
   isDeleted: 1,
 });
 
-/*
-  Useful for expired soft-delete cleanup
-*/
 buyCarSchema.index({
   isDeleted: 1,
   deleteExpiresAt: 1,
 });
 
-/*
-  Latest requests first
-*/
 buyCarSchema.index({
   createdAt: -1,
 });

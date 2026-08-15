@@ -42,8 +42,9 @@ router.get(
 
 /*
   RESTORE
+
   IMPORTANT:
-  Keep this BEFORE /:id
+  Must be BEFORE /my/:id
 */
 router.put(
   "/my/:id/restore",
@@ -51,7 +52,7 @@ router.put(
   restoreMyBuyCar
 );
 
-/* UPDATE MY REQUEST */
+/* UPDATE */
 router.put(
   "/my/:id",
   verifyToken,
@@ -59,10 +60,11 @@ router.put(
 );
 
 /*
-  SOFT DELETE MY REQUEST
+  SOFT DELETE
 
-  This MUST NOT permanently delete.
-  Controller should set:
+  This NEVER permanently deletes immediately.
+
+  It sets:
 
   isDeleted = true
   deletedAt = now
@@ -74,11 +76,12 @@ router.delete(
   deleteMyBuyCar
 );
 
+
 /* ============================================================
    ADMIN ROUTES
 ============================================================ */
 
-/* GET ALL */
+/* GET ACTIVE REQUESTS */
 router.get(
   "/",
   verifyToken,
@@ -102,7 +105,9 @@ router.put(
   updateBuyCarStatus
 );
 
-/* ADMIN PERMANENT DELETE */
+/*
+  ADMIN PERMANENT DELETE
+*/
 router.delete(
   "/:id",
   verifyToken,

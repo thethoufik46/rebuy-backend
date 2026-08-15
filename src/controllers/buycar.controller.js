@@ -1,15 +1,81 @@
 // ======================= buycar.controller.js =======================
 
 import BuyCar from "../models/buycar_model.js";
+
 import {
   deleteBuyCarAudio,
 } from "../utils/buycarAudio.js";
 
 /* ============================================================
-   ADD BUY REQUEST
+   HELPERS
 ============================================================ */
 
-export const addBuyCar = async (req, res) => {
+const RECOVERY_TIME = 24 * 60 * 60 * 1000;
+
+/*
+  Remove expired soft-deleted records.
+
+  IMPORTANT:
+  This function runs whenever /my is requested.
+  So expired records won't remain forever even without cron.
+*/
+const cleanupExpiredBuyCars = async () => {
+  try {
+    const now = new Date();
+
+    const expiredCars =
+      await BuyCar.find({
+        isDeleted: true,
+        deleteExpiresAt: {
+          $lte: now,
+        },
+      }).select(
+        "_id audioNote"
+      );
+
+    if (!expiredCars.length) {
+      return;
+    }
+
+    /*
+      Delete audio files from R2
+      before permanently deleting DB records.
+    */
+    for (const car of expiredCars) {
+      if (car.audioNote) {
+        await deleteBuyCarAudio(
+          car.audioNote
+        );
+      }
+    }
+
+    await BuyCar.deleteMany({
+      _id: {
+        $in: expiredCars.map(
+          (car) => car._id
+        ),
+      },
+    });
+
+    console.log(
+      `BUY CAR CLEANUP: ${expiredCars.length} expired request(s) permanently deleted`
+    );
+  } catch (error) {
+    console.error(
+      "BUY CAR EXPIRED CLEANUP ERROR 👉",
+      error
+    );
+  }
+};
+
+/* ============================================================
+   🟢 ADD BUY REQUEST
+============================================================ */
+
+export const addBuyCar = async (
+  req,
+  res
+) => {
   try {
     const {
       type,
@@ -18,6 +84,7 @@ export const addBuyCar = async (req, res) => {
       location,
       description,
       audioNote,
+
       car,
       bike,
       property,
@@ -31,32 +98,29 @@ export const addBuyCar = async (req, res) => {
       });
     }
 
-    if (
-      !["car", "bike", "property", "electronics"].includes(
-        type
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid type",
-      });
-    }
-
     /* ========================================================
        TYPE VALIDATION
     ======================================================== */
 
-    if (type === "car" && !car?.model) {
+    if (
+      type === "car" &&
+      !car?.model
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Car details required",
+        message:
+          "Car details required",
       });
     }
 
-    if (type === "bike" && !bike?.model) {
+    if (
+      type === "bike" &&
+      !bike?.model
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Bike details required",
+        message:
+          "Bike details required",
       });
     }
 
@@ -66,7 +130,8 @@ export const addBuyCar = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Property details required",
+        message:
+          "Property details required",
       });
     }
 
@@ -76,7 +141,8 @@ export const addBuyCar = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Electronics details required",
+        message:
+          "Electronics details required",
       });
     }
 
@@ -84,55 +150,66 @@ export const addBuyCar = async (req, res) => {
        CREATE
     ======================================================== */
 
-    const newRequest = new BuyCar({
-      type,
+    const newRequest =
+      new BuyCar({
+        type,
 
-      name: String(name || "").trim(),
+        name: String(
+          name || ""
+        ).trim(),
 
-      phone: String(phone || "").trim(),
+        phone: String(
+          phone || ""
+        ).trim(),
 
-      location: String(location || "").trim(),
+        location: String(
+          location || ""
+        ).trim(),
 
-      description: String(
-        description || ""
-      ).trim(),
+        description: String(
+          description || ""
+        ).trim(),
 
-      audioNote:
-        audioNote || null,
+        /*
+          IMPORTANT:
+          audioNote must be the R2 PUBLIC URL.
+        */
+        audioNote:
+          audioNote || null,
 
-      user: req.user._id,
+        user: req.user._id,
 
-      userId:
-        req.user._id.toString(),
+        userId:
+          req.user._id.toString(),
 
-      car:
-        type === "car"
-          ? car
-          : undefined,
+        car:
+          type === "car"
+            ? car
+            : undefined,
 
-      bike:
-        type === "bike"
-          ? bike
-          : undefined,
+        bike:
+          type === "bike"
+            ? bike
+            : undefined,
 
-      property:
-        type === "property"
-          ? property
-          : undefined,
+        property:
+          type === "property"
+            ? property
+            : undefined,
 
-      electronics:
-        type === "electronics"
-          ? electronics
-          : undefined,
+        electronics:
+          type === "electronics"
+            ? electronics
+            : undefined,
 
-      status: "pending",
+        status: "pending",
 
-      isDeleted: false,
+        isDeleted: false,
 
-      deletedAt: null,
+        deletedAt: null,
 
-      deleteExpiresAt: null,
-    });
+        deleteExpiresAt: null,
+      });
 
     await newRequest.save();
 
@@ -142,22 +219,31 @@ export const addBuyCar = async (req, res) => {
         "Request submitted successfully",
       data: newRequest,
     });
-  } catch (err) {
+  } catch (error) {
     console.error(
-      "addBuyCar error:",
-      err
+      "ADD BUY CAR ERROR 👉",
+      error
     );
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        error.message ||
+        "Failed to submit request",
     });
   }
 };
 
 /* ============================================================
-   GET MY REQUESTS
-   ACTIVE + DELETED
+   🟢 GET MY REQUESTS
+
+   Returns:
+
+   {
+      active: [],
+      deleted: []
+   }
+
 ============================================================ */
 
 export const getMyBuyCars = async (
@@ -165,46 +251,69 @@ export const getMyBuyCars = async (
   res
 ) => {
   try {
-    const all = await BuyCar.find({
-      user: req.user._id,
-    }).sort({
-      createdAt: -1,
-    });
+    /*
+      First remove anything whose
+      24-hour recovery period expired.
+    */
+    await cleanupExpiredBuyCars();
 
-    const active = all.filter(
-      (item) =>
-        item.isDeleted !== true
-    );
+    const userId =
+      req.user._id;
 
-    const deleted = all.filter(
-      (item) =>
-        item.isDeleted === true
-    );
+    /* ========================================================
+       ACTIVE
+    ======================================================== */
+
+    const active =
+      await BuyCar.find({
+        user: userId,
+        isDeleted: false,
+      }).sort({
+        createdAt: -1,
+      });
+
+    /* ========================================================
+       RECENTLY DELETED
+    ======================================================== */
+
+    const deleted =
+      await BuyCar.find({
+        user: userId,
+        isDeleted: true,
+        deleteExpiresAt: {
+          $gt: new Date(),
+        },
+      }).sort({
+        deletedAt: -1,
+      });
 
     return res.json({
       success: true,
 
-      count: active.length,
+      count:
+        active.length,
 
       active,
 
       deleted,
     });
-  } catch (err) {
+  } catch (error) {
     console.error(
-      "getMyBuyCars error:",
-      err
+      "GET MY BUY CARS ERROR 👉",
+      error
     );
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        error.message ||
+        "Failed to fetch requests",
     });
   }
 };
 
 /* ============================================================
-   UPDATE MY REQUEST
+   🟢 UPDATE MY REQUEST
 ============================================================ */
 
 export const updateMyBuyCar = async (
@@ -213,22 +322,11 @@ export const updateMyBuyCar = async (
 ) => {
   try {
     const car =
-      await BuyCar.findOneAndUpdate(
-        {
-          _id: req.params.id,
-
-          user: req.user._id,
-
-          isDeleted: false,
-        },
-
-        req.body,
-
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      await BuyCar.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+        isDeleted: false,
+      });
 
     if (!car) {
       return res.status(404).json({
@@ -238,28 +336,72 @@ export const updateMyBuyCar = async (
       });
     }
 
+    /*
+      Prevent user from changing
+      ownership / delete fields.
+    */
+
+    const allowedFields = [
+      "type",
+      "name",
+      "phone",
+      "location",
+      "description",
+      "audioNote",
+      "car",
+      "bike",
+      "property",
+      "electronics",
+    ];
+
+    for (const field of allowedFields) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          field
+        )
+      ) {
+        car[field] =
+          req.body[field];
+      }
+    }
+
+    await car.save();
+
     return res.json({
       success: true,
+      message:
+        "Request updated successfully",
       car,
     });
-  } catch (err) {
+  } catch (error) {
     console.error(
-      "updateMyBuyCar error:",
-      err
+      "UPDATE MY BUY CAR ERROR 👉",
+      error
     );
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        error.message ||
+        "Update failed",
     });
   }
 };
 
 /* ============================================================
-   DELETE MY REQUEST
+   🔴 SOFT DELETE MY REQUEST
+
    IMPORTANT:
-   THIS IS SOFT DELETE.
-   NOT findOneAndDelete().
+
+   This DOES NOT delete MongoDB record.
+
+   It changes:
+
+   isDeleted       = true
+   deletedAt       = now
+   deleteExpiresAt = now + 24 hours
+
 ============================================================ */
 
 export const deleteMyBuyCar = async (
@@ -267,55 +409,39 @@ export const deleteMyBuyCar = async (
   res
 ) => {
   try {
-    const now = new Date();
-
-    const expiresAt =
-      new Date(
-        now.getTime() +
-          24 * 60 * 60 * 1000
-      );
-
     const car =
-      await BuyCar.findOneAndUpdate(
-        {
-          _id: req.params.id,
-
-          user: req.user._id,
-
-          isDeleted: false,
-        },
-
-        {
-          $set: {
-            isDeleted: true,
-
-            deletedAt: now,
-
-            deleteExpiresAt:
-              expiresAt,
-          },
-        },
-
-        {
-          new: true,
-        }
-      );
+      await BuyCar.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+        isDeleted: false,
+      });
 
     if (!car) {
       return res.status(404).json({
         success: false,
         message:
-          "Request not found or already deleted",
+          "Request not found",
       });
     }
 
-    /*
-      IMPORTANT:
-      DO NOT DELETE audio here.
+    const deletedAt =
+      new Date();
 
-      Audio stays in R2 for 24 hours
-      because user can recover the request.
-    */
+    const deleteExpiresAt =
+      new Date(
+        deletedAt.getTime() +
+          RECOVERY_TIME
+      );
+
+    car.isDeleted = true;
+
+    car.deletedAt =
+      deletedAt;
+
+    car.deleteExpiresAt =
+      deleteExpiresAt;
+
+    await car.save();
 
     return res.json({
       success: true,
@@ -325,100 +451,123 @@ export const deleteMyBuyCar = async (
 
       data: car,
 
+      deletedAt,
+
       recoverUntil:
-        expiresAt,
+        deleteExpiresAt,
     });
-  } catch (err) {
+  } catch (error) {
     console.error(
-      "deleteMyBuyCar error:",
-      err
+      "SOFT DELETE BUY CAR ERROR 👉",
+      error
     );
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        error.message ||
+        "Delete failed",
     });
   }
 };
 
 /* ============================================================
-   RESTORE MY REQUEST
-   ONLY WITHIN 24 HOURS
+   🟢 RESTORE MY REQUEST
+
+   ONLY AVAILABLE WITHIN 24 HOURS
 ============================================================ */
 
-export const restoreMyBuyCar =
-  async (req, res) => {
-    try {
-      const car =
-        await BuyCar.findOne({
-          _id: req.params.id,
-
-          user: req.user._id,
-
-          isDeleted: true,
-        });
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Deleted request not found",
-        });
-      }
-
-      /* ======================================================
-         CHECK 24 HOURS
-      ====================================================== */
-
-      const now =
-        new Date();
-
-      if (
-        !car.deleteExpiresAt ||
-        now >= car.deleteExpiresAt
-      ) {
-        return res.status(410).json({
-          success: false,
-          message:
-            "Recovery period expired",
-        });
-      }
-
-      /* ======================================================
-         RESTORE
-      ====================================================== */
-
-      car.isDeleted = false;
-
-      car.deletedAt = null;
-
-      car.deleteExpiresAt = null;
-
-      await car.save();
-
-      return res.json({
-        success: true,
-
-        message:
-          "Request recovered successfully",
-
-        data: car,
+export const restoreMyBuyCar = async (
+  req,
+  res
+) => {
+  try {
+    const car =
+      await BuyCar.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+        isDeleted: true,
       });
-    } catch (err) {
-      console.error(
-        "restoreMyBuyCar error:",
-        err
-      );
 
-      return res.status(500).json({
+    if (!car) {
+      return res.status(404).json({
         success: false,
-        message: err.message,
+        message:
+          "Deleted request not found or already permanently deleted",
       });
     }
-  };
+
+    const now =
+      new Date();
+
+    /* ========================================================
+       24 HOUR CHECK
+    ======================================================== */
+
+    if (
+      !car.deleteExpiresAt ||
+      car.deleteExpiresAt <= now
+    ) {
+      /*
+        Delete audio from R2.
+      */
+      if (car.audioNote) {
+        await deleteBuyCarAudio(
+          car.audioNote
+        );
+      }
+
+      await BuyCar.findByIdAndDelete(
+        car._id
+      );
+
+      return res.status(410).json({
+        success: false,
+        message:
+          "Recovery period expired. Request was permanently deleted.",
+      });
+    }
+
+    /* ========================================================
+       RESTORE
+    ======================================================== */
+
+    car.isDeleted =
+      false;
+
+    car.deletedAt =
+      null;
+
+    car.deleteExpiresAt =
+      null;
+
+    await car.save();
+
+    return res.json({
+      success: true,
+
+      message:
+        "Request recovered successfully",
+
+      data: car,
+    });
+  } catch (error) {
+    console.error(
+      "RESTORE BUY CAR ERROR 👉",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Recovery failed",
+    });
+  }
+};
 
 /* ============================================================
-   GET ALL REQUESTS - ADMIN
+   🔵 GET ALL REQUESTS - ADMIN
 ============================================================ */
 
 export const getBuyCars = async (
@@ -426,6 +575,12 @@ export const getBuyCars = async (
   res
 ) => {
   try {
+    /*
+      Cleanup expired deleted
+      requests before admin list.
+    */
+    await cleanupExpiredBuyCars();
+
     const {
       type,
       status,
@@ -440,11 +595,14 @@ export const getBuyCars = async (
     }
 
     if (status) {
-      filter.status = status;
+      filter.status =
+        status;
     }
 
     const cars =
-      await BuyCar.find(filter)
+      await BuyCar.find(
+        filter
+      )
         .populate(
           "user",
           "name email"
@@ -455,71 +613,77 @@ export const getBuyCars = async (
 
     return res.json({
       success: true,
-
       count: cars.length,
-
       cars,
     });
-  } catch (err) {
+  } catch (error) {
     console.error(
-      "getBuyCars error:",
-      err
+      "GET BUY CARS ERROR 👉",
+      error
     );
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        error.message ||
+        "Failed to fetch requests",
     });
   }
 };
 
 /* ============================================================
-   GET SINGLE REQUEST - ADMIN
+   🔵 GET SINGLE REQUEST - ADMIN
 ============================================================ */
 
-export const getBuyCarById =
-  async (req, res) => {
-    try {
-      const car =
-        await BuyCar.findOne({
-          _id: req.params.id,
-
-          isDeleted: false,
-        }).populate(
-          "user",
-          "name email"
-        );
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        car,
-      });
-    } catch (err) {
-      console.error(
-        "getBuyCarById error:",
-        err
+export const getBuyCarById = async (
+  req,
+  res
+) => {
+  try {
+    const car =
+      await BuyCar.findById(
+        req.params.id
+      ).populate(
+        "user",
+        "name email"
       );
 
-      return res.status(500).json({
+    if (!car) {
+      return res.status(404).json({
         success: false,
-        message: err.message,
+        message:
+          "Request not found",
       });
     }
-  };
+
+    return res.json({
+      success: true,
+      car,
+    });
+  } catch (error) {
+    console.error(
+      "GET BUY CAR BY ID ERROR 👉",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to fetch request",
+    });
+  }
+};
 
 /* ============================================================
-   UPDATE STATUS - ADMIN
+   🟡 UPDATE STATUS - ADMIN
 ============================================================ */
 
 export const updateBuyCarStatus =
-  async (req, res) => {
+  async (
+    req,
+    res
+  ) => {
     try {
       const {
         status,
@@ -541,101 +705,107 @@ export const updateBuyCarStatus =
       }
 
       const car =
-        await BuyCar.findOneAndUpdate(
-          {
-            _id: req.params.id,
-
-            isDeleted: false,
-          },
-
-          {
-            $set: {
-              status,
-
-              adminNote:
-                adminNote || "",
-            },
-          },
-
-          {
-            new: true,
-          }
-        );
+        await BuyCar.findOne({
+          _id: req.params.id,
+          isDeleted: false,
+        });
 
       if (!car) {
         return res.status(404).json({
           success: false,
-          message: "Not found",
+          message:
+            "Request not found",
         });
       }
+
+      car.status =
+        status;
+
+      car.adminNote =
+        adminNote
+          ? String(
+              adminNote
+            ).trim()
+          : "";
+
+      await car.save();
 
       return res.json({
         success: true,
         car,
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "updateBuyCarStatus error:",
-        err
+        "UPDATE BUY CAR STATUS ERROR 👉",
+        error
       );
 
       return res.status(500).json({
         success: false,
-        message: err.message,
+        message:
+          error.message ||
+          "Status update failed",
       });
     }
   };
 
 /* ============================================================
-   ADMIN DELETE
-   PERMANENT DELETE
+   🔴 ADMIN PERMANENT DELETE
+
+   This route is different from user DELETE.
+
+   Admin intentionally deletes permanently.
+   Audio is also deleted from R2.
 ============================================================ */
 
-export const deleteBuyCar =
-  async (req, res) => {
-    try {
-      const car =
-        await BuyCar.findById(
-          req.params.id
-        );
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Not found",
-        });
-      }
-
-      /*
-        Delete R2 audio only when
-        document is permanently deleted.
-      */
-
-      if (car.audioNote) {
-        await deleteBuyCarAudio(
-          car.audioNote
-        );
-      }
-
-      await BuyCar.findByIdAndDelete(
+export const deleteBuyCar = async (
+  req,
+  res
+) => {
+  try {
+    const car =
+      await BuyCar.findById(
         req.params.id
       );
 
-      return res.json({
-        success: true,
-
-        message:
-          "Permanently deleted successfully",
-      });
-    } catch (err) {
-      console.error(
-        "deleteBuyCar error:",
-        err
-      );
-
-      return res.status(500).json({
+    if (!car) {
+      return res.status(404).json({
         success: false,
-        message: err.message,
+        message:
+          "Request not found",
       });
     }
-  };
+
+    /*
+      Delete audio from R2
+      before deleting MongoDB record.
+    */
+    if (car.audioNote) {
+      await deleteBuyCarAudio(
+        car.audioNote
+      );
+    }
+
+    await BuyCar.findByIdAndDelete(
+      req.params.id
+    );
+
+    return res.json({
+      success: true,
+      message:
+        "Request permanently deleted",
+    });
+  } catch (error) {
+    console.error(
+      "ADMIN DELETE BUY CAR ERROR 👉",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Permanent delete failed",
+    });
+  }
+};

@@ -7,62 +7,148 @@ import {
 } from "../utils/buycarAudio.js";
 
 /* ============================================================
-   HELPERS
+   CONSTANTS
 ============================================================ */
 
-const RECOVERY_TIME = 24 * 60 * 60 * 1000;
+const RECOVERY_MS =
+  24 * 60 * 60 * 1000;
 
-/*
-  Remove expired soft-deleted records.
+/* ============================================================
+   GET ID
+============================================================ */
 
-  IMPORTANT:
-  This function runs whenever /my is requested.
-  So expired records won't remain forever even without cron.
-*/
+const getId = (req) => {
+  return req.user?._id;
+};
+
+/* ============================================================
+   CLEANUP EXPIRED DELETED REQUESTS
+============================================================ */
+
 const cleanupExpiredBuyCars = async () => {
   try {
     const now = new Date();
 
-    const expiredCars =
+    /*
+      First find ALL soft deleted records.
+
+      We intentionally do NOT filter only by
+      deleteExpiresAt here.
+
+      This also catches old records which were
+      deleted before deleteExpiresAt was added.
+    */
+
+    const deletedCars =
       await BuyCar.find({
         isDeleted: true,
-        deleteExpiresAt: {
-          $lte: now,
-        },
       }).select(
-        "_id audioNote"
+        "_id audioNote deletedAt deleteExpiresAt"
       );
 
-    if (!expiredCars.length) {
+    if (!deletedCars.length) {
       return;
     }
 
-    /*
-      Delete audio files from R2
-      before permanently deleting DB records.
-    */
-    for (const car of expiredCars) {
-      if (car.audioNote) {
-        await deleteBuyCarAudio(
-          car.audioNote
+    const permanentlyDeleteIds = [];
+
+    for (const car of deletedCars) {
+      let expiresAt =
+        car.deleteExpiresAt;
+
+      /*
+        ========================================================
+        OLD RECORD FIX
+
+        If deleteExpiresAt does not exist,
+        calculate it from deletedAt.
+        ========================================================
+      */
+
+      if (
+        !expiresAt &&
+        car.deletedAt
+      ) {
+        expiresAt = new Date(
+          new Date(
+            car.deletedAt
+          ).getTime() +
+            RECOVERY_MS
+        );
+
+        /*
+          Save calculated expiry time
+          so future requests work normally.
+        */
+
+        car.deleteExpiresAt =
+          expiresAt;
+
+        await car.save();
+      }
+
+      /*
+        If there is still no valid expiry,
+        keep the record instead of deleting it.
+      */
+
+      if (!expiresAt) {
+        continue;
+      }
+
+      /*
+        ========================================================
+        24 HOURS EXPIRED
+        ========================================================
+      */
+
+      if (
+        new Date(
+          expiresAt
+        ).getTime() <=
+        now.getTime()
+      ) {
+        permanentlyDeleteIds.push(
+          car
         );
       }
     }
 
-    await BuyCar.deleteMany({
-      _id: {
-        $in: expiredCars.map(
-          (car) => car._id
-        ),
-      },
-    });
+    /*
+      ========================================================
+      PERMANENT DELETE
+      ========================================================
+    */
 
-    console.log(
-      `BUY CAR CLEANUP: ${expiredCars.length} expired request(s) permanently deleted`
-    );
+    if (
+      permanentlyDeleteIds.length
+    ) {
+      for (
+        const car of permanentlyDeleteIds
+      ) {
+        /*
+          Delete audio from Cloudflare R2
+          only when the 24 hour period is over.
+        */
+
+        if (car.audioNote) {
+          await deleteBuyCarAudio(
+            car.audioNote
+          );
+        }
+
+        await BuyCar.findByIdAndDelete(
+          car._id
+        );
+      }
+
+      console.log(
+        `BUY CAR CLEANUP: ${permanentlyDeleteIds.length} expired request(s) permanently deleted`
+      );
+    }
   } catch (error) {
     console.error(
-      "BUY CAR EXPIRED CLEANUP ERROR 👉",
+      "BUY CAR CLEANUP ERROR 👉",
       error
     );
   }
@@ -84,7 +170,6 @@ export const addBuyCar = async (
       location,
       description,
       audioNote,
-
       car,
       bike,
       property,
@@ -94,13 +179,14 @@ export const addBuyCar = async (
     if (!type) {
       return res.status(400).json({
         success: false,
-        message: "Type is required",
+        message:
+          "Type is required",
       });
     }
 
-    /* ========================================================
-       TYPE VALIDATION
-    ======================================================== */
+    /*
+      TYPE VALIDATION
+    */
 
     if (
       type === "car" &&
@@ -146,9 +232,9 @@ export const addBuyCar = async (
       });
     }
 
-    /* ========================================================
-       CREATE
-    ======================================================== */
+    /*
+      CREATE REQUEST
+    */
 
     const newRequest =
       new BuyCar({
@@ -172,15 +258,16 @@ export const addBuyCar = async (
 
         /*
           IMPORTANT:
-          audioNote must be the R2 PUBLIC URL.
+          This must be R2 public URL.
         */
+
         audioNote:
           audioNote || null,
 
-        user: req.user._id,
+        user: getId(req),
 
         userId:
-          req.user._id.toString(),
+          getId(req).toString(),
 
         car:
           type === "car"
@@ -215,8 +302,10 @@ export const addBuyCar = async (
 
     return res.status(201).json({
       success: true,
+
       message:
         "Request submitted successfully",
+
       data: newRequest,
     });
   } catch (error) {
@@ -227,6 +316,7 @@ export const addBuyCar = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Failed to submit request",
@@ -236,14 +326,6 @@ export const addBuyCar = async (
 
 /* ============================================================
    🟢 GET MY REQUESTS
-
-   Returns:
-
-   {
-      active: [],
-      deleted: []
-   }
-
 ============================================================ */
 
 export const getMyBuyCars = async (
@@ -252,13 +334,18 @@ export const getMyBuyCars = async (
 ) => {
   try {
     /*
-      First remove anything whose
-      24-hour recovery period expired.
+      IMPORTANT:
+      Cleanup first.
+
+      This also fixes old deleted
+      records which don't have
+      deleteExpiresAt.
     */
+
     await cleanupExpiredBuyCars();
 
     const userId =
-      req.user._id;
+      getId(req);
 
     /* ========================================================
        ACTIVE
@@ -267,25 +354,112 @@ export const getMyBuyCars = async (
     const active =
       await BuyCar.find({
         user: userId,
-        isDeleted: false,
+
+        $or: [
+          {
+            isDeleted: false,
+          },
+          {
+            isDeleted: {
+              $exists: false,
+            },
+          },
+        ],
       }).sort({
         createdAt: -1,
       });
 
     /* ========================================================
-       RECENTLY DELETED
+       DELETED
+
+       IMPORTANT:
+
+       DO NOT use:
+
+       deleteExpiresAt: { $gt: new Date() }
+
+       alone.
+
+       Old records may not have that
+       field.
+
     ======================================================== */
 
-    const deleted =
+    const deletedRaw =
       await BuyCar.find({
         user: userId,
+
         isDeleted: true,
-        deleteExpiresAt: {
-          $gt: new Date(),
-        },
       }).sort({
         deletedAt: -1,
       });
+
+    /*
+      Make sure every deleted record
+      has deleteExpiresAt.
+
+      This is also a migration for
+      your existing MongoDB records.
+    */
+
+    const deleted = [];
+
+    const now = new Date();
+
+    for (
+      const car of deletedRaw
+    ) {
+      let expiresAt =
+        car.deleteExpiresAt;
+
+      /*
+        OLD RECORD:
+
+        deletedAt exists
+        deleteExpiresAt missing
+      */
+
+      if (
+        !expiresAt &&
+        car.deletedAt
+      ) {
+        expiresAt = new Date(
+          new Date(
+            car.deletedAt
+          ).getTime() +
+            RECOVERY_MS
+        );
+
+        car.deleteExpiresAt =
+          expiresAt;
+
+        await car.save();
+      }
+
+      /*
+        If no expiry information,
+        don't show it as recoverable.
+      */
+
+      if (!expiresAt) {
+        continue;
+      }
+
+      /*
+        Still within 24 hours
+      */
+
+      if (
+        new Date(
+          expiresAt
+        ).getTime() >
+        now.getTime()
+      ) {
+        deleted.push(
+          car
+        );
+      }
+    }
 
     return res.json({
       success: true,
@@ -305,6 +479,7 @@ export const getMyBuyCars = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Failed to fetch requests",
@@ -324,22 +499,20 @@ export const updateMyBuyCar = async (
     const car =
       await BuyCar.findOne({
         _id: req.params.id,
-        user: req.user._id,
+
+        user: getId(req),
+
         isDeleted: false,
       });
 
     if (!car) {
       return res.status(404).json({
         success: false,
+
         message:
           "Request not found",
       });
     }
-
-    /*
-      Prevent user from changing
-      ownership / delete fields.
-    */
 
     const allowedFields = [
       "type",
@@ -354,7 +527,9 @@ export const updateMyBuyCar = async (
       "electronics",
     ];
 
-    for (const field of allowedFields) {
+    for (
+      const field of allowedFields
+    ) {
       if (
         Object.prototype.hasOwnProperty.call(
           req.body,
@@ -370,8 +545,10 @@ export const updateMyBuyCar = async (
 
     return res.json({
       success: true,
+
       message:
         "Request updated successfully",
+
       car,
     });
   } catch (error) {
@@ -382,6 +559,7 @@ export const updateMyBuyCar = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Update failed",
@@ -390,18 +568,7 @@ export const updateMyBuyCar = async (
 };
 
 /* ============================================================
-   🔴 SOFT DELETE MY REQUEST
-
-   IMPORTANT:
-
-   This DOES NOT delete MongoDB record.
-
-   It changes:
-
-   isDeleted       = true
-   deletedAt       = now
-   deleteExpiresAt = now + 24 hours
-
+   🔴 SOFT DELETE
 ============================================================ */
 
 export const deleteMyBuyCar = async (
@@ -412,13 +579,16 @@ export const deleteMyBuyCar = async (
     const car =
       await BuyCar.findOne({
         _id: req.params.id,
-        user: req.user._id,
+
+        user: getId(req),
+
         isDeleted: false,
       });
 
     if (!car) {
       return res.status(404).json({
         success: false,
+
         message:
           "Request not found",
       });
@@ -430,10 +600,15 @@ export const deleteMyBuyCar = async (
     const deleteExpiresAt =
       new Date(
         deletedAt.getTime() +
-          RECOVERY_TIME
+          RECOVERY_MS
       );
 
-    car.isDeleted = true;
+    /*
+      SOFT DELETE ONLY
+    */
+
+    car.isDeleted =
+      true;
 
     car.deletedAt =
       deletedAt;
@@ -453,17 +628,20 @@ export const deleteMyBuyCar = async (
 
       deletedAt,
 
+      deleteExpiresAt,
+
       recoverUntil:
         deleteExpiresAt,
     });
   } catch (error) {
     console.error(
-      "SOFT DELETE BUY CAR ERROR 👉",
+      "SOFT DELETE ERROR 👉",
       error
     );
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Delete failed",
@@ -472,9 +650,7 @@ export const deleteMyBuyCar = async (
 };
 
 /* ============================================================
-   🟢 RESTORE MY REQUEST
-
-   ONLY AVAILABLE WITHIN 24 HOURS
+   🟢 RESTORE
 ============================================================ */
 
 export const restoreMyBuyCar = async (
@@ -485,13 +661,16 @@ export const restoreMyBuyCar = async (
     const car =
       await BuyCar.findOne({
         _id: req.params.id,
-        user: req.user._id,
+
+        user: getId(req),
+
         isDeleted: true,
       });
 
     if (!car) {
       return res.status(404).json({
         success: false,
+
         message:
           "Deleted request not found or already permanently deleted",
       });
@@ -500,17 +679,58 @@ export const restoreMyBuyCar = async (
     const now =
       new Date();
 
-    /* ========================================================
-       24 HOUR CHECK
-    ======================================================== */
+    let expiresAt =
+      car.deleteExpiresAt;
+
+    /*
+      OLD RECORD FIX
+    */
 
     if (
-      !car.deleteExpiresAt ||
-      car.deleteExpiresAt <= now
+      !expiresAt &&
+      car.deletedAt
+    ) {
+      expiresAt = new Date(
+        new Date(
+          car.deletedAt
+        ).getTime() +
+          RECOVERY_MS
+      );
+
+      car.deleteExpiresAt =
+        expiresAt;
+
+      await car.save();
+    }
+
+    /*
+      NO EXPIRY
+    */
+
+    if (!expiresAt) {
+      return res.status(410).json({
+        success: false,
+
+        message:
+          "Recovery period information unavailable",
+      });
+    }
+
+    /*
+      EXPIRED
+    */
+
+    if (
+      new Date(
+        expiresAt
+      ).getTime() <=
+      now.getTime()
     ) {
       /*
-        Delete audio from R2.
+        Delete R2 audio
+        after recovery expires.
       */
+
       if (car.audioNote) {
         await deleteBuyCarAudio(
           car.audioNote
@@ -523,14 +743,15 @@ export const restoreMyBuyCar = async (
 
       return res.status(410).json({
         success: false,
+
         message:
           "Recovery period expired. Request was permanently deleted.",
       });
     }
 
-    /* ========================================================
-       RESTORE
-    ======================================================== */
+    /*
+      RESTORE
+    */
 
     car.isDeleted =
       false;
@@ -559,6 +780,7 @@ export const restoreMyBuyCar = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Recovery failed",
@@ -567,7 +789,7 @@ export const restoreMyBuyCar = async (
 };
 
 /* ============================================================
-   🔵 GET ALL REQUESTS - ADMIN
+   🔵 ADMIN GET ALL
 ============================================================ */
 
 export const getBuyCars = async (
@@ -575,10 +797,6 @@ export const getBuyCars = async (
   res
 ) => {
   try {
-    /*
-      Cleanup expired deleted
-      requests before admin list.
-    */
     await cleanupExpiredBuyCars();
 
     const {
@@ -591,7 +809,8 @@ export const getBuyCars = async (
     };
 
     if (type) {
-      filter.type = type;
+      filter.type =
+        type;
     }
 
     if (status) {
@@ -613,7 +832,10 @@ export const getBuyCars = async (
 
     return res.json({
       success: true,
-      count: cars.length,
+
+      count:
+        cars.length,
+
       cars,
     });
   } catch (error) {
@@ -624,6 +846,7 @@ export const getBuyCars = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Failed to fetch requests",
@@ -632,7 +855,7 @@ export const getBuyCars = async (
 };
 
 /* ============================================================
-   🔵 GET SINGLE REQUEST - ADMIN
+   🔵 ADMIN SINGLE
 ============================================================ */
 
 export const getBuyCarById = async (
@@ -651,6 +874,7 @@ export const getBuyCarById = async (
     if (!car) {
       return res.status(404).json({
         success: false,
+
         message:
           "Request not found",
       });
@@ -658,6 +882,7 @@ export const getBuyCarById = async (
 
     return res.json({
       success: true,
+
       car,
     });
   } catch (error) {
@@ -668,6 +893,7 @@ export const getBuyCarById = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Failed to fetch request",
@@ -676,7 +902,7 @@ export const getBuyCarById = async (
 };
 
 /* ============================================================
-   🟡 UPDATE STATUS - ADMIN
+   🟡 ADMIN UPDATE STATUS
 ============================================================ */
 
 export const updateBuyCarStatus =
@@ -699,6 +925,7 @@ export const updateBuyCarStatus =
       ) {
         return res.status(400).json({
           success: false,
+
           message:
             "Invalid status",
         });
@@ -707,12 +934,14 @@ export const updateBuyCarStatus =
       const car =
         await BuyCar.findOne({
           _id: req.params.id,
+
           isDeleted: false,
         });
 
       if (!car) {
         return res.status(404).json({
           success: false,
+
           message:
             "Request not found",
         });
@@ -732,16 +961,18 @@ export const updateBuyCarStatus =
 
       return res.json({
         success: true,
+
         car,
       });
     } catch (error) {
       console.error(
-        "UPDATE BUY CAR STATUS ERROR 👉",
+        "UPDATE STATUS ERROR 👉",
         error
       );
 
       return res.status(500).json({
         success: false,
+
         message:
           error.message ||
           "Status update failed",
@@ -751,11 +982,6 @@ export const updateBuyCarStatus =
 
 /* ============================================================
    🔴 ADMIN PERMANENT DELETE
-
-   This route is different from user DELETE.
-
-   Admin intentionally deletes permanently.
-   Audio is also deleted from R2.
 ============================================================ */
 
 export const deleteBuyCar = async (
@@ -771,15 +997,17 @@ export const deleteBuyCar = async (
     if (!car) {
       return res.status(404).json({
         success: false,
+
         message:
           "Request not found",
       });
     }
 
     /*
-      Delete audio from R2
-      before deleting MongoDB record.
+      Delete R2 audio
+      for admin permanent delete.
     */
+
     if (car.audioNote) {
       await deleteBuyCarAudio(
         car.audioNote
@@ -787,22 +1015,24 @@ export const deleteBuyCar = async (
     }
 
     await BuyCar.findByIdAndDelete(
-      req.params.id
+      car._id
     );
 
     return res.json({
       success: true,
+
       message:
         "Request permanently deleted",
     });
   } catch (error) {
     console.error(
-      "ADMIN DELETE BUY CAR ERROR 👉",
+      "ADMIN PERMANENT DELETE ERROR 👉",
       error
     );
 
     return res.status(500).json({
       success: false,
+
       message:
         error.message ||
         "Permanent delete failed",

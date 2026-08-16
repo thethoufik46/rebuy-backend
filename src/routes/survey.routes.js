@@ -4,6 +4,7 @@ import express from "express";
 
 import {
   addSurvey,
+  getMySurveys,
 
   getSurveys,
   getSurveyById,
@@ -25,19 +26,39 @@ const router =
   express.Router();
 
 /* ============================================================
-   USER / PUBLIC SURVEY SUBMISSION
+   USER SURVEY SUBMISSION
 ============================================================ */
 
 /*
-   Survey service standalone.
-   User model dependency இல்லை.
+   User must be logged in.
 
-   Authentication தேவையில்லாமல் enquiry submit செய்யலாம்.
+   POST /api/survey/add
 */
 
 router.post(
   "/add",
+  verifyToken,
   addSurvey
+);
+
+/* ============================================================
+   USER - MY SURVEYS
+============================================================ */
+
+/*
+   IMPORTANT:
+   Keep /my BEFORE /:id
+
+   GET /api/survey/my
+
+   Returns ONLY the logged-in user's
+   survey requests.
+*/
+
+router.get(
+  "/my",
+  verifyToken,
+  getMySurveys
 );
 
 /* ============================================================
@@ -46,6 +67,8 @@ router.post(
 
 /*
    GET ALL SURVEY REQUESTS
+
+   GET /api/survey
 */
 
 router.get(
@@ -55,8 +78,12 @@ router.get(
   getSurveys
 );
 
+/* ============================================================
+   ADMIN - GET SINGLE
+============================================================ */
+
 /*
-   GET SINGLE SURVEY
+   GET /api/survey/:id
 */
 
 router.get(
@@ -66,8 +93,12 @@ router.get(
   getSurveyById
 );
 
+/* ============================================================
+   ADMIN - UPDATE SURVEY
+============================================================ */
+
 /*
-   UPDATE SURVEY
+   PUT /api/survey/:id
 */
 
 router.put(
@@ -77,8 +108,12 @@ router.put(
   updateSurvey
 );
 
+/* ============================================================
+   ADMIN - UPDATE STATUS
+============================================================ */
+
 /*
-   UPDATE STATUS
+   PUT /api/survey/:id/status
 */
 
 router.put(
@@ -88,8 +123,12 @@ router.put(
   updateSurveyStatus
 );
 
+/* ============================================================
+   ADMIN - SOFT DELETE
+============================================================ */
+
 /*
-   SOFT DELETE
+   DELETE /api/survey/:id
 */
 
 router.delete(
@@ -99,8 +138,12 @@ router.delete(
   deleteSurvey
 );
 
+/* ============================================================
+   ADMIN - RESTORE
+============================================================ */
+
 /*
-   RESTORE
+   PUT /api/survey/:id/restore
 */
 
 router.put(
@@ -110,13 +153,12 @@ router.put(
   restoreSurvey
 );
 
-/*
-   PERMANENT DELETE
+/* ============================================================
+   ADMIN - PERMANENT DELETE
+============================================================ */
 
-   IMPORTANT:
-   Keep this route BEFORE generic
-   DELETE /:id if you later add
-   a generic permanent delete route.
+/*
+   DELETE /api/survey/:id/permanent
 */
 
 router.delete(
@@ -125,5 +167,9 @@ router.delete(
   isAdmin,
   permanentlyDeleteSurvey
 );
+
+/* ============================================================
+   EXPORT
+============================================================ */
 
 export default router;

@@ -27,6 +27,18 @@ const locations = JSON.parse(
 const surveySchema = new mongoose.Schema(
   {
     /* ============================================================
+       USER
+       Logged-in user who submitted this survey
+    ============================================================ */
+
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
+    /* ============================================================
        REQUIRED CUSTOMER DETAILS
     ============================================================ */
 
@@ -44,7 +56,6 @@ const surveySchema = new mongoose.Schema(
 
     /* ============================================================
        REQUIRED DISTRICT
-       
        Validated from:
        src/tamilnadu_locations.json
     ============================================================ */
@@ -284,9 +295,10 @@ surveySchema.pre(
   "save",
   function (next) {
     try {
-      const districtValue = String(
-        this.district || ""
-      ).trim();
+      const districtValue =
+        String(
+          this.district || ""
+        ).trim();
 
       if (!districtValue) {
         return next(
@@ -297,7 +309,9 @@ surveySchema.pre(
       }
 
       const districtKey =
-        Object.keys(locations).find(
+        Object.keys(
+          locations
+        ).find(
           (district) =>
             district.toLowerCase() ===
             districtValue.toLowerCase()
@@ -311,9 +325,8 @@ surveySchema.pre(
         );
       }
 
-      /* Save exact district name from JSON */
-
-      this.district = districtKey;
+      this.district =
+        districtKey;
 
       next();
     } catch (error) {
@@ -325,6 +338,12 @@ surveySchema.pre(
 /* ============================================================
    INDEXES
 ============================================================ */
+
+surveySchema.index({
+  user: 1,
+  isDeleted: 1,
+  createdAt: -1,
+});
 
 surveySchema.index({
   district: 1,

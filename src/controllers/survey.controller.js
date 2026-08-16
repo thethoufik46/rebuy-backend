@@ -3,7 +3,7 @@
 import Survey from "../models/survey_model.js";
 
 /* ============================================================
-   HELPER
+   HELPERS
 ============================================================ */
 
 const cleanString = (value) => {
@@ -18,8 +18,23 @@ const cleanString = (value) => {
 };
 
 /* ============================================================
+   GET LOGGED-IN USER ID
+============================================================ */
+
+const getUserId = (req) => {
+  return (
+    req.user?._id ||
+    req.user?.id ||
+    req.user?.userId ||
+    null
+  );
+};
+
+/* ============================================================
    CREATE SURVEY
    POST /api/survey/add
+
+   LOGIN REQUIRED
 ============================================================ */
 
 export const addSurvey = async (
@@ -27,6 +42,17 @@ export const addSurvey = async (
   res
 ) => {
   try {
+    const userId =
+      getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Authentication required. Please login.",
+      });
+    }
+
     const {
       name,
       phone,
@@ -54,13 +80,13 @@ export const addSurvey = async (
       preferredTime,
     } = req.body;
 
-    /* ========================================================
+    /* ==========================================================
        REQUIRED
-       Only:
-       - name
-       - phone
-       - district
-    ======================================================== */
+       ONLY:
+       name
+       phone
+       district
+    ========================================================== */
 
     const cleanName =
       cleanString(name);
@@ -95,10 +121,9 @@ export const addSurvey = async (
       });
     }
 
-    /* ========================================================
+    /* ==========================================================
        PHONE VALIDATION
-       India mobile number
-    ======================================================== */
+    ========================================================== */
 
     const normalizedPhone =
       cleanPhone.replace(
@@ -118,9 +143,9 @@ export const addSurvey = async (
       });
     }
 
-    /* ========================================================
-       OPTIONAL MAP VALUES
-    ======================================================== */
+    /* ==========================================================
+       MAP LOCATION
+    ========================================================== */
 
     let cleanLatitude = null;
     let cleanLongitude = null;
@@ -177,10 +202,9 @@ export const addSurvey = async (
         parsedLongitude;
     }
 
-    /* ========================================================
+    /* ==========================================================
        AREA
-       Optional
-    ======================================================== */
+    ========================================================== */
 
     let cleanArea = null;
 
@@ -212,10 +236,9 @@ export const addSurvey = async (
         parsedArea;
     }
 
-    /* ========================================================
+    /* ==========================================================
        DATE
-       Optional
-    ======================================================== */
+    ========================================================== */
 
     let cleanPreferredDate =
       null;
@@ -247,13 +270,17 @@ export const addSurvey = async (
         parsedDate;
     }
 
-    /* ========================================================
+    /* ==========================================================
        CREATE SURVEY
-    ======================================================== */
+    ========================================================== */
 
     const survey =
       new Survey({
-        name: cleanName,
+        /* IMPORTANT */
+        user: userId,
+
+        name:
+          cleanName,
 
         phone:
           normalizedPhone,
@@ -338,9 +365,9 @@ export const addSurvey = async (
 
     await survey.save();
 
-    /* ========================================================
+    /* ==========================================================
        RESPONSE
-    ======================================================== */
+    ========================================================== */
 
     return res.status(201).json({
       success: true,
@@ -350,7 +377,6 @@ export const addSurvey = async (
 
       survey,
     });
-
   } catch (error) {
     console.error(
       "ADD SURVEY ERROR 👉",
@@ -368,102 +394,169 @@ export const addSurvey = async (
 };
 
 /* ============================================================
+   GET MY SURVEYS
+   GET /api/survey/my
+
+   USER ONLY
+============================================================ */
+
+export const getMySurveys =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const userId =
+        getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required. Please login.",
+          surveys: [],
+        });
+      }
+
+      const surveys =
+        await Survey.find({
+          user: userId,
+          isDeleted: false,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+
+        count:
+          surveys.length,
+
+        surveys,
+      });
+    } catch (error) {
+      console.error(
+        "GET MY SURVEYS ERROR 👉",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Failed to fetch your survey requests",
+
+        surveys: [],
+      });
+    }
+  };
+
+/* ============================================================
    GET ALL SURVEYS
    ADMIN
    GET /api/survey
 ============================================================ */
 
-export const getSurveys = async (
-  req,
-  res
-) => {
-  try {
-    const {
-      status,
-      district,
-      surveyType,
-      propertyType,
-    } = req.query;
+export const getSurveys =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        status,
+        district,
+        surveyType,
+        propertyType,
+      } = req.query;
 
-    const filter = {
-      isDeleted: false,
-    };
+      const filter = {
+        isDeleted: false,
+      };
 
-    if (
-      status &&
-      String(status).trim()
-    ) {
-      filter.status =
-        String(
-          status
-        ).trim();
-    }
+      if (
+        status &&
+        String(status).trim()
+      ) {
+        filter.status =
+          String(
+            status
+          ).trim();
+      }
 
-    if (
-      district &&
-      String(district).trim()
-    ) {
-      filter.district =
-        String(
-          district
-        ).trim();
-    }
+      if (
+        district &&
+        String(district).trim()
+      ) {
+        filter.district =
+          String(
+            district
+          ).trim();
+      }
 
-    if (
-      surveyType &&
-      String(
-        surveyType
-      ).trim()
-    ) {
-      filter.surveyType =
+      if (
+        surveyType &&
         String(
           surveyType
-        ).trim();
-    }
+        ).trim()
+      ) {
+        filter.surveyType =
+          String(
+            surveyType
+          ).trim();
+      }
 
-    if (
-      propertyType &&
-      String(
-        propertyType
-      ).trim()
-    ) {
-      filter.propertyType =
+      if (
+        propertyType &&
         String(
           propertyType
-        ).trim();
-    }
+        ).trim()
+      ) {
+        filter.propertyType =
+          String(
+            propertyType
+          ).trim();
+      }
 
-    const surveys =
-      await Survey.find(
-        filter
-      ).sort({
-        createdAt: -1,
+      const surveys =
+        await Survey.find(
+          filter
+        )
+          .populate(
+            "user",
+            "name phone district"
+          )
+          .sort({
+            createdAt: -1,
+          });
+
+      return res.json({
+        success: true,
+
+        count:
+          surveys.length,
+
+        surveys,
       });
+    } catch (error) {
+      console.error(
+        "GET SURVEYS ERROR 👉",
+        error
+      );
 
-    return res.json({
-      success: true,
+      return res.status(500).json({
+        success: false,
 
-      count:
-        surveys.length,
+        message:
+          error?.message ||
+          "Failed to fetch survey requests",
 
-      surveys,
-    });
-
-  } catch (error) {
-    console.error(
-      "GET SURVEYS ERROR 👉",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-
-      message:
-        error?.message ||
-        "Failed to fetch survey requests",
-    });
-  }
-};
+        surveys: [],
+      });
+    }
+  };
 
 /* ============================================================
    GET SINGLE SURVEY
@@ -484,12 +577,14 @@ export const getSurveyById =
       const survey =
         await Survey.findById(
           id
+        ).populate(
+          "user",
+          "name phone district"
         );
 
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -497,10 +592,8 @@ export const getSurveyById =
 
       return res.json({
         success: true,
-
         survey,
       });
-
     } catch (error) {
       console.error(
         "GET SURVEY BY ID ERROR 👉",
@@ -520,7 +613,6 @@ export const getSurveyById =
 /* ============================================================
    UPDATE SURVEY
    ADMIN
-   PUT /api/survey/:id
 ============================================================ */
 
 export const updateSurvey =
@@ -541,7 +633,6 @@ export const updateSurvey =
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -600,7 +691,6 @@ export const updateSurvey =
 
         survey,
       });
-
     } catch (error) {
       console.error(
         "UPDATE SURVEY ERROR 👉",
@@ -620,7 +710,6 @@ export const updateSurvey =
 /* ============================================================
    UPDATE STATUS
    ADMIN
-   PUT /api/survey/:id/status
 ============================================================ */
 
 export const updateSurveyStatus =
@@ -657,7 +746,6 @@ export const updateSurveyStatus =
       ) {
         return res.status(400).json({
           success: false,
-
           message:
             "Invalid survey status",
         });
@@ -671,7 +759,6 @@ export const updateSurveyStatus =
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -702,7 +789,6 @@ export const updateSurveyStatus =
 
         survey,
       });
-
     } catch (error) {
       console.error(
         "UPDATE SURVEY STATUS ERROR 👉",
@@ -722,7 +808,6 @@ export const updateSurveyStatus =
 /* ============================================================
    SOFT DELETE
    ADMIN
-   DELETE /api/survey/:id
 ============================================================ */
 
 export const deleteSurvey =
@@ -743,7 +828,6 @@ export const deleteSurvey =
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -754,7 +838,6 @@ export const deleteSurvey =
       ) {
         return res.status(400).json({
           success: false,
-
           message:
             "Survey request is already deleted",
         });
@@ -774,7 +857,6 @@ export const deleteSurvey =
         message:
           "Survey request deleted successfully",
       });
-
     } catch (error) {
       console.error(
         "DELETE SURVEY ERROR 👉",
@@ -794,7 +876,6 @@ export const deleteSurvey =
 /* ============================================================
    RESTORE
    ADMIN
-   PUT /api/survey/:id/restore
 ============================================================ */
 
 export const restoreSurvey =
@@ -815,7 +896,6 @@ export const restoreSurvey =
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -826,7 +906,6 @@ export const restoreSurvey =
       ) {
         return res.status(400).json({
           success: false,
-
           message:
             "Survey request is not deleted",
         });
@@ -848,7 +927,6 @@ export const restoreSurvey =
 
         survey,
       });
-
     } catch (error) {
       console.error(
         "RESTORE SURVEY ERROR 👉",
@@ -868,7 +946,6 @@ export const restoreSurvey =
 /* ============================================================
    PERMANENT DELETE
    ADMIN
-   DELETE /api/survey/:id/permanent
 ============================================================ */
 
 export const permanentlyDeleteSurvey =
@@ -889,7 +966,6 @@ export const permanentlyDeleteSurvey =
       if (!survey) {
         return res.status(404).json({
           success: false,
-
           message:
             "Survey request not found",
         });
@@ -905,7 +981,6 @@ export const permanentlyDeleteSurvey =
         message:
           "Survey request permanently deleted",
       });
-
     } catch (error) {
       console.error(
         "PERMANENT DELETE SURVEY ERROR 👉",

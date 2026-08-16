@@ -4,13 +4,10 @@ import express from "express";
 
 import {
   addSurvey,
-
   getSurveys,
   getSurveyById,
-
   updateSurvey,
   updateSurveyStatus,
-
   deleteSurvey,
   restoreSurvey,
   permanentlyDeleteSurvey,
@@ -24,16 +21,12 @@ import {
 const router = express.Router();
 
 /* ============================================================
-   USER / PUBLIC SURVEY SUBMISSION
+   PUBLIC USER SURVEY SUBMISSION
    ============================================================
 
    POST /api/survey/add
 
-   IMPORTANT:
-   - No authentication required
-   - User can submit survey enquiry without login
-   - Do NOT add verifyToken here
-   - Do NOT add isAdmin here
+   Login NOT required.
 
    ============================================================ */
 
@@ -44,13 +37,7 @@ router.post(
 
 
 /* ============================================================
-   ADMIN ROUTES
-   ============================================================ */
-
-
-/* ============================================================
-   GET ALL SURVEY REQUESTS
-   GET /api/survey
+   ADMIN - GET ALL
    ============================================================ */
 
 router.get(
@@ -62,8 +49,7 @@ router.get(
 
 
 /* ============================================================
-   GET SINGLE SURVEY
-   GET /api/survey/:id
+   ADMIN - GET SINGLE
    ============================================================ */
 
 router.get(
@@ -75,8 +61,7 @@ router.get(
 
 
 /* ============================================================
-   UPDATE SURVEY
-   PUT /api/survey/:id
+   ADMIN - UPDATE
    ============================================================ */
 
 router.put(
@@ -88,8 +73,7 @@ router.put(
 
 
 /* ============================================================
-   UPDATE SURVEY STATUS
-   PUT /api/survey/:id/status
+   ADMIN - UPDATE STATUS
    ============================================================ */
 
 router.put(
@@ -101,8 +85,7 @@ router.put(
 
 
 /* ============================================================
-   SOFT DELETE
-   DELETE /api/survey/:id
+   ADMIN - SOFT DELETE
    ============================================================ */
 
 router.delete(
@@ -114,8 +97,7 @@ router.delete(
 
 
 /* ============================================================
-   RESTORE
-   PUT /api/survey/:id/restore
+   ADMIN - RESTORE
    ============================================================ */
 
 router.put(
@@ -127,11 +109,7 @@ router.put(
 
 
 /* ============================================================
-   PERMANENT DELETE
-   DELETE /api/survey/:id/permanent
-
-   Keep this explicit route before any future generic
-   permanent-delete route if one is added.
+   ADMIN - PERMANENT DELETE
    ============================================================ */
 
 router.delete(

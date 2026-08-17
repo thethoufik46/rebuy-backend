@@ -2,11 +2,13 @@
 
 import Survey from "../models/survey_model.js";
 
+
 /* ============================================================
    HELPERS
 ============================================================ */
 
 const cleanString = (value) => {
+
   if (
     value === undefined ||
     value === null
@@ -17,76 +19,88 @@ const cleanString = (value) => {
   return String(value).trim();
 };
 
+
 /* ============================================================
-   GET LOGGED-IN USER ID
+   OPTIONAL USER ID
+
+   Login is NOT required.
+
+   If another middleware has already attached req.user,
+   we will store the user ID.
+
+   Otherwise null.
 ============================================================ */
 
-const getUserId = (req) => {
+const getOptionalUserId = (req) => {
+
   return (
     req.user?._id ||
     req.user?.id ||
     req.user?.userId ||
     null
   );
+
 };
+
 
 /* ============================================================
    CREATE SURVEY
+
    POST /api/survey/add
 
-   LOGIN REQUIRED
+   PUBLIC
+   LOGIN NOT REQUIRED
 ============================================================ */
 
 export const addSurvey = async (
   req,
   res
 ) => {
-  try {
-    const userId =
-      getUserId(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message:
-          "Authentication required. Please login.",
-      });
-    }
+  try {
 
     const {
+
       name,
+
       phone,
+
       district,
 
       latitude,
+
       longitude,
 
       propertyType,
+
       surveyType,
 
       approximateArea,
+
       areaUnit,
 
       surveyNumber,
+
       subdivisionNumber,
+
       pattaNumber,
 
       boundaryStatus,
+
       requirement,
 
       description,
 
       preferredDate,
-      preferredTime,
-    } = req.body;
 
-    /* ==========================================================
-       REQUIRED
-       ONLY:
-       name
-       phone
-       district
-    ========================================================== */
+      preferredTime,
+
+    } = req.body || {};
+
+
+    /* ========================================================
+       REQUIRED FIELDS
+    ======================================================== */
 
     const cleanName =
       cleanString(name);
@@ -97,33 +111,51 @@ export const addSurvey = async (
     const cleanDistrict =
       cleanString(district);
 
+
     if (!cleanName) {
+
       return res.status(400).json({
         success: false,
+
         message:
-          "Name is required",
+          "Name is required.",
+
       });
+
     }
+
 
     if (!cleanPhone) {
+
       return res.status(400).json({
         success: false,
+
         message:
-          "Phone is required",
+          "Phone number is required.",
+
       });
+
     }
+
 
     if (!cleanDistrict) {
+
       return res.status(400).json({
         success: false,
+
         message:
-          "District is required",
+          "District is required.",
+
       });
+
     }
 
-    /* ==========================================================
+
+    /* ========================================================
        PHONE VALIDATION
-    ========================================================== */
+
+       India mobile number
+    ======================================================== */
 
     const normalizedPhone =
       cleanPhone.replace(
@@ -131,32 +163,40 @@ export const addSurvey = async (
         ""
       );
 
+
     if (
       !/^(?:\+91|91)?[6-9]\d{9}$/.test(
         normalizedPhone
       )
     ) {
+
       return res.status(400).json({
         success: false,
+
         message:
-          "Please enter a valid Indian mobile number",
+          "Please enter a valid Indian mobile number.",
+
       });
+
     }
 
-    /* ==========================================================
-       MAP LOCATION
-    ========================================================== */
+
+    /* ========================================================
+       LATITUDE
+    ======================================================== */
 
     let cleanLatitude = null;
-    let cleanLongitude = null;
+
 
     if (
       latitude !== undefined &&
       latitude !== null &&
       latitude !== ""
     ) {
+
       const parsedLatitude =
         Number(latitude);
+
 
       if (
         !Number.isFinite(
@@ -165,24 +205,40 @@ export const addSurvey = async (
         parsedLatitude < -90 ||
         parsedLatitude > 90
       ) {
+
         return res.status(400).json({
           success: false,
+
           message:
-            "Invalid latitude",
+            "Invalid latitude.",
+
         });
+
       }
+
 
       cleanLatitude =
         parsedLatitude;
+
     }
+
+
+    /* ========================================================
+       LONGITUDE
+    ======================================================== */
+
+    let cleanLongitude = null;
+
 
     if (
       longitude !== undefined &&
       longitude !== null &&
       longitude !== ""
     ) {
+
       const parsedLongitude =
         Number(longitude);
+
 
       if (
         !Number.isFinite(
@@ -191,33 +247,42 @@ export const addSurvey = async (
         parsedLongitude < -180 ||
         parsedLongitude > 180
       ) {
+
         return res.status(400).json({
           success: false,
+
           message:
-            "Invalid longitude",
+            "Invalid longitude.",
+
         });
+
       }
+
 
       cleanLongitude =
         parsedLongitude;
+
     }
 
-    /* ==========================================================
+
+    /* ========================================================
        AREA
-    ========================================================== */
+    ======================================================== */
 
     let cleanArea = null;
 
+
     if (
-      approximateArea !==
-        undefined &&
+      approximateArea !== undefined &&
       approximateArea !== null &&
       approximateArea !== ""
     ) {
+
       const parsedArea =
         Number(
           approximateArea
         );
+
 
       if (
         !Number.isFinite(
@@ -225,179 +290,294 @@ export const addSurvey = async (
         ) ||
         parsedArea < 0
       ) {
+
         return res.status(400).json({
           success: false,
+
           message:
-            "Invalid approximate area",
+            "Invalid approximate area.",
+
         });
+
       }
+
 
       cleanArea =
         parsedArea;
+
     }
 
-    /* ==========================================================
+
+    /* ========================================================
        DATE
-    ========================================================== */
+    ======================================================== */
 
     let cleanPreferredDate =
       null;
 
+
     if (
-      preferredDate !==
-        undefined &&
+      preferredDate !== undefined &&
       preferredDate !== null &&
       preferredDate !== ""
     ) {
+
       const parsedDate =
         new Date(
           preferredDate
         );
+
 
       if (
         Number.isNaN(
           parsedDate.getTime()
         )
       ) {
+
         return res.status(400).json({
           success: false,
+
           message:
-            "Invalid preferred date",
+            "Invalid preferred date.",
+
         });
+
       }
+
 
       cleanPreferredDate =
         parsedDate;
+
     }
 
-    /* ==========================================================
+
+    /* ========================================================
+       OPTIONAL USER
+
+       NO LOGIN REQUIRED
+    ======================================================== */
+
+    const optionalUserId =
+      getOptionalUserId(req);
+
+
+    /* ========================================================
        CREATE SURVEY
-    ========================================================== */
+    ======================================================== */
 
     const survey =
       new Survey({
-        /* IMPORTANT */
-        user: userId,
+
+        // If logged in through another middleware,
+        // save the user.
+        //
+        // If not logged in:
+        // null
+        user:
+          optionalUserId || null,
+
 
         name:
           cleanName,
 
+
         phone:
           normalizedPhone,
+
 
         district:
           cleanDistrict,
 
+
         latitude:
           cleanLatitude,
+
 
         longitude:
           cleanLongitude,
 
+
         propertyType:
           cleanString(
             propertyType
-          ) || undefined,
+          ) || null,
+
 
         surveyType:
           cleanString(
             surveyType
-          ) || undefined,
+          ) || null,
+
 
         approximateArea:
           cleanArea,
 
+
         areaUnit:
           cleanString(
             areaUnit
-          ) || undefined,
+          ) || null,
+
 
         surveyNumber:
           cleanString(
             surveyNumber
           ),
 
+
         subdivisionNumber:
           cleanString(
             subdivisionNumber
           ),
+
 
         pattaNumber:
           cleanString(
             pattaNumber
           ),
 
+
         boundaryStatus:
           cleanString(
             boundaryStatus
-          ) || undefined,
+          ) ||
+          "Not Sure - தெரியவில்லை",
+
 
         requirement:
           cleanString(
             requirement
-          ) || undefined,
+          ) ||
+          "General Measurement - பொதுவான அளவீடு",
+
 
         description:
           cleanString(
             description
           ),
 
+
         preferredDate:
           cleanPreferredDate,
+
 
         preferredTime:
           cleanString(
             preferredTime
           ),
 
+
         status:
           "pending",
+
 
         adminNote:
           "",
 
+
         isDeleted:
           false,
 
+
         deletedAt:
           null,
+
       });
+
+
+    /* ========================================================
+       SAVE
+    ======================================================== */
 
     await survey.save();
 
-    /* ==========================================================
-       RESPONSE
-    ========================================================== */
+
+    /* ========================================================
+       SUCCESS
+    ======================================================== */
 
     return res.status(201).json({
+
       success: true,
 
       message:
-        "Survey request submitted successfully",
+        "Survey request submitted successfully.",
 
       survey,
+
     });
+
+
   } catch (error) {
+
     console.error(
-      "ADD SURVEY ERROR 👉",
+      "❌ ADD SURVEY ERROR 👉",
       error
     );
 
+
+    /* ========================================================
+       MONGOOSE VALIDATION ERROR
+    ======================================================== */
+
+    if (
+      error?.name ===
+      "ValidationError"
+    ) {
+
+      const messages =
+        Object.values(
+          error.errors || {}
+        )
+          .map(
+            (item) =>
+              item.message
+          )
+          .filter(Boolean);
+
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+          messages.length > 0
+            ? messages.join(", ")
+            : "Invalid survey details.",
+
+      });
+
+    }
+
+
+    /* ========================================================
+       NORMAL ERROR
+    ======================================================== */
+
     return res.status(500).json({
+
       success: false,
 
       message:
         error?.message ||
-        "Failed to submit survey request",
+        "Failed to submit survey request.",
+
     });
+
   }
+
 };
+
 
 /* ============================================================
    GET MY SURVEYS
-   GET /api/survey/my
 
-   USER ONLY
+   OPTIONAL FEATURE
+
+   This endpoint still requires login because it is
+   specifically for the user's own surveys.
+
+   POST /api/survey/my
 ============================================================ */
 
 export const getMySurveys =
@@ -405,56 +585,82 @@ export const getMySurveys =
     req,
     res
   ) => {
+
     try {
+
       const userId =
-        getUserId(req);
+        getOptionalUserId(req);
+
 
       if (!userId) {
+
         return res.status(401).json({
+
           success: false,
+
           message:
-            "Authentication required. Please login.",
+            "Login is required to view your survey history.",
+
           surveys: [],
+
         });
+
       }
+
 
       const surveys =
         await Survey.find({
+
           user: userId,
+
           isDeleted: false,
+
         })
           .sort({
             createdAt: -1,
           })
           .lean();
 
+
       return res.status(200).json({
+
         success: true,
 
         count:
           surveys.length,
 
         surveys,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "GET MY SURVEYS ERROR 👉",
+        "❌ GET MY SURVEYS ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
-          "Failed to fetch your survey requests",
+          "Failed to fetch your survey requests.",
 
         surveys: [],
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    GET ALL SURVEYS
+
    ADMIN
    GET /api/survey
 ============================================================ */
@@ -464,61 +670,80 @@ export const getSurveys =
     req,
     res
   ) => {
+
     try {
+
       const {
+
         status,
+
         district,
+
         surveyType,
+
         propertyType,
+
       } = req.query;
 
+
       const filter = {
+
         isDeleted: false,
+
       };
+
 
       if (
         status &&
         String(status).trim()
       ) {
+
         filter.status =
           String(
             status
           ).trim();
+
       }
+
 
       if (
         district &&
         String(district).trim()
       ) {
+
         filter.district =
           String(
             district
           ).trim();
+
       }
+
 
       if (
         surveyType &&
-        String(
-          surveyType
-        ).trim()
+        String(surveyType).trim()
       ) {
+
         filter.surveyType =
           String(
             surveyType
           ).trim();
+
       }
+
 
       if (
         propertyType &&
-        String(
-          propertyType
-        ).trim()
+        String(propertyType).trim()
       ) {
+
         filter.propertyType =
           String(
             propertyType
           ).trim();
+
       }
+
 
       const surveys =
         await Survey.find(
@@ -532,34 +757,47 @@ export const getSurveys =
             createdAt: -1,
           });
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         count:
           surveys.length,
 
         surveys,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "GET SURVEYS ERROR 👉",
+        "❌ GET SURVEYS ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to fetch survey requests",
+          "Failed to fetch survey requests.",
 
         surveys: [],
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    GET SINGLE SURVEY
+
    ADMIN
    GET /api/survey/:id
 ============================================================ */
@@ -569,50 +807,106 @@ export const getSurveyById =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
 
+
+      if (!id) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Survey ID is required.",
+
+        });
+
+      }
+
+
       const survey =
         await Survey.findById(
           id
-        ).populate(
-          "user",
-          "name phone district"
-        );
+        )
+          .populate(
+            "user",
+            "name phone district"
+          );
+
 
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
+
         survey,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "GET SURVEY BY ID ERROR 👉",
+        "❌ GET SURVEY BY ID ERROR 👉",
         error
       );
 
+
+      if (
+        error?.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid survey ID.",
+
+        });
+
+      }
+
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to fetch survey request",
+          "Failed to fetch survey request.",
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    UPDATE SURVEY
+
    ADMIN
+   PUT /api/survey/:id
 ============================================================ */
 
 export const updateSurvey =
@@ -620,96 +914,280 @@ export const updateSurvey =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
+
+
+      if (!id) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Survey ID is required.",
+
+        });
+
+      }
+
 
       const survey =
         await Survey.findById(
           id
         );
 
+
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
 
+
       const allowedFields = [
+
         "name",
+
         "phone",
+
         "district",
 
         "latitude",
+
         "longitude",
 
         "propertyType",
+
         "surveyType",
 
         "approximateArea",
+
         "areaUnit",
 
         "surveyNumber",
+
         "subdivisionNumber",
+
         "pattaNumber",
 
         "boundaryStatus",
+
         "requirement",
 
         "description",
 
         "preferredDate",
+
         "preferredTime",
 
         "adminNote",
+
       ];
 
-      allowedFields.forEach(
-        (field) => {
+
+      for (
+        const field
+        of allowedFields
+      ) {
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            req.body || {},
+            field
+          )
+        ) {
+
+          survey[field] =
+            req.body[field];
+
+        }
+
+      }
+
+
+      /* ========================================================
+         CLEAN PHONE IF UPDATED
+      ======================================================== */
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body || {},
+          "phone"
+        )
+      ) {
+
+        const phone =
+          cleanString(
+            req.body.phone
+          ).replace(
+            /[\s-]/g,
+            ""
+          );
+
+
+        if (
+          !/^(?:\+91|91)?[6-9]\d{9}$/.test(
+            phone
+          )
+        ) {
+
+          return res.status(400).json({
+
+            success: false,
+
+            message:
+              "Please enter a valid Indian mobile number.",
+
+          });
+
+        }
+
+
+        survey.phone =
+          phone;
+
+      }
+
+
+      /* ========================================================
+         CLEAN DATE
+      ======================================================== */
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body || {},
+          "preferredDate"
+        )
+      ) {
+
+        const value =
+          req.body.preferredDate;
+
+
+        if (
+          value === null ||
+          value === ""
+        ) {
+
+          survey.preferredDate =
+            null;
+
+        } else {
+
+          const date =
+            new Date(value);
+
+
           if (
-            Object.prototype.hasOwnProperty.call(
-              req.body,
-              field
+            Number.isNaN(
+              date.getTime()
             )
           ) {
-            survey[field] =
-              req.body[field];
+
+            return res.status(400).json({
+
+              success: false,
+
+              message:
+                "Invalid preferred date.",
+
+            });
+
           }
+
+
+          survey.preferredDate =
+            date;
+
         }
-      );
+
+      }
+
 
       await survey.save();
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         message:
-          "Survey request updated successfully",
+          "Survey request updated successfully.",
 
         survey,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "UPDATE SURVEY ERROR 👉",
+        "❌ UPDATE SURVEY ERROR 👉",
         error
       );
 
+
+      if (
+        error?.name ===
+        "ValidationError"
+      ) {
+
+        const messages =
+          Object.values(
+            error.errors || {}
+          )
+            .map(
+              (item) =>
+                item.message
+            )
+            .filter(Boolean);
+
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            messages.join(", ") ||
+            "Invalid survey details.",
+
+        });
+
+      }
+
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to update survey request",
+          "Failed to update survey request.",
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    UPDATE STATUS
+
    ADMIN
+   PUT /api/survey/:id/status
 ============================================================ */
 
 export const updateSurveyStatus =
@@ -717,97 +1195,140 @@ export const updateSurveyStatus =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
 
+
       const {
         status,
+
         adminNote,
-      } = req.body;
+      } = req.body || {};
+
 
       const allowedStatuses = [
+
         "pending",
+
         "approved",
+
         "rejected",
+
         "completed",
+
       ];
+
 
       const cleanStatus =
         cleanString(
           status
-        );
+        ).toLowerCase();
+
 
       if (
         !allowedStatuses.includes(
           cleanStatus
         )
       ) {
+
         return res.status(400).json({
+
           success: false,
+
           message:
-            "Invalid survey status",
+            "Invalid survey status.",
+
         });
+
       }
+
 
       const survey =
         await Survey.findById(
           id
         );
 
+
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
+
 
       survey.status =
         cleanStatus;
 
+
       if (
         Object.prototype.hasOwnProperty.call(
-          req.body,
+          req.body || {},
           "adminNote"
         )
       ) {
+
         survey.adminNote =
           cleanString(
             adminNote
           );
+
       }
+
 
       await survey.save();
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         message:
-          "Survey status updated successfully",
+          "Survey status updated successfully.",
 
         survey,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "UPDATE SURVEY STATUS ERROR 👉",
+        "❌ UPDATE SURVEY STATUS ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to update survey status",
+          "Failed to update survey status.",
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    SOFT DELETE
+
    ADMIN
+   DELETE /api/survey/:id
 ============================================================ */
 
 export const deleteSurvey =
@@ -815,67 +1336,99 @@ export const deleteSurvey =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
+
 
       const survey =
         await Survey.findById(
           id
         );
 
+
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
+
 
       if (
         survey.isDeleted
       ) {
+
         return res.status(400).json({
+
           success: false,
+
           message:
-            "Survey request is already deleted",
+            "Survey request is already deleted.",
+
         });
+
       }
+
 
       survey.isDeleted =
         true;
 
+
       survey.deletedAt =
         new Date();
 
+
       await survey.save();
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         message:
-          "Survey request deleted successfully",
+          "Survey request deleted successfully.",
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "DELETE SURVEY ERROR 👉",
+        "❌ DELETE SURVEY ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to delete survey request",
+          "Failed to delete survey request.",
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    RESTORE
+
    ADMIN
+   PUT /api/survey/:id/restore
 ============================================================ */
 
 export const restoreSurvey =
@@ -883,69 +1436,101 @@ export const restoreSurvey =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
+
 
       const survey =
         await Survey.findById(
           id
         );
 
+
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
+
 
       if (
         !survey.isDeleted
       ) {
+
         return res.status(400).json({
+
           success: false,
+
           message:
-            "Survey request is not deleted",
+            "Survey request is not deleted.",
+
         });
+
       }
+
 
       survey.isDeleted =
         false;
 
+
       survey.deletedAt =
         null;
 
+
       await survey.save();
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         message:
-          "Survey request restored successfully",
+          "Survey request restored successfully.",
 
         survey,
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "RESTORE SURVEY ERROR 👉",
+        "❌ RESTORE SURVEY ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to restore survey request",
+          "Failed to restore survey request.",
+
       });
+
     }
+
   };
+
 
 /* ============================================================
    PERMANENT DELETE
+
    ADMIN
+   DELETE /api/survey/:id/permanent
 ============================================================ */
 
 export const permanentlyDeleteSurvey =
@@ -953,46 +1538,67 @@ export const permanentlyDeleteSurvey =
     req,
     res
   ) => {
+
     try {
+
       const {
         id,
       } = req.params;
+
 
       const survey =
         await Survey.findById(
           id
         );
 
+
       if (!survey) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
-            "Survey request not found",
+            "Survey request not found.",
+
         });
+
       }
+
 
       await Survey.findByIdAndDelete(
         id
       );
 
-      return res.json({
+
+      return res.status(200).json({
+
         success: true,
 
         message:
-          "Survey request permanently deleted",
+          "Survey request permanently deleted.",
+
       });
+
+
     } catch (error) {
+
       console.error(
-        "PERMANENT DELETE SURVEY ERROR 👉",
+        "❌ PERMANENT DELETE SURVEY ERROR 👉",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
 
         message:
           error?.message ||
-          "Failed to permanently delete survey",
+          "Failed to permanently delete survey.",
+
       });
+
     }
+
   };

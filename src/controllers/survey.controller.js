@@ -1,14 +1,13 @@
 // ======================= survey.controller.js =======================
 
+import mongoose from "mongoose";
 import Survey from "../models/survey_model.js";
-
 
 /* ============================================================
    HELPERS
 ============================================================ */
 
 const cleanString = (value) => {
-
   if (
     value === undefined ||
     value === null
@@ -21,85 +20,103 @@ const cleanString = (value) => {
 
 
 /* ============================================================
-   OPTIONAL USER ID
+   GET LOGGED-IN USER ID
 
-   Login is NOT required.
-
-   If another middleware has already attached req.user,
-   we will store the user ID.
-
-   Otherwise null.
+   Supports:
+   req.user._id
+   req.user.id
+   req.user.userId
 ============================================================ */
 
-const getOptionalUserId = (req) => {
-
-  return (
+const getUserId = (req) => {
+  const id =
     req.user?._id ||
     req.user?.id ||
     req.user?.userId ||
-    null
-  );
+    null;
 
+  if (!id) {
+    return null;
+  }
+
+  return String(id);
 };
 
 
 /* ============================================================
-   CREATE SURVEY
+   REQUIRE LOGIN
+============================================================ */
+
+const requireUser = (req, res) => {
+  const userId = getUserId(req);
+
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      message: "Please login to continue.",
+    });
+
+    return null;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid user session. Please login again.",
+    });
+
+    return null;
+  }
+
+  return userId;
+};
+
+
+/* ============================================================
+   ADD SURVEY
 
    POST /api/survey/add
 
-   PUBLIC
-   LOGIN NOT REQUIRED
+   LOGIN REQUIRED
 ============================================================ */
 
 export const addSurvey = async (
   req,
   res
 ) => {
-
   try {
 
+    const userId =
+      requireUser(req, res);
+
+    if (!userId) {
+      return;
+    }
+
+
     const {
-
       name,
-
       phone,
-
       district,
-
       latitude,
-
       longitude,
-
       propertyType,
-
       surveyType,
-
       approximateArea,
-
       areaUnit,
-
       surveyNumber,
-
       subdivisionNumber,
-
       pattaNumber,
-
       boundaryStatus,
-
       requirement,
-
       description,
-
       preferredDate,
-
       preferredTime,
-
     } = req.body || {};
 
 
     /* ========================================================
-       REQUIRED FIELDS
+       REQUIRED
     ======================================================== */
 
     const cleanName =
@@ -113,48 +130,31 @@ export const addSurvey = async (
 
 
     if (!cleanName) {
-
       return res.status(400).json({
         success: false,
-
-        message:
-          "Name is required.",
-
+        message: "Name is required.",
       });
-
     }
 
 
     if (!cleanPhone) {
-
       return res.status(400).json({
         success: false,
-
-        message:
-          "Phone number is required.",
-
+        message: "Phone number is required.",
       });
-
     }
 
 
     if (!cleanDistrict) {
-
       return res.status(400).json({
         success: false,
-
-        message:
-          "District is required.",
-
+        message: "District is required.",
       });
-
     }
 
 
     /* ========================================================
-       PHONE VALIDATION
-
-       India mobile number
+       PHONE
     ======================================================== */
 
     const normalizedPhone =
@@ -169,15 +169,11 @@ export const addSurvey = async (
         normalizedPhone
       )
     ) {
-
       return res.status(400).json({
         success: false,
-
         message:
           "Please enter a valid Indian mobile number.",
-
       });
-
     }
 
 
@@ -186,7 +182,6 @@ export const addSurvey = async (
     ======================================================== */
 
     let cleanLatitude = null;
-
 
     if (
       latitude !== undefined &&
@@ -197,7 +192,6 @@ export const addSurvey = async (
       const parsedLatitude =
         Number(latitude);
 
-
       if (
         !Number.isFinite(
           parsedLatitude
@@ -205,21 +199,14 @@ export const addSurvey = async (
         parsedLatitude < -90 ||
         parsedLatitude > 90
       ) {
-
         return res.status(400).json({
           success: false,
-
-          message:
-            "Invalid latitude.",
-
+          message: "Invalid latitude.",
         });
-
       }
-
 
       cleanLatitude =
         parsedLatitude;
-
     }
 
 
@@ -228,7 +215,6 @@ export const addSurvey = async (
     ======================================================== */
 
     let cleanLongitude = null;
-
 
     if (
       longitude !== undefined &&
@@ -239,7 +225,6 @@ export const addSurvey = async (
       const parsedLongitude =
         Number(longitude);
 
-
       if (
         !Number.isFinite(
           parsedLongitude
@@ -247,21 +232,14 @@ export const addSurvey = async (
         parsedLongitude < -180 ||
         parsedLongitude > 180
       ) {
-
         return res.status(400).json({
           success: false,
-
-          message:
-            "Invalid longitude.",
-
+          message: "Invalid longitude.",
         });
-
       }
-
 
       cleanLongitude =
         parsedLongitude;
-
     }
 
 
@@ -270,7 +248,6 @@ export const addSurvey = async (
     ======================================================== */
 
     let cleanArea = null;
-
 
     if (
       approximateArea !== undefined &&
@@ -283,28 +260,21 @@ export const addSurvey = async (
           approximateArea
         );
 
-
       if (
         !Number.isFinite(
           parsedArea
         ) ||
         parsedArea < 0
       ) {
-
         return res.status(400).json({
           success: false,
-
           message:
             "Invalid approximate area.",
-
         });
-
       }
-
 
       cleanArea =
         parsedArea;
-
     }
 
 
@@ -314,7 +284,6 @@ export const addSurvey = async (
 
     let cleanPreferredDate =
       null;
-
 
     if (
       preferredDate !== undefined &&
@@ -327,115 +296,85 @@ export const addSurvey = async (
           preferredDate
         );
 
-
       if (
         Number.isNaN(
           parsedDate.getTime()
         )
       ) {
-
         return res.status(400).json({
           success: false,
-
           message:
             "Invalid preferred date.",
-
         });
-
       }
-
 
       cleanPreferredDate =
         parsedDate;
-
     }
 
 
     /* ========================================================
-       OPTIONAL USER
-
-       NO LOGIN REQUIRED
-    ======================================================== */
-
-    const optionalUserId =
-      getOptionalUserId(req);
-
-
-    /* ========================================================
        CREATE SURVEY
+
+       IMPORTANT:
+       USER ID IS ALWAYS SAVED
     ======================================================== */
 
     const survey =
       new Survey({
 
-        // If logged in through another middleware,
-        // save the user.
-        //
-        // If not logged in:
-        // null
         user:
-          optionalUserId || null,
-
+          new mongoose.Types.ObjectId(
+            userId
+          ),
 
         name:
           cleanName,
 
-
         phone:
           normalizedPhone,
-
 
         district:
           cleanDistrict,
 
-
         latitude:
           cleanLatitude,
 
-
         longitude:
           cleanLongitude,
-
 
         propertyType:
           cleanString(
             propertyType
           ) || null,
 
-
         surveyType:
           cleanString(
             surveyType
           ) || null,
 
-
         approximateArea:
           cleanArea,
-
 
         areaUnit:
           cleanString(
             areaUnit
           ) || null,
 
-
         surveyNumber:
           cleanString(
             surveyNumber
           ),
-
 
         subdivisionNumber:
           cleanString(
             subdivisionNumber
           ),
 
-
         pattaNumber:
           cleanString(
             pattaNumber
           ),
-
 
         boundaryStatus:
           cleanString(
@@ -443,70 +382,48 @@ export const addSurvey = async (
           ) ||
           "Not Sure - தெரியவில்லை",
 
-
         requirement:
           cleanString(
             requirement
           ) ||
           "General Measurement - பொதுவான அளவீடு",
 
-
         description:
           cleanString(
             description
           ),
 
-
         preferredDate:
           cleanPreferredDate,
-
 
         preferredTime:
           cleanString(
             preferredTime
           ),
 
-
         status:
           "pending",
-
 
         adminNote:
           "",
 
-
         isDeleted:
           false,
 
-
         deletedAt:
           null,
-
       });
 
-
-    /* ========================================================
-       SAVE
-    ======================================================== */
 
     await survey.save();
 
 
-    /* ========================================================
-       SUCCESS
-    ======================================================== */
-
     return res.status(201).json({
-
       success: true,
-
       message:
         "Survey request submitted successfully.",
-
       survey,
-
     });
-
 
   } catch (error) {
 
@@ -515,10 +432,6 @@ export const addSurvey = async (
       error
     );
 
-
-    /* ========================================================
-       MONGOOSE VALIDATION ERROR
-    ======================================================== */
 
     if (
       error?.name ===
@@ -535,49 +448,32 @@ export const addSurvey = async (
           )
           .filter(Boolean);
 
-
       return res.status(400).json({
-
         success: false,
-
         message:
-          messages.length > 0
+          messages.length
             ? messages.join(", ")
             : "Invalid survey details.",
-
       });
-
     }
 
 
-    /* ========================================================
-       NORMAL ERROR
-    ======================================================== */
-
     return res.status(500).json({
-
       success: false,
-
       message:
         error?.message ||
         "Failed to submit survey request.",
-
     });
-
   }
-
 };
 
 
 /* ============================================================
    GET MY SURVEYS
 
-   OPTIONAL FEATURE
+   GET /api/survey/my
 
-   This endpoint still requires login because it is
-   specifically for the user's own surveys.
-
-   POST /api/survey/my
+   LOGIN REQUIRED
 ============================================================ */
 
 export const getMySurveys =
@@ -589,32 +485,19 @@ export const getMySurveys =
     try {
 
       const userId =
-        getOptionalUserId(req);
-
+        requireUser(req, res);
 
       if (!userId) {
-
-        return res.status(401).json({
-
-          success: false,
-
-          message:
-            "Login is required to view your survey history.",
-
-          surveys: [],
-
-        });
-
+        return;
       }
 
 
       const surveys =
         await Survey.find({
-
-          user: userId,
-
+          user: new mongoose.Types.ObjectId(
+            userId
+          ),
           isDeleted: false,
-
         })
           .sort({
             createdAt: -1,
@@ -623,16 +506,11 @@ export const getMySurveys =
 
 
       return res.status(200).json({
-
         success: true,
-
         count:
           surveys.length,
-
         surveys,
-
       });
-
 
     } catch (error) {
 
@@ -641,28 +519,22 @@ export const getMySurveys =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
           "Failed to fetch your survey requests.",
-
         surveys: [],
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    GET ALL SURVEYS
 
-   ADMIN
    GET /api/survey
+
+   ADMIN
 ============================================================ */
 
 export const getSurveys =
@@ -674,22 +546,15 @@ export const getSurveys =
     try {
 
       const {
-
         status,
-
         district,
-
         surveyType,
-
         propertyType,
-
       } = req.query;
 
 
       const filter = {
-
         isDeleted: false,
-
       };
 
 
@@ -697,12 +562,10 @@ export const getSurveys =
         status &&
         String(status).trim()
       ) {
-
         filter.status =
           String(
             status
           ).trim();
-
       }
 
 
@@ -710,12 +573,10 @@ export const getSurveys =
         district &&
         String(district).trim()
       ) {
-
         filter.district =
           String(
             district
           ).trim();
-
       }
 
 
@@ -723,12 +584,10 @@ export const getSurveys =
         surveyType &&
         String(surveyType).trim()
       ) {
-
         filter.surveyType =
           String(
             surveyType
           ).trim();
-
       }
 
 
@@ -736,12 +595,10 @@ export const getSurveys =
         propertyType &&
         String(propertyType).trim()
       ) {
-
         filter.propertyType =
           String(
             propertyType
           ).trim();
-
       }
 
 
@@ -755,20 +612,16 @@ export const getSurveys =
           )
           .sort({
             createdAt: -1,
-          });
+          })
+          .lean();
 
 
       return res.status(200).json({
-
         success: true,
-
         count:
           surveys.length,
-
         surveys,
-
       });
-
 
     } catch (error) {
 
@@ -777,28 +630,20 @@ export const getSurveys =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
           error?.message ||
           "Failed to fetch survey requests.",
-
         surveys: [],
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    GET SINGLE SURVEY
 
-   ADMIN
    GET /api/survey/:id
 ============================================================ */
 
@@ -815,17 +660,16 @@ export const getSurveyById =
       } = req.params;
 
 
-      if (!id) {
-
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
         return res.status(400).json({
-
           success: false,
-
           message:
-            "Survey ID is required.",
-
+            "Invalid survey ID.",
         });
-
       }
 
 
@@ -836,31 +680,23 @@ export const getSurveyById =
           .populate(
             "user",
             "name phone district"
-          );
+          )
+          .lean();
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
       }
 
 
       return res.status(200).json({
-
         success: true,
-
         survey,
-
       });
-
 
     } catch (error) {
 
@@ -869,44 +705,21 @@ export const getSurveyById =
         error
       );
 
-
-      if (
-        error?.name ===
-        "CastError"
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Invalid survey ID.",
-
-        });
-
-      }
-
-
       return res.status(500).json({
-
         success: false,
-
         message:
-          error?.message ||
           "Failed to fetch survey request.",
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    UPDATE SURVEY
 
-   ADMIN
    PUT /api/survey/:id
+
+   ADMIN
 ============================================================ */
 
 export const updateSurvey =
@@ -922,17 +735,16 @@ export const updateSurvey =
       } = req.params;
 
 
-      if (!id) {
-
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
         return res.status(400).json({
-
           success: false,
-
           message:
-            "Survey ID is required.",
-
+            "Invalid survey ID.",
         });
-
       }
 
 
@@ -943,57 +755,33 @@ export const updateSurvey =
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
       }
 
 
       const allowedFields = [
-
         "name",
-
         "phone",
-
         "district",
-
         "latitude",
-
         "longitude",
-
         "propertyType",
-
         "surveyType",
-
         "approximateArea",
-
         "areaUnit",
-
         "surveyNumber",
-
         "subdivisionNumber",
-
         "pattaNumber",
-
         "boundaryStatus",
-
         "requirement",
-
         "description",
-
         "preferredDate",
-
         "preferredTime",
-
         "adminNote",
-
       ];
 
 
@@ -1008,18 +796,11 @@ export const updateSurvey =
             field
           )
         ) {
-
           survey[field] =
             req.body[field];
-
         }
-
       }
 
-
-      /* ========================================================
-         CLEAN PHONE IF UPDATED
-      ======================================================== */
 
       if (
         Object.prototype.hasOwnProperty.call(
@@ -1042,28 +823,18 @@ export const updateSurvey =
             phone
           )
         ) {
-
           return res.status(400).json({
-
             success: false,
-
             message:
               "Please enter a valid Indian mobile number.",
-
           });
-
         }
 
 
         survey.phone =
           phone;
-
       }
 
-
-      /* ========================================================
-         CLEAN DATE
-      ======================================================== */
 
       if (
         Object.prototype.hasOwnProperty.call(
@@ -1080,39 +851,28 @@ export const updateSurvey =
           value === null ||
           value === ""
         ) {
-
           survey.preferredDate =
             null;
-
         } else {
 
           const date =
             new Date(value);
-
 
           if (
             Number.isNaN(
               date.getTime()
             )
           ) {
-
             return res.status(400).json({
-
               success: false,
-
               message:
                 "Invalid preferred date.",
-
             });
-
           }
-
 
           survey.preferredDate =
             date;
-
         }
-
       }
 
 
@@ -1120,16 +880,11 @@ export const updateSurvey =
 
 
       return res.status(200).json({
-
         success: true,
-
         message:
           "Survey request updated successfully.",
-
         survey,
-
       });
-
 
     } catch (error) {
 
@@ -1154,40 +909,31 @@ export const updateSurvey =
             )
             .filter(Boolean);
 
-
         return res.status(400).json({
-
           success: false,
-
           message:
             messages.join(", ") ||
             "Invalid survey details.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
-
         message:
           error?.message ||
           "Failed to update survey request.",
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    UPDATE STATUS
 
-   ADMIN
    PUT /api/survey/:id/status
+
+   ADMIN
 ============================================================ */
 
 export const updateSurveyStatus =
@@ -1202,24 +948,30 @@ export const updateSurveyStatus =
         id,
       } = req.params;
 
-
       const {
         status,
-
         adminNote,
       } = req.body || {};
 
 
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid survey ID.",
+        });
+      }
+
+
       const allowedStatuses = [
-
         "pending",
-
         "approved",
-
         "rejected",
-
         "completed",
-
       ];
 
 
@@ -1234,16 +986,11 @@ export const updateSurveyStatus =
           cleanStatus
         )
       ) {
-
         return res.status(400).json({
-
           success: false,
-
           message:
             "Invalid survey status.",
-
         });
-
       }
 
 
@@ -1254,16 +1001,11 @@ export const updateSurveyStatus =
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
       }
 
 
@@ -1277,12 +1019,10 @@ export const updateSurveyStatus =
           "adminNote"
         )
       ) {
-
         survey.adminNote =
           cleanString(
             adminNote
           );
-
       }
 
 
@@ -1290,16 +1030,11 @@ export const updateSurveyStatus =
 
 
       return res.status(200).json({
-
         success: true,
-
         message:
           "Survey status updated successfully.",
-
         survey,
-
       });
-
 
     } catch (error) {
 
@@ -1308,27 +1043,22 @@ export const updateSurveyStatus =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
           error?.message ||
           "Failed to update survey status.",
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    SOFT DELETE
 
-   ADMIN
    DELETE /api/survey/:id
+
+   ADMIN
 ============================================================ */
 
 export const deleteSurvey =
@@ -1344,6 +1074,19 @@ export const deleteSurvey =
       } = req.params;
 
 
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid survey ID.",
+        });
+      }
+
+
       const survey =
         await Survey.findById(
           id
@@ -1351,38 +1094,16 @@ export const deleteSurvey =
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
-      }
-
-
-      if (
-        survey.isDeleted
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Survey request is already deleted.",
-
-        });
-
       }
 
 
       survey.isDeleted =
         true;
-
 
       survey.deletedAt =
         new Date();
@@ -1392,14 +1113,10 @@ export const deleteSurvey =
 
 
       return res.status(200).json({
-
         success: true,
-
         message:
           "Survey request deleted successfully.",
-
       });
-
 
     } catch (error) {
 
@@ -1408,27 +1125,21 @@ export const deleteSurvey =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
-          error?.message ||
           "Failed to delete survey request.",
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    RESTORE
 
-   ADMIN
    PUT /api/survey/:id/restore
+
+   ADMIN
 ============================================================ */
 
 export const restoreSurvey =
@@ -1444,6 +1155,19 @@ export const restoreSurvey =
       } = req.params;
 
 
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid survey ID.",
+        });
+      }
+
+
       const survey =
         await Survey.findById(
           id
@@ -1451,38 +1175,16 @@ export const restoreSurvey =
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
-      }
-
-
-      if (
-        !survey.isDeleted
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Survey request is not deleted.",
-
-        });
-
       }
 
 
       survey.isDeleted =
         false;
-
 
       survey.deletedAt =
         null;
@@ -1492,16 +1194,11 @@ export const restoreSurvey =
 
 
       return res.status(200).json({
-
         success: true,
-
         message:
           "Survey request restored successfully.",
-
         survey,
-
       });
-
 
     } catch (error) {
 
@@ -1510,27 +1207,21 @@ export const restoreSurvey =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
-          error?.message ||
           "Failed to restore survey request.",
-
       });
-
     }
-
   };
 
 
 /* ============================================================
    PERMANENT DELETE
 
-   ADMIN
    DELETE /api/survey/:id/permanent
+
+   ADMIN
 ============================================================ */
 
 export const permanentlyDeleteSurvey =
@@ -1546,6 +1237,19 @@ export const permanentlyDeleteSurvey =
       } = req.params;
 
 
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          id
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid survey ID.",
+        });
+      }
+
+
       const survey =
         await Survey.findById(
           id
@@ -1553,16 +1257,11 @@ export const permanentlyDeleteSurvey =
 
 
       if (!survey) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Survey request not found.",
-
         });
-
       }
 
 
@@ -1572,14 +1271,10 @@ export const permanentlyDeleteSurvey =
 
 
       return res.status(200).json({
-
         success: true,
-
         message:
-          "Survey request permanently deleted.",
-
+          "Survey permanently deleted.",
       });
-
 
     } catch (error) {
 
@@ -1588,17 +1283,10 @@ export const permanentlyDeleteSurvey =
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
-          error?.message ||
           "Failed to permanently delete survey.",
-
       });
-
     }
-
   };

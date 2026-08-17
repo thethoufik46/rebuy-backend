@@ -19,40 +19,33 @@ import {
   isAdmin,
 } from "../middleware/auth.js";
 
-
 const router =
   express.Router();
 
 
 /* ============================================================
-   PUBLIC USER SURVEY SUBMISSION
-
-   POST /api/survey/add
-
-   LOGIN NOT REQUIRED
-
-   IMPORTANT:
-   No verifyToken here.
-   No isAdmin here.
+   USER SURVEY
 ============================================================ */
 
+/*
+   LOGIN REQUIRED
+
+   POST /api/survey/add
+*/
 router.post(
   "/add",
+  verifyToken,
   addSurvey
 );
 
 
-/* ============================================================
-   USER SURVEY HISTORY
+/*
+   LOGIN REQUIRED
 
    GET /api/survey/my
 
-   LOGIN REQUIRED
-
-   This is ONLY for viewing the logged-in user's
-   previous survey requests.
-============================================================ */
-
+   Returns ONLY current logged-in user's surveys.
+*/
 router.get(
   "/my",
   verifyToken,
@@ -61,11 +54,12 @@ router.get(
 
 
 /* ============================================================
-   ADMIN - GET ALL
-
-   GET /api/survey
+   ADMIN
 ============================================================ */
 
+/*
+   GET ALL SURVEYS
+*/
 router.get(
   "/",
   verifyToken,
@@ -74,12 +68,9 @@ router.get(
 );
 
 
-/* ============================================================
-   ADMIN - GET SINGLE
-
-   GET /api/survey/:id
-============================================================ */
-
+/*
+   GET SINGLE SURVEY
+*/
 router.get(
   "/:id",
   verifyToken,
@@ -88,12 +79,9 @@ router.get(
 );
 
 
-/* ============================================================
-   ADMIN - UPDATE
-
-   PUT /api/survey/:id
-============================================================ */
-
+/*
+   UPDATE SURVEY
+*/
 router.put(
   "/:id",
   verifyToken,
@@ -102,12 +90,9 @@ router.put(
 );
 
 
-/* ============================================================
-   ADMIN - UPDATE STATUS
-
-   PUT /api/survey/:id/status
-============================================================ */
-
+/*
+   UPDATE STATUS
+*/
 router.put(
   "/:id/status",
   verifyToken,
@@ -116,12 +101,9 @@ router.put(
 );
 
 
-/* ============================================================
-   ADMIN - SOFT DELETE
-
-   DELETE /api/survey/:id
-============================================================ */
-
+/*
+   SOFT DELETE
+*/
 router.delete(
   "/:id",
   verifyToken,
@@ -130,12 +112,9 @@ router.delete(
 );
 
 
-/* ============================================================
-   ADMIN - RESTORE
-
-   PUT /api/survey/:id/restore
-============================================================ */
-
+/*
+   RESTORE
+*/
 router.put(
   "/:id/restore",
   verifyToken,
@@ -144,12 +123,9 @@ router.put(
 );
 
 
-/* ============================================================
-   ADMIN - PERMANENT DELETE
-
-   DELETE /api/survey/:id/permanent
-============================================================ */
-
+/*
+   PERMANENT DELETE
+*/
 router.delete(
   "/:id/permanent",
   verifyToken,
@@ -157,9 +133,5 @@ router.delete(
   permanentlyDeleteSurvey
 );
 
-
-/* ============================================================
-   EXPORT
-============================================================ */
 
 export default router;

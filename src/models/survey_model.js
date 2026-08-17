@@ -4,26 +4,32 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 
+
 /* ============================================================
-   LOAD TAMIL NADU DISTRICTS JSON
+   LOAD TAMIL NADU LOCATIONS
 ============================================================ */
 
-const locationsPath = path.join(
-  process.cwd(),
-  "src",
-  "tamilnadu_locations.json"
-);
+const locationsPath =
+  path.join(
+    process.cwd(),
+    "src",
+    "tamilnadu_locations.json"
+  );
 
 let locations = {};
 
 try {
-  locations = JSON.parse(
-    fs.readFileSync(
-      locationsPath,
-      "utf-8"
-    )
-  );
+
+  locations =
+    JSON.parse(
+      fs.readFileSync(
+        locationsPath,
+        "utf-8"
+      )
+    );
+
 } catch (error) {
+
   console.error(
     "❌ Failed to load Tamil Nadu locations:",
     error
@@ -34,7 +40,7 @@ try {
 
 
 /* ============================================================
-   SURVEY SCHEMA
+   SCHEMA
 ============================================================ */
 
 const surveySchema =
@@ -42,14 +48,7 @@ const surveySchema =
     {
 
       /* ========================================================
-         USER
-
-         OPTIONAL
-
-         Survey can be submitted without login.
-
-         If a logged-in user ID is available,
-         it can still be stored.
+         LOGGED-IN USER
       ======================================================== */
 
       user: {
@@ -58,32 +57,26 @@ const surveySchema =
 
         ref: "User",
 
-        required: false,
-
-        default: null,
+        required: true,
 
         index: true,
       },
 
 
       /* ========================================================
-         CUSTOMER DETAILS
+         CUSTOMER
       ======================================================== */
 
       name: {
         type: String,
-
         required: true,
-
         trim: true,
       },
 
 
       phone: {
         type: String,
-
         required: true,
-
         trim: true,
       },
 
@@ -94,37 +87,28 @@ const surveySchema =
 
       district: {
         type: String,
-
         required: true,
-
         trim: true,
-
         index: true,
       },
 
 
       /* ========================================================
-         GOOGLE MAP LOCATION
+         LOCATION
       ======================================================== */
 
       latitude: {
         type: Number,
-
         default: null,
-
         min: -90,
-
         max: 90,
       },
 
 
       longitude: {
         type: Number,
-
         default: null,
-
         min: -180,
-
         max: 180,
       },
 
@@ -144,10 +128,9 @@ const surveySchema =
           "Commercial Property - வணிக சொத்து",
           "Layout / Plot - லேஅவுட் / மனை",
           "Other - மற்றவை",
+          null,
         ],
 
-        // IMPORTANT:
-        // null is allowed because this field is optional.
         default: null,
       },
 
@@ -167,6 +150,7 @@ const surveySchema =
           "Building Measurement - கட்டிட அளவீடு",
           "Full Property Survey - முழு சொத்து சர்வே",
           "Other - மற்றவை",
+          null,
         ],
 
         default: null,
@@ -174,21 +158,15 @@ const surveySchema =
 
 
       /* ========================================================
-         APPROXIMATE AREA
+         AREA
       ======================================================== */
 
       approximateArea: {
         type: Number,
-
         default: null,
-
         min: 0,
       },
 
-
-      /* ========================================================
-         AREA UNIT
-      ======================================================== */
 
       areaUnit: {
         type: String,
@@ -199,6 +177,7 @@ const surveySchema =
           "Ground - கிரவுண்ட்",
           "Acre - ஏக்கர்",
           "Hectare - ஹெக்டேர்",
+          null,
         ],
 
         default: null,
@@ -206,38 +185,32 @@ const surveySchema =
 
 
       /* ========================================================
-         PROPERTY DOCUMENT DETAILS
+         DOCUMENT DETAILS
       ======================================================== */
 
       surveyNumber: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
 
       subdivisionNumber: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
 
       pattaNumber: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
 
       /* ========================================================
-         BOUNDARY STATUS
+         BOUNDARY
       ======================================================== */
 
       boundaryStatus: {
@@ -256,7 +229,7 @@ const surveySchema =
 
 
       /* ========================================================
-         SURVEY REQUIREMENT
+         REQUIREMENT
       ======================================================== */
 
       requirement: {
@@ -284,29 +257,24 @@ const surveySchema =
 
       description: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
 
       /* ========================================================
-         PREFERRED VISIT
+         VISIT
       ======================================================== */
 
       preferredDate: {
         type: Date,
-
         default: null,
       },
 
 
       preferredTime: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
@@ -337,9 +305,7 @@ const surveySchema =
 
       adminNote: {
         type: String,
-
         trim: true,
-
         default: "",
       },
 
@@ -350,18 +316,14 @@ const surveySchema =
 
       isDeleted: {
         type: Boolean,
-
         default: false,
-
         index: true,
       },
 
 
       deletedAt: {
         type: Date,
-
         default: null,
-
         index: true,
       },
 
@@ -390,13 +352,11 @@ surveySchema.pre(
 
 
       if (!districtValue) {
-
         return next(
           new Error(
             "District is required"
           )
         );
-
       }
 
 
@@ -411,17 +371,14 @@ surveySchema.pre(
 
 
       if (!districtKey) {
-
         return next(
           new Error(
             "Invalid Tamil Nadu district"
           )
         );
-
       }
 
 
-      // Save official district name
       this.district =
         districtKey;
 
@@ -431,9 +388,7 @@ surveySchema.pre(
     } catch (error) {
 
       next(error);
-
     }
-
   }
 );
 
@@ -444,30 +399,25 @@ surveySchema.pre(
 
 surveySchema.index({
   user: 1,
-
   isDeleted: 1,
-
   createdAt: -1,
 });
 
 
 surveySchema.index({
   district: 1,
-
   status: 1,
 });
 
 
 surveySchema.index({
   surveyType: 1,
-
   status: 1,
 });
 
 
 surveySchema.index({
   propertyType: 1,
-
   status: 1,
 });
 
@@ -479,7 +429,6 @@ surveySchema.index({
 
 surveySchema.index({
   isDeleted: 1,
-
   deletedAt: 1,
 });
 

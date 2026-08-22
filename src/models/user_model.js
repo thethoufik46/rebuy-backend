@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 
-/* =====================================================
-   LOAD TAMIL NADU DISTRICTS JSON
-===================================================== */
+// =====================================================
+// LOAD TAMIL NADU DISTRICTS JSON
+// =====================================================
 
 const locationsPath = path.join(
   process.cwd(),
@@ -15,13 +15,15 @@ const locations = JSON.parse(
   fs.readFileSync(locationsPath, "utf-8")
 );
 
-/* =====================================================
-   USER SCHEMA
-===================================================== */
+// =====================================================
+// USER SCHEMA
+// =====================================================
 
 const userSchema = new mongoose.Schema(
   {
-    /* ================= BASIC ================= */
+    // =================================================
+    // BASIC
+    // =================================================
 
     name: {
       type: String,
@@ -29,16 +31,37 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* ================= PHONE NUMBERS ================= */
+    // =================================================
+    // PHONE
+    // =================================================
 
     phone: [
       {
         type: String,
         required: true,
         trim: true,
-        set: (v) => v?.toString().replace(/\s+/g, ""),
+        set: (v) =>
+          v?.toString().replace(/\s+/g, ""),
       },
     ],
+
+    // =================================================
+    // ALTERNATE PHONE
+    // Optional
+    // =================================================
+
+    alternatePhone: {
+      type: String,
+      default: "",
+      trim: true,
+      set: (v) =>
+        v?.toString().replace(/\s+/g, ""),
+    },
+
+    // =================================================
+    // EMAIL
+    // Optional
+    // =================================================
 
     email: {
       type: String,
@@ -48,12 +71,20 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // =================================================
+    // PASSWORD
+    // Required
+    // Only 6–10 digits
+    // =================================================
+
     password: {
       type: String,
       required: true,
     },
 
-    /* ================= ROLE ================= */
+    // =================================================
+    // ROLE
+    // =================================================
 
     role: {
       type: String,
@@ -61,15 +92,23 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
-    /* ================= CATEGORY ================= */
+    // =================================================
+    // CATEGORY
+    // =================================================
 
     category: {
       type: String,
-      enum: ["buyer", "seller", "driver"],
+      enum: [
+        "buyer",
+        "seller",
+        "driver",
+      ],
       required: true,
     },
 
-    /* ================= VERIFICATION ================= */
+    // =================================================
+    // VERIFICATION
+    // =================================================
 
     verification: {
       type: String,
@@ -85,16 +124,40 @@ const userSchema = new mongoose.Schema(
       default: "others",
     },
 
-    /* ================= STATUS ================= */
+    // =================================================
+    // STATUS
+    //
+    // User does NOT choose this.
+    // Default = not_verified
+    // Admin changes it to verified.
+    // =================================================
 
     status: {
       type: String,
-      enum: ["not_verified", "verified"],
-      default: "not_verified",
+      enum: [
+        "not_verified",
+        "verified",
+      ],
       required: true,
+      default: "not_verified",
     },
 
-    /* ================= LOCATION ================= */
+    // =================================================
+    // HIGHLIGHT
+    // Admin can add custom text.
+    // Optional.
+    // =================================================
+
+    highlightText: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 250,
+    },
+
+    // =================================================
+    // LOCATION
+    // =================================================
 
     district: {
       type: String,
@@ -105,23 +168,30 @@ const userSchema = new mongoose.Schema(
     address: {
       type: String,
       default: "NA",
+      trim: true,
     },
 
-    /* ================= PROFILE ================= */
+    // =================================================
+    // PROFILE IMAGE
+    // =================================================
 
     profileImage: {
       type: String,
       default: "",
     },
 
-    /* ================= GALLERY ================= */
+    // =================================================
+    // GALLERY
+    // =================================================
 
     galleryImages: {
       type: [String],
       default: [],
     },
 
-    /* ================= PASSWORD REQUEST ================= */
+    // =================================================
+    // PASSWORD REQUEST
+    // =================================================
 
     forgotRequest: {
       type: Boolean,
@@ -138,23 +208,36 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
   },
+
   {
     timestamps: true,
   }
 );
 
-/* =====================================================
-   DISTRICT VALIDATION
-===================================================== */
+// =====================================================
+// DISTRICT VALIDATION
+// =====================================================
 
 userSchema.pre("save", function (next) {
   try {
-    const districtKey = Object.keys(locations).find(
-      (d) => d.toLowerCase() === this.district.toLowerCase()
+    if (!this.district) {
+      return next(
+        new Error("District is required")
+      );
+    }
+
+    const districtKey = Object.keys(
+      locations
+    ).find(
+      (d) =>
+        d.toLowerCase() ===
+        this.district.toLowerCase()
     );
 
     if (!districtKey) {
-      throw new Error("Invalid district");
+      throw new Error(
+        "Invalid district"
+      );
     }
 
     this.district = districtKey;
@@ -165,12 +248,31 @@ userSchema.pre("save", function (next) {
   }
 });
 
-/* =====================================================
-   INDEXES
-===================================================== */
+// =====================================================
+// INDEXES
+// =====================================================
 
-userSchema.index({ district: 1 });
-userSchema.index({ phone: 1 });
-userSchema.index({ status: 1 });
+userSchema.index({
+  district: 1,
+});
 
-export default mongoose.model("User", userSchema);
+userSchema.index({
+  phone: 1,
+});
+
+userSchema.index({
+  alternatePhone: 1,
+});
+
+userSchema.index({
+  status: 1,
+});
+
+// =====================================================
+// MODEL
+// =====================================================
+
+export default mongoose.model(
+  "User",
+  userSchema
+);

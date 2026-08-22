@@ -1,13 +1,9 @@
 import express from "express";
-
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 import { verifyToken } from "../middleware/auth.js";
-
 import uploadUser from "../middleware/uploadUser.js";
-
 import User from "../models/user_model.js";
-
 import r2 from "../config/r2.js";
 
 import {
@@ -17,18 +13,33 @@ import {
 
 const router = express.Router();
 
-/* ==================================================
-   UPLOAD / EDIT PROFILE + GALLERY
-   🔒 Protected by verifyToken
-================================================== */
+// ==================================================
+// USER PROFILE IMAGE
+//
+// USER CAN:
+// ✅ Upload / replace profile image
+//
+// USER CANNOT:
+// ❌ Upload gallery
+// ❌ Edit gallery
+// ❌ Delete gallery
+// ❌ Change status
+// ❌ Change verification
+// ❌ Change highlight
+// ❌ Change alternate phone
+// ==================================================
 
 router.post(
   "/upload-profile",
   verifyToken,
+
   uploadUser.fields([
-    { name: "profileImage", maxCount: 1 },
-    { name: "gallery", maxCount: 10 },
+    {
+      name: "profileImage",
+      maxCount: 1,
+    },
   ]),
+
   async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
@@ -40,7 +51,9 @@ router.post(
         });
       }
 
-      /* ----- Profile image ----- */
+      // ==================================================
+      // PROFILE IMAGE ONLY
+      // ==================================================
 
       if (req.files?.profileImage?.length) {
         if (user.profileImage) {
@@ -53,135 +66,44 @@ router.post(
         );
       }
 
-      /* ----- Existing gallery (keep only listed) ----- */
-
-      if (req.body.existingGallery !== undefined) {
-        let existingGallery;
-
-        try {
-          existingGallery = Array.isArray(req.body.existingGallery)
-            ? req.body.existingGallery
-            : JSON.parse(req.body.existingGallery);
-        } catch {
-          existingGallery = user.galleryImages || [];
-        }
-
-        if (Array.isArray(existingGallery)) {
-          const imagesToDelete = (user.galleryImages || []).filter(
-            (img) => !existingGallery.includes(img)
-          );
-
-          for (const img of imagesToDelete) {
-            await deleteUserImage(img);
-          }
-
-          user.galleryImages = existingGallery;
-        }
-      }
-
-      /* ----- New gallery images ----- */
-
-      if (req.files?.gallery?.length) {
-        const newGallery = await Promise.all(
-          req.files.gallery.map((img) =>
-            uploadUserImage(img, "users/gallery")
-          )
-        );
-
-        user.galleryImages = [
-          ...(user.galleryImages || []),
-          ...newGallery,
-        ];
-      }
-
       await user.save();
 
-      res.json({
+      return res.json({
         success: true,
-        message: "Profile updated successfully",
-        profileImage: user.profileImage,
-        galleryImages: user.galleryImages,
+        message: "Profile image updated successfully",
+
+        profileImage: user.profileImage || "",
+
+        // Gallery is VIEW ONLY
+        galleryImages: user.galleryImages || [],
+
+        // Read-only fields
         status: user.status,
+        verification: user.verification,
+        alternatePhone: user.alternatePhone || "",
+        highlightText: user.highlightText || "",
       });
     } catch (err) {
-      console.error("USER UPLOAD ERROR:", err);
+      console.error("USER PROFILE UPLOAD ERROR:", err);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
-        message: "Image upload failed",
+        message: "Profile image upload failed",
       });
     }
   }
 );
 
-/* ==================================================
-   UPDATE USER STATUS
-   🔒 Protected by verifyToken
-
-   Allowed:
-   - not_verified
-   - verified
-================================================== */
-
-router.put(
-  "/status",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const { status } = req.body;
-
-      /* ----- Validate status ----- */
-
-      const allowedStatuses = [
-        "not_verified",
-        "verified",
-      ];
-
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid status. Allowed values: not_verified, verified",
-        });
-      }
-
-      const user = await User.findById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      user.status = status;
-
-      await user.save();
-
-      res.json({
-        success: true,
-        message: "User status updated successfully",
-        status: user.status,
-      });
-    } catch (err) {
-      console.error("UPDATE STATUS ERROR:", err);
-
-      res.status(500).json({
-        success: false,
-        message: "Failed to update status",
-      });
-    }
-  }
-);
-
-/* ==================================================
-   DELETE PROFILE IMAGE
-   🔒 Protected by verifyToken
-================================================== */
+// ==================================================
+// DELETE USER PROFILE IMAGE
+//
+// USER CAN DELETE ONLY PROFILE IMAGE
+// ==================================================
 
 router.delete(
   "/profile-image",
   verifyToken,
+
   async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
@@ -201,14 +123,18 @@ router.delete(
         await user.save();
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "Profile image deleted",
+        profileImage: "",
       });
     } catch (err) {
-      console.error("DELETE PROFILE ERROR:", err);
+      console.error(
+        "DELETE PROFILE IMAGE ERROR:",
+        err
+      );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Delete failed",
       });
@@ -216,122 +142,25 @@ router.delete(
   }
 );
 
-/* ==================================================
-   DELETE SINGLE GALLERY IMAGE
-   🔒 Protected by verifyToken
-================================================== */
-
-router.delete(
-  "/gallery/:index",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      /* ----- Safe gallery access ----- */
-
-      const gallery = user.galleryImages || [];
-
-      const index = Number(req.params.index);
-
-      if (
-        isNaN(index) ||
-        index < 0 ||
-        index >= gallery.length
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid gallery index",
-        });
-      }
-
-      const image = gallery[index];
-
-      await deleteUserImage(image);
-
-      gallery.splice(index, 1);
-
-      user.galleryImages = gallery;
-
-      await user.save();
-
-      res.json({
-        success: true,
-        message: "Gallery image deleted",
-        galleryImages: user.galleryImages,
-      });
-    } catch (err) {
-      console.error("DELETE GALLERY ERROR:", err);
-
-      res.status(500).json({
-        success: false,
-        message: "Delete failed",
-      });
-    }
-  }
-);
-
-/* ==================================================
-   DELETE ALL GALLERY IMAGES
-   🔒 Protected by verifyToken
-================================================== */
-
-router.delete(
-  "/gallery",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      const gallery = user.galleryImages || [];
-
-      for (const img of gallery) {
-        await deleteUserImage(img);
-      }
-
-      user.galleryImages = [];
-
-      await user.save();
-
-      res.json({
-        success: true,
-        message: "All gallery images deleted",
-      });
-    } catch (err) {
-      console.error("DELETE ALL GALLERY ERROR:", err);
-
-      res.status(500).json({
-        success: false,
-        message: "Delete failed",
-      });
-    }
-  }
-);
-
-/* ==================================================
-   VIEW IMAGE
-   🌐 PUBLIC – no token required
-================================================== */
+// ==================================================
+// VIEW IMAGE
+//
+// PUBLIC
+// No token required
+// ==================================================
 
 router.get(
   "/image/*",
   async (req, res) => {
     try {
       const key = req.params[0];
+
+      if (!key) {
+        return res.status(400).json({
+          success: false,
+          message: "Image key is required",
+        });
+      }
 
       const command = new GetObjectCommand({
         Bucket: process.env.R2_BUCKET,
@@ -342,7 +171,8 @@ router.get(
 
       res.setHeader(
         "Content-Type",
-        data.ContentType || "application/octet-stream"
+        data.ContentType ||
+          "application/octet-stream"
       );
 
       if (data.ContentLength) {
@@ -357,14 +187,21 @@ router.get(
         "public, max-age=31536000, immutable"
       );
 
-      data.Body.pipe(res);
+      if (data.Body) {
+        data.Body.pipe(res);
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: "Image not found",
+        });
+      }
     } catch (err) {
       console.error(
         "IMAGE VIEW ERROR:",
         err.message
       );
 
-      res.status(404).json({
+      return res.status(404).json({
         success: false,
         message: "Image not found",
       });
@@ -372,18 +209,29 @@ router.get(
   }
 );
 
-/* ==================================================
-   GET MY PROFILE
-   🔒 Protected by verifyToken
-================================================== */
+// ==================================================
+// GET MY PROFILE
+//
+// USER CAN VIEW:
+// ✅ Profile image
+// ✅ Gallery
+// ✅ Status
+// ✅ Verification
+// ✅ Alternate phone
+// ✅ Highlight
+//
+// These are READ ONLY for user
+// ==================================================
 
 router.get(
   "/profile",
   verifyToken,
+
   async (req, res) => {
     try {
-      const user = await User.findById(req.user.id)
-        .select("-password");
+      const user = await User.findById(
+        req.user.id
+      ).select("-password");
 
       if (!user) {
         return res.status(404).json({
@@ -392,22 +240,76 @@ router.get(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
-        user,
+
+        user: {
+          _id: user._id,
+          name: user.name,
+          phone: user.phone,
+
+          email: user.email || "",
+
+          category: user.category,
+
+          district: user.district,
+
+          address: user.address || "NA",
+
+          role: user.role,
+
+          // READ ONLY
+          status:
+            user.status || "not_verified",
+
+          verification:
+            user.verification || "others",
+
+          // READ ONLY
+          alternatePhone:
+            user.alternatePhone || "",
+
+          // READ ONLY
+          highlightText:
+            user.highlightText || "",
+
+          profileImage:
+            user.profileImage || "",
+
+          // VIEW ONLY
+          galleryImages:
+            user.galleryImages || [],
+
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
       });
     } catch (err) {
       console.error(
-        "GET PROFILE ERROR:",
+        "GET USER PROFILE ERROR:",
         err
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Failed to fetch profile",
       });
     }
   }
 );
+
+// ==================================================
+// IMPORTANT
+//
+// NO USER GALLERY ROUTES HERE
+//
+// ❌ POST   /gallery
+// ❌ PUT    /gallery
+// ❌ PATCH  /gallery
+// ❌ DELETE /gallery/:index
+// ❌ DELETE /gallery
+//
+// Gallery is ADMIN ONLY.
+// ==================================================
 
 export default router;

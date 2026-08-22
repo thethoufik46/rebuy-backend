@@ -1,10 +1,13 @@
 import express from "express";
+
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 import { verifyToken } from "../middleware/auth.js";
+
 import uploadUser from "../middleware/uploadUser.js";
 
 import User from "../models/user_model.js";
+
 import r2 from "../config/r2.js";
 
 import {
@@ -16,8 +19,9 @@ const router = express.Router();
 
 /* ==================================================
    UPLOAD / EDIT PROFILE + GALLERY
-   🔒 Protected by verifyToken (auto-blocks "black" users)
+   🔒 Protected by verifyToken
 ================================================== */
+
 router.post(
   "/upload-profile",
   verifyToken,
@@ -28,6 +32,7 @@ router.post(
   async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
+
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -36,8 +41,12 @@ router.post(
       }
 
       /* ----- Profile image ----- */
+
       if (req.files?.profileImage?.length) {
-        if (user.profileImage) await deleteUserImage(user.profileImage);
+        if (user.profileImage) {
+          await deleteUserImage(user.profileImage);
+        }
+
         user.profileImage = await uploadUserImage(
           req.files.profileImage[0],
           "users/profile"
@@ -45,8 +54,10 @@ router.post(
       }
 
       /* ----- Existing gallery (keep only listed) ----- */
+
       if (req.body.existingGallery !== undefined) {
         let existingGallery;
+
         try {
           existingGallery = Array.isArray(req.body.existingGallery)
             ? req.body.existingGallery
@@ -54,25 +65,33 @@ router.post(
         } catch {
           existingGallery = user.galleryImages || [];
         }
+
         if (Array.isArray(existingGallery)) {
           const imagesToDelete = (user.galleryImages || []).filter(
             (img) => !existingGallery.includes(img)
           );
+
           for (const img of imagesToDelete) {
             await deleteUserImage(img);
           }
+
           user.galleryImages = existingGallery;
         }
       }
 
       /* ----- New gallery images ----- */
+
       if (req.files?.gallery?.length) {
         const newGallery = await Promise.all(
           req.files.gallery.map((img) =>
             uploadUserImage(img, "users/gallery")
           )
         );
-        user.galleryImages = [...(user.galleryImages || []), ...newGallery];
+
+        user.galleryImages = [
+          ...(user.galleryImages || []),
+          ...newGallery,
+        ];
       }
 
       await user.save();
@@ -82,9 +101,11 @@ router.post(
         message: "Profile updated successfully",
         profileImage: user.profileImage,
         galleryImages: user.galleryImages,
+        status: user.status,
       });
     } catch (err) {
       console.error("USER UPLOAD ERROR:", err);
+
       res.status(500).json({
         success: false,
         message: "Image upload failed",
@@ -94,32 +115,99 @@ router.post(
 );
 
 /* ==================================================
-   DELETE PROFILE IMAGE
+   UPDATE USER STATUS
    🔒 Protected by verifyToken
+
+   Allowed:
+   - not_verified
+   - verified
 ================================================== */
-router.delete(
-  "/profile-image",
+
+router.put(
+  "/status",
   verifyToken,
   async (req, res) => {
     try {
+      const { status } = req.body;
+
+      /* ----- Validate status ----- */
+
+      const allowedStatuses = [
+        "not_verified",
+        "verified",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid status. Allowed values: not_verified, verified",
+        });
+      }
+
       const user = await User.findById(req.user.id);
+
       if (!user) {
         return res.status(404).json({
           success: false,
           message: "User not found",
         });
       }
+
+      user.status = status;
+
+      await user.save();
+
+      res.json({
+        success: true,
+        message: "User status updated successfully",
+        status: user.status,
+      });
+    } catch (err) {
+      console.error("UPDATE STATUS ERROR:", err);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to update status",
+      });
+    }
+  }
+);
+
+/* ==================================================
+   DELETE PROFILE IMAGE
+   🔒 Protected by verifyToken
+================================================== */
+
+router.delete(
+  "/profile-image",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
       if (user.profileImage) {
         await deleteUserImage(user.profileImage);
+
         user.profileImage = "";
+
         await user.save();
       }
+
       res.json({
         success: true,
         message: "Profile image deleted",
       });
     } catch (err) {
       console.error("DELETE PROFILE ERROR:", err);
+
       res.status(500).json({
         success: false,
         message: "Delete failed",
@@ -132,12 +220,14 @@ router.delete(
    DELETE SINGLE GALLERY IMAGE
    🔒 Protected by verifyToken
 ================================================== */
+
 router.delete(
   "/gallery/:index",
   verifyToken,
   async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
+
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -145,11 +235,17 @@ router.delete(
         });
       }
 
-      // ✅ Safe gallery access
+      /* ----- Safe gallery access ----- */
+
       const gallery = user.galleryImages || [];
+
       const index = Number(req.params.index);
 
-      if (isNaN(index) || index < 0 || index >= gallery.length) {
+      if (
+        isNaN(index) ||
+        index < 0 ||
+        index >= gallery.length
+      ) {
         return res.status(400).json({
           success: false,
           message: "Invalid gallery index",
@@ -157,10 +253,13 @@ router.delete(
       }
 
       const image = gallery[index];
+
       await deleteUserImage(image);
 
       gallery.splice(index, 1);
+
       user.galleryImages = gallery;
+
       await user.save();
 
       res.json({
@@ -170,6 +269,7 @@ router.delete(
       });
     } catch (err) {
       console.error("DELETE GALLERY ERROR:", err);
+
       res.status(500).json({
         success: false,
         message: "Delete failed",
@@ -182,12 +282,14 @@ router.delete(
    DELETE ALL GALLERY IMAGES
    🔒 Protected by verifyToken
 ================================================== */
+
 router.delete(
   "/gallery",
   verifyToken,
   async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
+
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -196,10 +298,13 @@ router.delete(
       }
 
       const gallery = user.galleryImages || [];
+
       for (const img of gallery) {
         await deleteUserImage(img);
       }
+
       user.galleryImages = [];
+
       await user.save();
 
       res.json({
@@ -208,6 +313,7 @@ router.delete(
       });
     } catch (err) {
       console.error("DELETE ALL GALLERY ERROR:", err);
+
       res.status(500).json({
         success: false,
         message: "Delete failed",
@@ -217,60 +323,85 @@ router.delete(
 );
 
 /* ==================================================
-   VIEW IMAGE (PUBLIC – no token required)
+   VIEW IMAGE
+   🌐 PUBLIC – no token required
 ================================================== */
-router.get("/image/*", async (req, res) => {
-  try {
-    const key = req.params[0];
-    const command = new GetObjectCommand({
-      Bucket: process.env.R2_BUCKET,
-      Key: key,
-    });
-    const data = await r2.send(command);
 
-    res.setHeader(
-      "Content-Type",
-      data.ContentType || "application/octet-stream"
-    );
-    if (data.ContentLength) {
-      res.setHeader("Content-Length", data.ContentLength);
+router.get(
+  "/image/*",
+  async (req, res) => {
+    try {
+      const key = req.params[0];
+
+      const command = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: key,
+      });
+
+      const data = await r2.send(command);
+
+      res.setHeader(
+        "Content-Type",
+        data.ContentType || "application/octet-stream"
+      );
+
+      if (data.ContentLength) {
+        res.setHeader(
+          "Content-Length",
+          data.ContentLength
+        );
+      }
+
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=31536000, immutable"
+      );
+
+      data.Body.pipe(res);
+    } catch (err) {
+      console.error(
+        "IMAGE VIEW ERROR:",
+        err.message
+      );
+
+      res.status(404).json({
+        success: false,
+        message: "Image not found",
+      });
     }
-    res.setHeader(
-      "Cache-Control",
-      "public, max-age=31536000, immutable"
-    );
-    data.Body.pipe(res);
-  } catch (err) {
-    console.error("IMAGE VIEW ERROR:", err.message);
-    res.status(404).json({
-      success: false,
-      message: "Image not found",
-    });
   }
-});
+);
 
 /* ==================================================
    GET MY PROFILE
    🔒 Protected by verifyToken
 ================================================== */
+
 router.get(
   "/profile",
   verifyToken,
   async (req, res) => {
     try {
-      const user = await User.findById(req.user.id).select("-password");
+      const user = await User.findById(req.user.id)
+        .select("-password");
+
       if (!user) {
         return res.status(404).json({
           success: false,
           message: "User not found",
         });
       }
+
       res.json({
         success: true,
         user,
       });
     } catch (err) {
-      console.error("GET PROFILE ERROR:", err);
+      console.error(
+        "GET PROFILE ERROR:",
+        err
+      );
+
       res.status(500).json({
         success: false,
         message: "Failed to fetch profile",

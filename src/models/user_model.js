@@ -5,6 +5,7 @@ import path from "path";
 /* =====================================================
    LOAD TAMIL NADU DISTRICTS JSON
 ===================================================== */
+
 const locationsPath = path.join(
   process.cwd(),
   "src/tamilnadu_locations.json"
@@ -17,6 +18,7 @@ const locations = JSON.parse(
 /* =====================================================
    USER SCHEMA
 ===================================================== */
+
 const userSchema = new mongoose.Schema(
   {
     /* ================= BASIC ================= */
@@ -51,17 +53,23 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    /* ================= ROLE ================= */
+
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
 
+    /* ================= CATEGORY ================= */
+
     category: {
       type: String,
       enum: ["buyer", "seller", "driver"],
       required: true,
     },
+
+    /* ================= VERIFICATION ================= */
 
     verification: {
       type: String,
@@ -75,6 +83,15 @@ const userSchema = new mongoose.Schema(
         "black",
       ],
       default: "others",
+    },
+
+    /* ================= STATUS ================= */
+
+    status: {
+      type: String,
+      enum: ["not_verified", "verified"],
+      default: "not_verified",
+      required: true,
     },
 
     /* ================= LOCATION ================= */
@@ -129,6 +146,7 @@ const userSchema = new mongoose.Schema(
 /* =====================================================
    DISTRICT VALIDATION
 ===================================================== */
+
 userSchema.pre("save", function (next) {
   try {
     const districtKey = Object.keys(locations).find(
@@ -153,5 +171,6 @@ userSchema.pre("save", function (next) {
 
 userSchema.index({ district: 1 });
 userSchema.index({ phone: 1 });
+userSchema.index({ status: 1 });
 
 export default mongoose.model("User", userSchema);

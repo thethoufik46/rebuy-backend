@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
 
     // =================================================
     // ALTERNATE PHONE
-    // Optional
+    // OPTIONAL
     // =================================================
 
     alternatePhone: {
@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema(
 
     // =================================================
     // EMAIL
-    // Optional
+    // OPTIONAL
     // =================================================
 
     email: {
@@ -73,8 +73,7 @@ const userSchema = new mongoose.Schema(
 
     // =================================================
     // PASSWORD
-    // Required
-    // Only 6–10 digits
+    // REQUIRED
     // =================================================
 
     password: {
@@ -107,10 +106,23 @@ const userSchema = new mongoose.Schema(
     },
 
     // =================================================
-    // VERIFICATION
+    // USER TYPE
+    // =================================================
+    // This replaces the old "verification" name.
+    //
+    // Values:
+    // verified
+    // mediator
+    // dealer
+    // premium
+    // others
+    // partner
+    // black
+    //
+    // This field does NOT control the badge.
     // =================================================
 
-    verification: {
+    userType: {
       type: String,
       enum: [
         "verified",
@@ -126,10 +138,14 @@ const userSchema = new mongoose.Schema(
 
     // =================================================
     // STATUS
+    // =================================================
+    // Badge is controlled ONLY by this field.
+    //
+    // verified     = show verified badge
+    // not_verified = do not show badge
     //
     // User does NOT choose this.
-    // Default = not_verified
-    // Admin changes it to verified.
+    // Admin changes it.
     // =================================================
 
     status: {
@@ -144,8 +160,7 @@ const userSchema = new mongoose.Schema(
 
     // =================================================
     // HIGHLIGHT
-    // Admin can add custom text.
-    // Optional.
+    // OPTIONAL
     // =================================================
 
     highlightText: {
@@ -208,7 +223,6 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
   },
-
   {
     timestamps: true,
   }
@@ -266,6 +280,10 @@ userSchema.index({
 
 userSchema.index({
   status: 1,
+});
+
+userSchema.index({
+  userType: 1,
 });
 
 // =====================================================

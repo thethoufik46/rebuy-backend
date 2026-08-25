@@ -36,7 +36,7 @@ const ALLOWED_STATUS = [
   "verified",
 ];
 
-const ALLOWED_VERIFICATION = [
+const ALLOWED_USER_TYPES = [
   "verified",
   "mediator",
   "dealer",
@@ -45,6 +45,10 @@ const ALLOWED_VERIFICATION = [
   "partner",
   "black",
 ];
+
+// ============================================================
+// HELPERS
+// ============================================================
 
 const cleanPhone = (value) => {
   if (value === undefined || value === null) {
@@ -92,7 +96,7 @@ const cleanText = (value) => {
 // alternatePhone
 // address
 // status
-// verification
+// userType
 // role
 // highlightText
 // profileImage
@@ -127,19 +131,10 @@ router.post(
         alternatePhone,
         address,
         status,
-        verification,
+        userType,
         role,
         highlightText,
       } = req.body;
-
-      console.log("========================================");
-      console.log("ADMIN CREATE USER");
-      console.log("NAME 👉", name);
-      console.log("PHONE 👉", phone);
-      console.log("STATUS 👉", status);
-      console.log("VERIFICATION 👉", verification);
-      console.log("ROLE 👉", role);
-      console.log("========================================");
 
       // ========================================================
       // REQUIRED FIELDS
@@ -161,7 +156,7 @@ router.post(
 
       // ========================================================
       // PASSWORD
-      // ONLY NUMBER
+      // ONLY NUMBERS
       // MIN 6 / MAX 10
       // ========================================================
 
@@ -273,8 +268,7 @@ router.post(
       // ROLE
       // ========================================================
 
-      const finalRole =
-        role || "user";
+      const finalRole = role || "user";
 
       if (
         !ALLOWED_ROLES.includes(finalRole)
@@ -287,8 +281,7 @@ router.post(
 
       // ========================================================
       // STATUS
-      // DEFAULT = NOT VERIFIED
-      // ADMIN CAN CHOOSE VERIFIED
+      // BADGE USES ONLY STATUS
       // ========================================================
 
       const finalStatus =
@@ -307,21 +300,21 @@ router.post(
       }
 
       // ========================================================
-      // VERIFICATION
+      // USER TYPE
       // ========================================================
 
-      const finalVerification =
-        verification || "others";
+      const finalUserType =
+        userType || "others";
 
       if (
-        !ALLOWED_VERIFICATION.includes(
-          finalVerification
+        !ALLOWED_USER_TYPES.includes(
+          finalUserType
         )
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "Invalid verification",
+            "Invalid user type",
         });
       }
 
@@ -373,10 +366,11 @@ router.post(
 
         role: finalRole,
 
-        verification:
-          finalVerification,
+        userType:
+          finalUserType,
 
-        status: finalStatus,
+        status:
+          finalStatus,
 
         alternatePhone:
           finalAlternatePhone,
@@ -539,8 +533,6 @@ router.get(
 // ============================================================
 // UPDATE USER
 // ADMIN ONLY
-//
-// ALL FIELDS
 // ============================================================
 
 router.put(
@@ -584,27 +576,18 @@ router.put(
         alternatePhone,
         address,
         status,
-        verification,
+        userType,
         role,
         highlightText,
       } = req.body;
-
-      console.log("========================================");
-      console.log("ADMIN UPDATE USER");
-      console.log("ID 👉", req.params.id);
-      console.log("NAME 👉", name);
-      console.log("PHONE 👉", phone);
-      console.log("STATUS 👉", status);
-      console.log("VERIFICATION 👉", verification);
-      console.log("ROLE 👉", role);
-      console.log("========================================");
 
       // ========================================================
       // NAME
       // ========================================================
 
       if (name !== undefined) {
-        const value = cleanText(name);
+        const value =
+          cleanText(name);
 
         if (!value) {
           return res.status(400).json({
@@ -655,7 +638,6 @@ router.put(
 
         user.phone = [finalPhone];
 
-        // Alternate phone cannot equal primary
         if (
           user.alternatePhone &&
           user.alternatePhone ===
@@ -795,8 +777,7 @@ router.put(
           });
         }
 
-        user.category =
-          category;
+        user.category = category;
       }
 
       // ========================================================
@@ -857,6 +838,8 @@ router.put(
       // ========================================================
       // STATUS
       // ADMIN ONLY
+      //
+      // BADGE IS BASED ONLY ON THIS FIELD
       // ========================================================
 
       if (
@@ -878,27 +861,29 @@ router.put(
       }
 
       // ========================================================
-      // VERIFICATION
+      // USER TYPE
       // ADMIN ONLY
+      //
+      // Does NOT control badge
       // ========================================================
 
       if (
-        verification !== undefined
+        userType !== undefined
       ) {
         if (
-          !ALLOWED_VERIFICATION.includes(
-            verification
+          !ALLOWED_USER_TYPES.includes(
+            userType
           )
         ) {
           return res.status(400).json({
             success: false,
             message:
-              "Invalid verification",
+              "Invalid user type",
           });
         }
 
-        user.verification =
-          verification;
+        user.userType =
+          userType;
       }
 
       // ========================================================
@@ -911,7 +896,9 @@ router.put(
         highlightText !== undefined
       ) {
         const value =
-          cleanText(highlightText);
+          cleanText(
+            highlightText
+          );
 
         if (
           value.length > 250
@@ -1137,30 +1124,30 @@ router.patch(
 );
 
 // ============================================================
-// CHANGE VERIFICATION
+// CHANGE USER TYPE
 // ADMIN ONLY
 // ============================================================
 
 router.patch(
-  "/users/:id/verification",
+  "/users/:id/user-type",
   verifyToken,
   isAdmin,
 
   async (req, res) => {
     try {
       const {
-        verification,
+        userType,
       } = req.body;
 
       if (
-        !ALLOWED_VERIFICATION.includes(
-          verification
+        !ALLOWED_USER_TYPES.includes(
+          userType
         )
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "Invalid verification",
+            "Invalid user type",
         });
       }
 
@@ -1168,7 +1155,7 @@ router.patch(
         await User.findByIdAndUpdate(
           req.params.id,
           {
-            verification,
+            userType,
           },
           {
             new: true,
@@ -1187,21 +1174,21 @@ router.patch(
       return res.json({
         success: true,
         message:
-          "Verification updated successfully",
-        verification:
-          user.verification,
+          "User type updated successfully",
+        userType:
+          user.userType,
         user,
       });
     } catch (err) {
       console.error(
-        "ADMIN VERIFICATION ERROR:",
+        "ADMIN USER TYPE ERROR:",
         err
       );
 
       return res.status(500).json({
         success: false,
         message:
-          "Failed to update verification",
+          "Failed to update user type",
       });
     }
   }
@@ -1256,10 +1243,9 @@ router.patch(
 
       return res.json({
         success: true,
-        message:
-          value
-            ? "Highlight updated successfully"
-            : "Highlight removed successfully",
+        message: value
+          ? "Highlight updated successfully"
+          : "Highlight removed successfully",
 
         highlightText:
           user.highlightText || "",
@@ -1348,10 +1334,9 @@ router.patch(
 
       return res.json({
         success: true,
-        message:
-          value
-            ? "Alternate phone updated successfully"
-            : "Alternate phone removed successfully",
+        message: value
+          ? "Alternate phone updated successfully"
+          : "Alternate phone removed successfully",
 
         alternatePhone:
           updatedUser.alternatePhone ||

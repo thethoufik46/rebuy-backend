@@ -1,9 +1,13 @@
 import express from "express";
+
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 import { verifyToken } from "../middleware/auth.js";
+
 import uploadUser from "../middleware/uploadUser.js";
+
 import User from "../models/user_model.js";
+
 import r2 from "../config/r2.js";
 
 import {
@@ -24,7 +28,7 @@ const router = express.Router();
 // ❌ Edit gallery
 // ❌ Delete gallery
 // ❌ Change status
-// ❌ Change verification
+// ❌ Change userType
 // ❌ Change highlight
 // ❌ Change alternate phone
 // ==================================================
@@ -32,17 +36,17 @@ const router = express.Router();
 router.post(
   "/upload-profile",
   verifyToken,
-
   uploadUser.fields([
     {
       name: "profileImage",
       maxCount: 1,
     },
   ]),
-
   async (req, res) => {
     try {
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(
+        req.user.id
+      );
 
       if (!user) {
         return res.status(404).json({
@@ -55,40 +59,59 @@ router.post(
       // PROFILE IMAGE ONLY
       // ==================================================
 
-      if (req.files?.profileImage?.length) {
+      if (
+        req.files?.profileImage?.length
+      ) {
         if (user.profileImage) {
-          await deleteUserImage(user.profileImage);
+          await deleteUserImage(
+            user.profileImage
+          );
         }
 
-        user.profileImage = await uploadUserImage(
-          req.files.profileImage[0],
-          "users/profile"
-        );
+        user.profileImage =
+          await uploadUserImage(
+            req.files.profileImage[0],
+            "users/profile"
+          );
       }
 
       await user.save();
 
       return res.json({
         success: true,
-        message: "Profile image updated successfully",
+        message:
+          "Profile image updated successfully",
 
-        profileImage: user.profileImage || "",
+        profileImage:
+          user.profileImage || "",
 
         // Gallery is VIEW ONLY
-        galleryImages: user.galleryImages || [],
+        galleryImages:
+          user.galleryImages || [],
 
         // Read-only fields
-        status: user.status,
-        verification: user.verification,
-        alternatePhone: user.alternatePhone || "",
-        highlightText: user.highlightText || "",
+        status:
+          user.status || "not_verified",
+
+        userType:
+          user.userType || "others",
+
+        alternatePhone:
+          user.alternatePhone || "",
+
+        highlightText:
+          user.highlightText || "",
       });
     } catch (err) {
-      console.error("USER PROFILE UPLOAD ERROR:", err);
+      console.error(
+        "USER PROFILE UPLOAD ERROR:",
+        err
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Profile image upload failed",
+        message:
+          "Profile image upload failed",
       });
     }
   }
@@ -103,10 +126,11 @@ router.post(
 router.delete(
   "/profile-image",
   verifyToken,
-
   async (req, res) => {
     try {
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(
+        req.user.id
+      );
 
       if (!user) {
         return res.status(404).json({
@@ -116,7 +140,9 @@ router.delete(
       }
 
       if (user.profileImage) {
-        await deleteUserImage(user.profileImage);
+        await deleteUserImage(
+          user.profileImage
+        );
 
         user.profileImage = "";
 
@@ -125,7 +151,8 @@ router.delete(
 
       return res.json({
         success: true,
-        message: "Profile image deleted",
+        message:
+          "Profile image deleted",
         profileImage: "",
       });
     } catch (err) {
@@ -158,16 +185,20 @@ router.get(
       if (!key) {
         return res.status(400).json({
           success: false,
-          message: "Image key is required",
+          message:
+            "Image key is required",
         });
       }
 
-      const command = new GetObjectCommand({
-        Bucket: process.env.R2_BUCKET,
-        Key: key,
-      });
+      const command =
+        new GetObjectCommand({
+          Bucket:
+            process.env.R2_BUCKET,
+          Key: key,
+        });
 
-      const data = await r2.send(command);
+      const data =
+        await r2.send(command);
 
       res.setHeader(
         "Content-Type",
@@ -192,7 +223,8 @@ router.get(
       } else {
         return res.status(404).json({
           success: false,
-          message: "Image not found",
+          message:
+            "Image not found",
         });
       }
     } catch (err) {
@@ -216,27 +248,28 @@ router.get(
 // ✅ Profile image
 // ✅ Gallery
 // ✅ Status
-// ✅ Verification
+// ✅ User Type
 // ✅ Alternate phone
 // ✅ Highlight
 //
-// These are READ ONLY for user
+// THESE ARE READ ONLY FOR USER
 // ==================================================
 
 router.get(
   "/profile",
   verifyToken,
-
   async (req, res) => {
     try {
-      const user = await User.findById(
-        req.user.id
-      ).select("-password");
+      const user =
+        await User.findById(
+          req.user.id
+        ).select("-password");
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -245,43 +278,81 @@ router.get(
 
         user: {
           _id: user._id,
+
           name: user.name,
+
           phone: user.phone,
 
-          email: user.email || "",
+          // EMAIL OPTIONAL
+          email:
+            user.email || "",
 
-          category: user.category,
+          category:
+            user.category,
 
-          district: user.district,
+          district:
+            user.district,
 
-          address: user.address || "NA",
+          address:
+            user.address || "NA",
 
-          role: user.role,
+          role:
+            user.role,
 
-          // READ ONLY
+          // =================================================
+          // STATUS
+          // =================================================
+          // Badge must use ONLY this field.
+          // =================================================
+
           status:
-            user.status || "not_verified",
+            user.status ||
+            "not_verified",
 
-          verification:
-            user.verification || "others",
+          // =================================================
+          // USER TYPE
+          // =================================================
+          // Does NOT control badge.
+          // =================================================
 
-          // READ ONLY
+          userType:
+            user.userType ||
+            "others",
+
+          // =================================================
+          // OPTIONAL
+          // =================================================
+
           alternatePhone:
-            user.alternatePhone || "",
+            user.alternatePhone ||
+            "",
 
-          // READ ONLY
           highlightText:
-            user.highlightText || "",
+            user.highlightText ||
+            "",
+
+          // =================================================
+          // PROFILE IMAGE
+          // =================================================
 
           profileImage:
-            user.profileImage || "",
+            user.profileImage ||
+            "",
 
+          // =================================================
+          // GALLERY
           // VIEW ONLY
-          galleryImages:
-            user.galleryImages || [],
+          // =================================================
 
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
+          galleryImages:
+            user.galleryImages ||
+            [],
+
+          createdAt:
+            user.createdAt,
+
+          updatedAt:
+            user.updatedAt,
         },
       });
     } catch (err) {
@@ -292,7 +363,8 @@ router.get(
 
       return res.status(500).json({
         success: false,
-        message: "Failed to fetch profile",
+        message:
+          "Failed to fetch profile",
       });
     }
   }

@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
-
 import fs from "fs";
-
 import path from "path";
 
 // =====================================================
@@ -27,9 +25,47 @@ const userSchema = new mongoose.Schema(
     // BASIC
     // =================================================
 
+    // Name entered by the user during Re2Buy registration
     name: {
       type: String,
       required: true,
+      trim: true,
+    },
+
+    // =================================================
+    // GOOGLE ACCOUNT DETAILS
+    // =================================================
+
+    // Name received from Google account
+    googleName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // Gmail received from Google
+    email: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    // Unique Google account ID
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      trim: true,
+    },
+
+    // Google profile image URL
+    // Separate from Re2Buy profileImage
+    googleProfileImage: {
+      type: String,
+      default: "",
       trim: true,
     },
 
@@ -61,33 +97,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // =================================================
-    // EMAIL
-    // OPTIONAL
-    // =================================================
-
-    email: {
-      type: String,
-      unique: true,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-    },
-
-    // =================================================
-    // GOOGLE ID
-    // OPTIONAL
-    // =================================================
-
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-      index: true,
-    },
-
-    // =================================================
     // PASSWORD
-    // REQUIRED
     // =================================================
 
     password: {
@@ -122,19 +132,8 @@ const userSchema = new mongoose.Schema(
     // =================================================
     // USER TYPE
     // =================================================
-    // This replaces the old "verification" name.
-    //
-    // Values:
-    // verified
-    // mediator
-    // dealer
-    // premium
-    // others
-    // partner
-    // black
-    //
-    // This field does NOT control the badge.
-    // =================================================
+
+    // This does NOT control the verification badge.
 
     userType: {
       type: String,
@@ -153,6 +152,7 @@ const userSchema = new mongoose.Schema(
     // =================================================
     // STATUS
     // =================================================
+
     // Badge is controlled ONLY by this field.
     //
     // verified     = show verified badge
@@ -160,7 +160,6 @@ const userSchema = new mongoose.Schema(
     //
     // User does NOT choose this.
     // Admin changes it.
-    // =================================================
 
     status: {
       type: String,
@@ -201,12 +200,16 @@ const userSchema = new mongoose.Schema(
     },
 
     // =================================================
-    // PROFILE IMAGE
+    // RE2BUY PROFILE IMAGE
     // =================================================
+
+    // User-uploaded / Re2Buy profile image.
+    // This is separate from googleProfileImage.
 
     profileImage: {
       type: String,
       default: "",
+      trim: true,
     },
 
     // =================================================
@@ -299,6 +302,9 @@ userSchema.index({
 userSchema.index({
   userType: 1,
 });
+
+// Google indexes are already defined on fields.
+// No duplicate index definitions needed.
 
 // =====================================================
 // MODEL

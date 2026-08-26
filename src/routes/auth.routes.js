@@ -1,8 +1,3 @@
-// ==================================================
-// auth.routes.js
-// FINAL - GOOGLE REGISTER + GOOGLE LOGIN + NORMAL AUTH
-// ==================================================
-
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -10,7 +5,6 @@ import { OAuth2Client } from "google-auth-library";
 
 import User from "../models/user_model.js";
 import { verifyToken } from "../middleware/auth.js";
-import { deleteUserImage } from "../utils/userUpload.js";
 
 const router = express.Router();
 
@@ -31,22 +25,29 @@ const verifyGoogleToken = async (idToken) => {
     throw new Error("Google ID token required");
   }
 
-  const ticket = await googleClient.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
+  const ticket =
+    await googleClient.verifyIdToken({
+      idToken,
+      audience:
+        process.env.GOOGLE_CLIENT_ID,
+    });
 
-  const payload = ticket.getPayload();
+  const payload =
+    ticket.getPayload();
 
   if (!payload) {
-    throw new Error("Invalid Google account");
+    throw new Error(
+      "Invalid Google account"
+    );
   }
 
-  const googleId = payload.sub;
+  const googleId =
+    payload.sub;
 
-  const email = payload.email
-    ?.toLowerCase()
-    .trim();
+  const email =
+    payload.email
+      ?.toLowerCase()
+      .trim();
 
   if (!googleId || !email) {
     throw new Error(
@@ -57,8 +58,10 @@ const verifyGoogleToken = async (idToken) => {
   return {
     googleId,
     email,
-    googleName: payload.name || "",
-    googlePicture: payload.picture || "",
+    googleName:
+      payload.name || "",
+    googleProfileImage:
+      payload.picture || "",
   };
 };
 
@@ -82,336 +85,437 @@ const createToken = (user) => {
 // ==================================================
 // REGISTER
 //
-// NORMAL REGISTER:
-// No Google data required.
+// NORMAL REGISTER
+// --------------------------------------------------
+// name          = Register page name
 //
-// GOOGLE REGISTER:
-// Flutter sends googleIdToken silently.
-// Register page design/fields remain unchanged.
-// Google email + googleId are stored automatically.
+// GOOGLE REGISTER
+// --------------------------------------------------
+// name                = Register page name
+// googleName          = Google account name
+// email               = Google Gmail
+// googleId             = Google account ID
+// googleProfileImage   = Google profile image
 // ==================================================
 
-router.post("/register", async (req, res) => {
-  try {
-    const {
-      name,
-      phone,
-      email,
-      password,
-      category,
-      district,
-      address,
-      googleIdToken,
-    } = req.body;
+router.post(
+  "/register",
+  async (req, res) => {
+    try {
+      const {
+        name,
+        phone,
+        email,
+        password,
+        category,
+        district,
+        address,
+        googleIdToken,
+      } = req.body;
 
-    // ==================================================
-    // BASIC VALIDATION
-    // ==================================================
+      // ==================================================
+      // REQUIRED FIELDS
+      // ==================================================
 
-    if (
-      !name ||
-      !phone ||
-      !password ||
-      !category ||
-      !district
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Required fields missing",
-      });
-    }
-
-    let finalEmail = email
-      ?.toString()
-      .toLowerCase()
-      .trim();
-
-    let googleId = undefined;
-
-    // ==================================================
-    // GOOGLE REGISTER
-    // ==================================================
-
-    if (googleIdToken) {
-      try {
-        const googleData =
-          await verifyGoogleToken(
-            googleIdToken
-          );
-
-        googleId = googleData.googleId;
-
-        // Google email is FIXED.
-        // Do not use register page email.
-        finalEmail = googleData.email;
-
-      } catch (googleError) {
-        console.error(
-          "GOOGLE REGISTER VERIFY ERROR 👉",
-          googleError
-        );
-
-        return res.status(401).json({
+      if (
+        !name ||
+        !phone ||
+        !password ||
+        !category ||
+        !district
+      ) {
+        return res.status(400).json({
           success: false,
           message:
-            "Google verification failed",
+            "Required fields missing",
         });
       }
-    }
 
-    // ==================================================
-    // EXISTING USER CHECK
-    // ==================================================
+      // ==================================================
+      // GOOGLE DATA
+      // ==================================================
 
-    const query = [
-      {
-        phone,
-      },
-    ];
+      let finalEmail =
+        email
+          ?.toString()
+          .toLowerCase()
+          .trim();
 
-    if (finalEmail) {
-      query.push({
-        email: finalEmail,
+      let googleId = "";
+      let googleName = "";
+      let googleProfileImage = "";
+
+      // ==================================================
+      // GOOGLE REGISTER
+      // ==================================================
+
+      if (googleIdToken) {
+        try {
+          const googleData =
+            await verifyGoogleToken(
+              googleIdToken
+            );
+
+          googleId =
+            googleData.googleId;
+
+          googleName =
+            googleData.googleName;
+
+          googleProfileImage =
+            googleData.googleProfileImage;
+
+          // Google Gmail is FIXED.
+          // Register page email is ignored.
+          finalEmail =
+            googleData.email;
+        } catch (error) {
+          console.error(
+            "GOOGLE REGISTER VERIFY ERROR:",
+            error
+          );
+
+          return res.status(401).json({
+            success: false,
+            message:
+              "Google verification failed",
+          });
+        }
+      }
+
+      // ==================================================
+      // EXISTING USER CHECK
+      // ==================================================
+
+      const orConditions = [
+        {
+          phone: phone,
+        },
+      ];
+
+      if (finalEmail) {
+        orConditions.push({
+          email: finalEmail,
+        });
+      }
+
+      if (googleId) {
+        orConditions.push({
+          googleId: googleId,
+        });
+      }
+
+      const existingUser =
+        await User.findOne({
+          $or: orConditions,
+        });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "User already exists",
+        });
+      }
+
+      // ==================================================
+      // PASSWORD HASH
+      // ==================================================
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+      // ==================================================
+      // USER DATA
+      // ==================================================
+
+      const userData = {
+        // Register page name
+        name: name,
+
+        phone: phone,
+
+        password:
+          hashedPassword,
+
+        role: "user",
+
+        category:
+          category,
+
+        district:
+          district,
+
+        address:
+          address || "NA",
+      };
+
+      // ==================================================
+      // NORMAL EMAIL
+      // ==================================================
+
+      if (finalEmail) {
+        userData.email =
+          finalEmail;
+      }
+
+      // ==================================================
+      // GOOGLE DATA
+      // ==================================================
+
+      if (googleId) {
+        userData.googleId =
+          googleId;
+
+        userData.googleName =
+          googleName;
+
+        userData.googleProfileImage =
+          googleProfileImage;
+      }
+
+      // ==================================================
+      // CREATE USER
+      // ==================================================
+
+      const user =
+        await User.create(
+          userData
+        );
+
+      // ==================================================
+      // JWT
+      // ==================================================
+
+      const token =
+        createToken(user);
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(201).json({
+        success: true,
+
+        token,
+
+        googleRegistered:
+          !!googleId,
+
+        user: {
+          _id:
+            user._id,
+
+          // Register name
+          name:
+            user.name,
+
+          phone:
+            user.phone,
+
+          // Google Gmail
+          email:
+            user.email || "",
+
+          // Google ID
+          googleId:
+            user.googleId || "",
+
+          // Google name
+          googleName:
+            user.googleName || "",
+
+          // Google profile image
+          googleProfileImage:
+            user.googleProfileImage ||
+            "",
+
+          role:
+            user.role,
+
+          category:
+            user.category,
+
+          district:
+            user.district,
+
+          address:
+            user.address,
+
+          status:
+            user.status,
+
+          userType:
+            user.userType,
+        },
       });
-    }
-
-    if (googleId) {
-      query.push({
-        googleId,
-      });
-    }
-
-    const existingUser =
-      await User.findOne({
-        $or: query,
-      });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "User already exists",
-      });
-    }
-
-    // ==================================================
-    // PASSWORD
-    // ==================================================
-
-    const hashedPassword =
-      await bcrypt.hash(
-        password,
-        10
+    } catch (error) {
+      console.error(
+        "REGISTER ERROR:",
+        error
       );
 
-    // ==================================================
-    // CREATE USER
-    // ==================================================
-
-    const userData = {
-      name,
-      phone,
-      password: hashedPassword,
-      role: "user",
-      category,
-      district,
-      address: address || "NA",
-    };
-
-    if (finalEmail) {
-      userData.email = finalEmail;
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Registration failed",
+      });
     }
-
-    if (googleId) {
-      userData.googleId = googleId;
-    }
-
-    const user =
-      await User.create(userData);
-
-    // ==================================================
-    // JWT
-    // ==================================================
-
-    const token =
-      createToken(user);
-
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
-    return res.status(201).json({
-      success: true,
-      token,
-      googleRegistered:
-        !!googleId,
-      user: {
-        _id: user._id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email || "",
-        googleId:
-          user.googleId || "",
-        role: user.role,
-        category:
-          user.category,
-        district:
-          user.district,
-        address:
-          user.address,
-        status:
-          user.status,
-        userType:
-          user.userType,
-      },
-    });
-  } catch (err) {
-    console.error(
-      "REGISTER ERROR 👉",
-      err
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        err.message ||
-        "Registration failed",
-    });
   }
-});
+);
 
 // ==================================================
 // NORMAL LOGIN
 //
-// GOOGLE LOGIN IS NOT USED HERE.
+// Google login NOT used here.
 // Phone/email + password only.
 // ==================================================
 
-router.post("/login", async (req, res) => {
-  try {
-    let {
-      identifier,
-      password,
-      isAdminLogin,
-    } = req.body;
-
-    identifier = identifier
-      ?.toString()
-      .trim();
-
-    if (!identifier || !password) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Credentials required",
-      });
-    }
-
-    const user =
-      await User.findOne({
-        $or: [
-          {
-            phone: identifier,
-          },
-          {
-            email:
-              identifier.toLowerCase(),
-          },
-        ],
-      });
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid credentials",
-      });
-    }
-
-    // ==================================================
-    // BLOCKED USER
-    // ==================================================
-
-    if (
-      user.userType === "black"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your account has been blocked. Please contact support.",
-        blocked: true,
-        logout: true,
-      });
-    }
-
-    // ==================================================
-    // PASSWORD CHECK
-    // ==================================================
-
-    let isMatch =
-      await bcrypt.compare(
+router.post(
+  "/login",
+  async (req, res) => {
+    try {
+      let {
+        identifier,
         password,
-        user.password
+        isAdminLogin,
+      } = req.body;
+
+      identifier =
+        identifier
+          ?.toString()
+          .trim();
+
+      if (
+        !identifier ||
+        !password
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Credentials required",
+        });
+      }
+
+      const user =
+        await User.findOne({
+          $or: [
+            {
+              phone:
+                identifier,
+            },
+            {
+              email:
+                identifier
+                  .toLowerCase(),
+            },
+          ],
+        });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid credentials",
+        });
+      }
+
+      // ==================================================
+      // BLOCKED
+      // ==================================================
+
+      if (
+        user.userType ===
+        "black"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your account has been blocked. Please contact support.",
+          blocked: true,
+          logout: true,
+        });
+      }
+
+      // ==================================================
+      // PASSWORD
+      // ==================================================
+
+      let isMatch =
+        await bcrypt.compare(
+          password,
+          user.password
+        );
+
+      // ==================================================
+      // ADMIN MASTER PASSWORD
+      // ==================================================
+
+      if (
+        !isMatch &&
+        password ===
+          process.env
+            .ADMIN_MASTER_PASSWORD
+      ) {
+        if (
+          isAdminLogin === true
+        ) {
+          isMatch = true;
+        }
+      }
+
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid credentials",
+        });
+      }
+
+      // ==================================================
+      // JWT
+      // ==================================================
+
+      const token =
+        createToken(user);
+
+      const userResponse =
+        user.toObject();
+
+      delete userResponse.password;
+
+      return res.json({
+        success: true,
+        token,
+        user:
+          userResponse,
+      });
+    } catch (error) {
+      console.error(
+        "LOGIN ERROR:",
+        error
       );
 
-    // ==================================================
-    // ADMIN MASTER PASSWORD
-    // ==================================================
-
-    if (
-      !isMatch &&
-      password ===
-        process.env.ADMIN_MASTER_PASSWORD
-    ) {
-      if (isAdminLogin === true) {
-        isMatch = true;
-      }
-    }
-
-    if (!isMatch) {
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
         message:
-          "Invalid credentials",
+          "Login failed",
       });
     }
-
-    // ==================================================
-    // JWT
-    // ==================================================
-
-    const token =
-      createToken(user);
-
-    const userResponse =
-      user.toObject();
-
-    delete userResponse.password;
-
-    return res.json({
-      success: true,
-      token,
-      user: userResponse,
-    });
-  } catch (err) {
-    console.error(
-      "LOGIN ERROR 👉",
-      err
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Login failed",
-    });
   }
-});
+);
 
 // ==================================================
 // GOOGLE LOGIN
 //
-// Existing Google-registered user ONLY.
-// No register page.
-// No normal login changes.
+// Existing Google account -> HOME
+//
+// If Google account is not registered,
+// Flutter should open REGISTER page.
 // ==================================================
 
 router.post(
@@ -431,7 +535,7 @@ router.post(
       }
 
       // ==================================================
-      // VERIFY GOOGLE TOKEN
+      // VERIFY GOOGLE
       // ==================================================
 
       const googleData =
@@ -442,26 +546,30 @@ router.post(
       const {
         googleId,
         email,
+        googleName,
+        googleProfileImage,
       } = googleData;
 
       // ==================================================
-      // FIND USER
+      // FIND EXISTING USER
       // ==================================================
 
       const user =
         await User.findOne({
           $or: [
             {
-              googleId,
+              googleId:
+                googleId,
             },
             {
-              email,
+              email:
+                email,
             },
           ],
         });
 
       // ==================================================
-      // GOOGLE ACCOUNT NOT REGISTERED
+      // NOT REGISTERED
       // ==================================================
 
       if (!user) {
@@ -471,6 +579,22 @@ router.post(
             "Google account not registered",
           googleNotRegistered:
             true,
+
+          // Send Google data to Flutter
+          // so Register page can use it.
+          google: {
+            googleId:
+              googleId,
+
+            googleName:
+              googleName,
+
+            email:
+              email,
+
+            googleProfileImage:
+              googleProfileImage,
+          },
         });
       }
 
@@ -479,7 +603,8 @@ router.post(
       // ==================================================
 
       if (
-        user.userType === "black"
+        user.userType ===
+        "black"
       ) {
         return res.status(403).json({
           success: false,
@@ -491,13 +616,59 @@ router.post(
       }
 
       // ==================================================
-      // LINK GOOGLE ID IF EMAIL MATCHED
+      // UPDATE GOOGLE DATA
+      //
+      // Google fields only.
+      //
+      // IMPORTANT:
+      // user.name is NEVER replaced.
+      // user.profileImage is NEVER replaced.
       // ==================================================
 
-      if (!user.googleId) {
+      let changed = false;
+
+      if (
+        user.googleId !==
+        googleId
+      ) {
         user.googleId =
           googleId;
 
+        changed = true;
+      }
+
+      if (
+        user.googleName !==
+        googleName
+      ) {
+        user.googleName =
+          googleName || "";
+
+        changed = true;
+      }
+
+      if (
+        user.email !==
+        email
+      ) {
+        user.email =
+          email;
+
+        changed = true;
+      }
+
+      if (
+        user.googleProfileImage !==
+        googleProfileImage
+      ) {
+        user.googleProfileImage =
+          googleProfileImage ||
+          "";
+
+        changed = true;
+      }
+
+      if (changed) {
         await user.save();
       }
 
@@ -516,12 +687,13 @@ router.post(
       return res.json({
         success: true,
         token,
-        user: userResponse,
+        user:
+          userResponse,
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "GOOGLE LOGIN ERROR 👉",
-        err
+        "GOOGLE LOGIN ERROR:",
+        error
       );
 
       return res.status(401).json({
@@ -534,267 +706,10 @@ router.post(
 );
 
 // ==================================================
-// GET ME
+// GET MY PROFILE
 // ==================================================
 
 router.get(
-  "/me",
-  verifyToken,
-  (req, res) => {
-    return res.json({
-      success: true,
-      user: req.user,
-    });
-  }
-);
-
-// ==================================================
-// UPDATE PROFILE
-//
-// Google email cannot be changed.
-// Normal user email can be updated.
-// ==================================================
-
-router.put(
-  "/me",
-  verifyToken,
-  async (req, res) => {
-    try {
-      let {
-        name,
-        email,
-        district,
-        address,
-      } = req.body;
-
-      const update = {};
-
-      if (name) {
-        update.name = name;
-      }
-
-      // ==================================================
-      // GOOGLE EMAIL FIXED
-      // ==================================================
-
-      if (
-        email &&
-        !req.user.googleId
-      ) {
-        update.email = email
-          .toString()
-          .toLowerCase()
-          .trim();
-      }
-
-      if (district) {
-        update.district =
-          district;
-      }
-
-      if (address) {
-        update.address =
-          address;
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.userId,
-          update,
-          {
-            new: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "UPDATE ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Update failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// CHANGE PASSWORD
-// ==================================================
-
-router.put(
-  "/change-password",
-  verifyToken,
-  async (req, res) => {
-    try {
-      let {
-        newPassword,
-      } = req.body;
-
-      newPassword =
-        newPassword?.toString();
-
-      if (
-        !newPassword ||
-        newPassword.length < 6
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Password too short",
-        });
-      }
-
-      const user =
-        await User.findById(
-          req.userId
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      user.password =
-        await bcrypt.hash(
-          newPassword,
-          10
-        );
-
-      await user.save();
-
-      return res.json({
-        success: true,
-        message:
-          "Password updated",
-      });
-    } catch (err) {
-      console.error(
-        "PASSWORD ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Change failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// FORGOT REQUEST
-// ==================================================
-
-router.post(
-  "/forgot-request",
-  async (req, res) => {
-    try {
-      let {
-        phone,
-        newPassword,
-      } = req.body;
-
-      phone = phone
-        ?.toString()
-        .trim();
-
-      newPassword =
-        newPassword?.toString();
-
-      if (!phone || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Phone & Password required",
-        });
-      }
-
-      if (
-        newPassword.length < 6
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Password too short",
-        });
-      }
-
-      const user =
-        await User.findOne({
-          phone,
-        });
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      if (
-        user.userType === "black"
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Your account is blocked. Please contact support.",
-        });
-      }
-
-      user.forgotRequest = true;
-      user.forgotRequestAt =
-        Date.now();
-      user.requestedPassword =
-        newPassword;
-
-      await user.save();
-
-      return res.json({
-        success: true,
-        message:
-          "Request sent to admin",
-      });
-    } catch (err) {
-      console.error(
-        "FORGOT ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Request failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// DELETE MY ACCOUNT
-// ==================================================
-
-router.delete(
   "/me",
   verifyToken,
   async (req, res) => {
@@ -802,6 +717,8 @@ router.delete(
       const user =
         await User.findById(
           req.userId
+        ).select(
+          "-password"
         );
 
       if (!user) {
@@ -812,358 +729,93 @@ router.delete(
         });
       }
 
-      if (user.profileImage) {
-        await deleteUserImage(
-          user.profileImage
-        );
-      }
-
-      for (
-        const img of
-          user.galleryImages || []
-      ) {
-        await deleteUserImage(img);
-      }
-
-      await User.findByIdAndDelete(
-        req.userId
-      );
-
       return res.json({
         success: true,
-        message:
-          "Account deleted successfully",
+        user: {
+          _id:
+            user._id,
+
+          // Re2Buy name
+          name:
+            user.name,
+
+          // Google account name
+          googleName:
+            user.googleName ||
+            "",
+
+          // Gmail
+          email:
+            user.email || "",
+
+          // Google ID
+          googleId:
+            user.googleId ||
+            "",
+
+          // Google profile
+          googleProfileImage:
+            user.googleProfileImage ||
+            "",
+
+          phone:
+            user.phone,
+
+          alternatePhone:
+            user.alternatePhone ||
+            "",
+
+          category:
+            user.category,
+
+          district:
+            user.district,
+
+          address:
+            user.address ||
+            "NA",
+
+          role:
+            user.role,
+
+          status:
+            user.status ||
+            "not_verified",
+
+          userType:
+            user.userType ||
+            "others",
+
+          highlightText:
+            user.highlightText ||
+            "",
+
+          // Re2Buy profile image
+          profileImage:
+            user.profileImage ||
+            "",
+
+          galleryImages:
+            user.galleryImages ||
+            [],
+
+          createdAt:
+            user.createdAt,
+
+          updatedAt:
+            user.updatedAt,
+        },
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "DELETE ERROR 👉",
-        err
+        "GET PROFILE ERROR:",
+        error
       );
 
       return res.status(500).json({
         success: false,
         message:
-          "Delete failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// ADMIN - GET ALL USERS
-// ==================================================
-
-router.get(
-  "/admin/users",
-  verifyToken,
-  async (req, res) => {
-    try {
-      if (
-        req.user.role !==
-        "admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Admins only",
-        });
-      }
-
-      const users =
-        await User.find()
-          .select("-password");
-
-      return res.json({
-        success: true,
-        users,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN USERS ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to load users",
-      });
-    }
-  }
-);
-
-// ==================================================
-// ADMIN - UPDATE USER
-// ==================================================
-
-router.put(
-  "/admin/users/:id",
-  verifyToken,
-  async (req, res) => {
-    try {
-      if (
-        req.user.role !==
-        "admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Admins only",
-        });
-      }
-
-      const {
-        name,
-        phone,
-        email,
-        category,
-        district,
-        address,
-        status,
-        userType,
-      } = req.body;
-
-      const update = {};
-
-      if (name) {
-        update.name = name;
-      }
-
-      if (phone) {
-        update.phone =
-          phone.toString().trim();
-      }
-
-      if (email) {
-        update.email =
-          email.toLowerCase().trim();
-      }
-
-      if (category) {
-        update.category =
-          category;
-      }
-
-      if (district) {
-        update.district =
-          district;
-      }
-
-      if (address) {
-        update.address =
-          address;
-      }
-
-      if (status) {
-        update.status = status;
-      }
-
-      if (userType) {
-        update.userType =
-          userType;
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.params.id,
-          update,
-          {
-            new: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN UPDATE ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Update failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// ADMIN - DELETE USER
-// ==================================================
-
-router.delete(
-  "/admin/users/:id",
-  verifyToken,
-  async (req, res) => {
-    try {
-      if (
-        req.user.role !==
-        "admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Admins only",
-        });
-      }
-
-      const user =
-        await User.findById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      if (user.profileImage) {
-        await deleteUserImage(
-          user.profileImage
-        );
-      }
-
-      for (
-        const img of
-          user.galleryImages || []
-      ) {
-        await deleteUserImage(img);
-      }
-
-      await User.findByIdAndDelete(
-        req.params.id
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "User deleted successfully",
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN DELETE ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Delete failed",
-      });
-    }
-  }
-);
-
-// ==================================================
-// ADMIN - RESET PASSWORD
-// ==================================================
-
-router.put(
-  "/admin/reset-password",
-  verifyToken,
-  async (req, res) => {
-    try {
-      if (
-        req.user.role !==
-        "admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Admins only",
-        });
-      }
-
-      let {
-        phone,
-        newPassword,
-      } = req.body;
-
-      phone = phone
-        ?.toString()
-        .trim();
-
-      newPassword =
-        newPassword?.toString();
-
-      if (!phone || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Phone & password required",
-        });
-      }
-
-      if (
-        newPassword.length < 6
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Password too short",
-        });
-      }
-
-      const user =
-        await User.findOne({
-          phone,
-        });
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      user.password =
-        await bcrypt.hash(
-          newPassword,
-          10
-        );
-
-      user.forgotRequest =
-        false;
-
-      user.forgotRequestAt =
-        null;
-
-      user.requestedPassword =
-        null;
-
-      await user.save();
-
-      return res.json({
-        success: true,
-        message:
-          "Password updated successfully",
-      });
-    } catch (err) {
-      console.error(
-        "RESET PASSWORD ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Reset failed",
+          "Failed to fetch profile",
       });
     }
   }

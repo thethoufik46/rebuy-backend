@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+
 import fs from "fs";
+
 import path from "path";
 
 // =====================================================
@@ -69,6 +71,18 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       lowercase: true,
       trim: true,
+    },
+
+    // =================================================
+    // GOOGLE ID
+    // OPTIONAL
+    // =================================================
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
     },
 
     // =================================================

@@ -1,4 +1,7 @@
+// ==================================================
 // auth.routes.js
+// FINAL - GOOGLE REGISTER + GOOGLE LOGIN + NORMAL AUTH
+// ==================================================
 
 import express from "express";
 import bcrypt from "bcryptjs";
@@ -20,7 +23,72 @@ const googleClient = new OAuth2Client(
 );
 
 // ==================================================
+// GOOGLE TOKEN VERIFY
+// ==================================================
+
+const verifyGoogleToken = async (idToken) => {
+  if (!idToken) {
+    throw new Error("Google ID token required");
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+
+  if (!payload) {
+    throw new Error("Invalid Google account");
+  }
+
+  const googleId = payload.sub;
+
+  const email = payload.email
+    ?.toLowerCase()
+    .trim();
+
+  if (!googleId || !email) {
+    throw new Error(
+      "Google account information unavailable"
+    );
+  }
+
+  return {
+    googleId,
+    email,
+    googleName: payload.name || "",
+    googlePicture: payload.picture || "",
+  };
+};
+
+// ==================================================
+// JWT
+// ==================================================
+
+const createToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "1d",
+    }
+  );
+};
+
+// ==================================================
 // REGISTER
+//
+// NORMAL REGISTER:
+// No Google data required.
+//
+// GOOGLE REGISTER:
+// Flutter sends googleIdToken silently.
+// Register page design/fields remain unchanged.
+// Google email + googleId are stored automatically.
 // ==================================================
 
 router.post("/register", async (req, res) => {
@@ -33,7 +101,12 @@ router.post("/register", async (req, res) => {
       category,
       district,
       address,
+      googleIdToken,
     } = req.body;
+
+    // ==================================================
+    // BASIC VALIDATION
+    // ==================================================
 
     if (
       !name ||
@@ -48,83 +121,170 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const query = [{ phone }];
+    let finalEmail = email
+      ?.toString()
+      .toLowerCase()
+      .trim();
 
-    if (email) {
+    let googleId = undefined;
+
+    // ==================================================
+    // GOOGLE REGISTER
+    // ==================================================
+
+    if (googleIdToken) {
+      try {
+        const googleData =
+          await verifyGoogleToken(
+            googleIdToken
+          );
+
+        googleId = googleData.googleId;
+
+        // Google email is FIXED.
+        // Do not use register page email.
+        finalEmail = googleData.email;
+
+      } catch (googleError) {
+        console.error(
+          "GOOGLE REGISTER VERIFY ERROR 👉",
+          googleError
+        );
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Google verification failed",
+        });
+      }
+    }
+
+    // ==================================================
+    // EXISTING USER CHECK
+    // ==================================================
+
+    const query = [
+      {
+        phone,
+      },
+    ];
+
+    if (finalEmail) {
       query.push({
-        email: email.toLowerCase(),
+        email: finalEmail,
       });
     }
 
-    const existingUser = await User.findOne({
-      $or: query,
-    });
+    if (googleId) {
+      query.push({
+        googleId,
+      });
+    }
+
+    const existingUser =
+      await User.findOne({
+        $or: query,
+      });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message:
+          "User already exists",
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
+    // ==================================================
+    // PASSWORD
+    // ==================================================
 
-    const user = await User.create({
+    const hashedPassword =
+      await bcrypt.hash(
+        password,
+        10
+      );
+
+    // ==================================================
+    // CREATE USER
+    // ==================================================
+
+    const userData = {
       name,
       phone,
-      email: email
-        ? email.toLowerCase()
-        : undefined,
       password: hashedPassword,
       role: "user",
       category,
       district,
       address: address || "NA",
-    });
+    };
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      }
-    );
+    if (finalEmail) {
+      userData.email = finalEmail;
+    }
+
+    if (googleId) {
+      userData.googleId = googleId;
+    }
+
+    const user =
+      await User.create(userData);
+
+    // ==================================================
+    // JWT
+    // ==================================================
+
+    const token =
+      createToken(user);
+
+    // ==================================================
+    // RESPONSE
+    // ==================================================
 
     return res.status(201).json({
       success: true,
       token,
+      googleRegistered:
+        !!googleId,
       user: {
         _id: user._id,
         name: user.name,
         phone: user.phone,
-        email: user.email,
+        email: user.email || "",
+        googleId:
+          user.googleId || "",
         role: user.role,
-        category: user.category,
-        district: user.district,
-        address: user.address,
-        status: user.status,
-        userType: user.userType,
+        category:
+          user.category,
+        district:
+          user.district,
+        address:
+          user.address,
+        status:
+          user.status,
+        userType:
+          user.userType,
       },
     });
   } catch (err) {
-    console.error("REGISTER ERROR 👉", err);
+    console.error(
+      "REGISTER ERROR 👉",
+      err
+    );
 
     return res.status(500).json({
       success: false,
       message:
-        err.message || "Registration failed",
+        err.message ||
+        "Registration failed",
     });
   }
 });
 
 // ==================================================
 // NORMAL LOGIN
+//
+// GOOGLE LOGIN IS NOT USED HERE.
+// Phone/email + password only.
 // ==================================================
 
 router.post("/login", async (req, res) => {
@@ -142,28 +302,39 @@ router.post("/login", async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: "Credentials required",
+        message:
+          "Credentials required",
       });
     }
 
-    const user = await User.findOne({
-      $or: [
-        { phone: identifier },
-        {
-          email: identifier.toLowerCase(),
-        },
-      ],
-    });
+    const user =
+      await User.findOne({
+        $or: [
+          {
+            phone: identifier,
+          },
+          {
+            email:
+              identifier.toLowerCase(),
+          },
+        ],
+      });
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid credentials",
+        message:
+          "Invalid credentials",
       });
     }
 
+    // ==================================================
     // BLOCKED USER
-    if (user.userType === "black") {
+    // ==================================================
+
+    if (
+      user.userType === "black"
+    ) {
       return res.status(403).json({
         success: false,
         message:
@@ -173,13 +344,20 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // ==================================================
     // PASSWORD CHECK
-    let isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    // ==================================================
 
-    // SUPER ADMIN MASTER PASSWORD
+    let isMatch =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
+
+    // ==================================================
+    // ADMIN MASTER PASSWORD
+    // ==================================================
+
     if (
       !isMatch &&
       password ===
@@ -193,22 +371,20 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "Invalid credentials",
+        message:
+          "Invalid credentials",
       });
     }
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      }
-    );
+    // ==================================================
+    // JWT
+    // ==================================================
 
-    const userResponse = user.toObject();
+    const token =
+      createToken(user);
+
+    const userResponse =
+      user.toObject();
 
     delete userResponse.password;
 
@@ -218,7 +394,10 @@ router.post("/login", async (req, res) => {
       user: userResponse,
     });
   } catch (err) {
-    console.error("LOGIN ERROR 👉", err);
+    console.error(
+      "LOGIN ERROR 👉",
+      err
+    );
 
     return res.status(500).json({
       success: false,
@@ -229,13 +408,19 @@ router.post("/login", async (req, res) => {
 
 // ==================================================
 // GOOGLE LOGIN
+//
+// Existing Google-registered user ONLY.
+// No register page.
+// No normal login changes.
 // ==================================================
 
 router.post(
   "/google-login",
   async (req, res) => {
     try {
-      const { idToken } = req.body;
+      const {
+        idToken,
+      } = req.body;
 
       if (!idToken) {
         return res.status(400).json({
@@ -245,60 +430,57 @@ router.post(
         });
       }
 
-      // VERIFY GOOGLE ID TOKEN
-      const ticket =
-        await googleClient.verifyIdToken({
-          idToken,
-          audience:
-            process.env.GOOGLE_CLIENT_ID,
+      // ==================================================
+      // VERIFY GOOGLE TOKEN
+      // ==================================================
+
+      const googleData =
+        await verifyGoogleToken(
+          idToken
+        );
+
+      const {
+        googleId,
+        email,
+      } = googleData;
+
+      // ==================================================
+      // FIND USER
+      // ==================================================
+
+      const user =
+        await User.findOne({
+          $or: [
+            {
+              googleId,
+            },
+            {
+              email,
+            },
+          ],
         });
 
-      const payload =
-        ticket.getPayload();
-
-      if (!payload) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "Invalid Google account",
-        });
-      }
-
-      // GOOGLE DATA
-      const googleId = payload.sub;
-
-      const email = payload.email
-        ?.toLowerCase()
-        .trim();
-
-      if (!googleId || !email) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Google account information unavailable",
-        });
-      }
-
-      // FIND EXISTING USER
-      const user = await User.findOne({
-        $or: [
-          { googleId },
-          { email },
-        ],
-      });
-
+      // ==================================================
       // GOOGLE ACCOUNT NOT REGISTERED
+      // ==================================================
+
       if (!user) {
         return res.status(404).json({
           success: false,
           message:
             "Google account not registered",
-          googleNotRegistered: true,
+          googleNotRegistered:
+            true,
         });
       }
 
-      // BLOCKED USER
-      if (user.userType === "black") {
+      // ==================================================
+      // BLOCKED
+      // ==================================================
+
+      if (
+        user.userType === "black"
+      ) {
         return res.status(403).json({
           success: false,
           message:
@@ -308,23 +490,23 @@ router.post(
         });
       }
 
-      // LINK GOOGLE ID
+      // ==================================================
+      // LINK GOOGLE ID IF EMAIL MATCHED
+      // ==================================================
+
       if (!user.googleId) {
-        user.googleId = googleId;
+        user.googleId =
+          googleId;
+
         await user.save();
       }
 
-      // CREATE JWT
-      const token = jwt.sign(
-        {
-          id: user._id,
-          role: user.role,
-        },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: "1d",
-        }
-      );
+      // ==================================================
+      // JWT
+      // ==================================================
+
+      const token =
+        createToken(user);
 
       const userResponse =
         user.toObject();
@@ -368,6 +550,9 @@ router.get(
 
 // ==================================================
 // UPDATE PROFILE
+//
+// Google email cannot be changed.
+// Normal user email can be updated.
 // ==================================================
 
 router.put(
@@ -382,27 +567,34 @@ router.put(
         address,
       } = req.body;
 
-      email = email
-        ?.toString()
-        .toLowerCase()
-        .trim();
-
       const update = {};
 
       if (name) {
         update.name = name;
       }
 
-      if (email) {
-        update.email = email;
+      // ==================================================
+      // GOOGLE EMAIL FIXED
+      // ==================================================
+
+      if (
+        email &&
+        !req.user.googleId
+      ) {
+        update.email = email
+          .toString()
+          .toLowerCase()
+          .trim();
       }
 
       if (district) {
-        update.district = district;
+        update.district =
+          district;
       }
 
       if (address) {
-        update.address = address;
+        update.address =
+          address;
       }
 
       const user =
@@ -417,7 +609,8 @@ router.put(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -433,7 +626,8 @@ router.put(
 
       return res.status(500).json({
         success: false,
-        message: "Update failed",
+        message:
+          "Update failed",
       });
     }
   }
@@ -448,7 +642,9 @@ router.put(
   verifyToken,
   async (req, res) => {
     try {
-      let { newPassword } = req.body;
+      let {
+        newPassword,
+      } = req.body;
 
       newPassword =
         newPassword?.toString();
@@ -472,7 +668,8 @@ router.put(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -486,7 +683,8 @@ router.put(
 
       return res.json({
         success: true,
-        message: "Password updated",
+        message:
+          "Password updated",
       });
     } catch (err) {
       console.error(
@@ -496,7 +694,8 @@ router.put(
 
       return res.status(500).json({
         success: false,
-        message: "Change failed",
+        message:
+          "Change failed",
       });
     }
   }
@@ -530,7 +729,9 @@ router.post(
         });
       }
 
-      if (newPassword.length < 6) {
+      if (
+        newPassword.length < 6
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -546,11 +747,14 @@ router.post(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
-      if (user.userType === "black") {
+      if (
+        user.userType === "black"
+      ) {
         return res.status(403).json({
           success: false,
           message:
@@ -579,7 +783,8 @@ router.post(
 
       return res.status(500).json({
         success: false,
-        message: "Request failed",
+        message:
+          "Request failed",
       });
     }
   }
@@ -602,7 +807,8 @@ router.delete(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -636,7 +842,8 @@ router.delete(
 
       return res.status(500).json({
         success: false,
-        message: "Delete failed",
+        message:
+          "Delete failed",
       });
     }
   }
@@ -651,10 +858,14 @@ router.get(
   verifyToken,
   async (req, res) => {
     try {
-      if (req.user.role !== "admin") {
+      if (
+        req.user.role !==
+        "admin"
+      ) {
         return res.status(403).json({
           success: false,
-          message: "Admins only",
+          message:
+            "Admins only",
         });
       }
 
@@ -690,10 +901,14 @@ router.put(
   verifyToken,
   async (req, res) => {
     try {
-      if (req.user.role !== "admin") {
+      if (
+        req.user.role !==
+        "admin"
+      ) {
         return res.status(403).json({
           success: false,
-          message: "Admins only",
+          message:
+            "Admins only",
         });
       }
 
@@ -744,7 +959,8 @@ router.put(
       }
 
       if (userType) {
-        update.userType = userType;
+        update.userType =
+          userType;
       }
 
       const user =
@@ -759,7 +975,8 @@ router.put(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -775,7 +992,8 @@ router.put(
 
       return res.status(500).json({
         success: false,
-        message: "Update failed",
+        message:
+          "Update failed",
       });
     }
   }
@@ -790,10 +1008,14 @@ router.delete(
   verifyToken,
   async (req, res) => {
     try {
-      if (req.user.role !== "admin") {
+      if (
+        req.user.role !==
+        "admin"
+      ) {
         return res.status(403).json({
           success: false,
-          message: "Admins only",
+          message:
+            "Admins only",
         });
       }
 
@@ -805,7 +1027,8 @@ router.delete(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -839,7 +1062,8 @@ router.delete(
 
       return res.status(500).json({
         success: false,
-        message: "Delete failed",
+        message:
+          "Delete failed",
       });
     }
   }
@@ -854,10 +1078,14 @@ router.put(
   verifyToken,
   async (req, res) => {
     try {
-      if (req.user.role !== "admin") {
+      if (
+        req.user.role !==
+        "admin"
+      ) {
         return res.status(403).json({
           success: false,
-          message: "Admins only",
+          message:
+            "Admins only",
         });
       }
 
@@ -881,7 +1109,9 @@ router.put(
         });
       }
 
-      if (newPassword.length < 6) {
+      if (
+        newPassword.length < 6
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -897,7 +1127,8 @@ router.put(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found",
+          message:
+            "User not found",
         });
       }
 
@@ -907,9 +1138,14 @@ router.put(
           10
         );
 
-      user.forgotRequest = false;
-      user.forgotRequestAt = null;
-      user.requestedPassword = null;
+      user.forgotRequest =
+        false;
+
+      user.forgotRequestAt =
+        null;
+
+      user.requestedPassword =
+        null;
 
       await user.save();
 
@@ -926,12 +1162,15 @@ router.put(
 
       return res.status(500).json({
         success: false,
-        message: "Reset failed",
+        message:
+          "Reset failed",
       });
     }
   }
 );
 
+// ==================================================
+// EXPORT
 // ==================================================
 
 export default router;

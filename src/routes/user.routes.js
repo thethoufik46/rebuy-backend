@@ -3,7 +3,6 @@ import express from "express";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 import { verifyToken } from "../middleware/auth.js";
-
 import uploadUser from "../middleware/uploadUser.js";
 
 import User from "../models/user_model.js";
@@ -36,14 +35,20 @@ const router = express.Router();
 router.post(
   "/upload-profile",
   verifyToken,
+
   uploadUser.fields([
     {
       name: "profileImage",
       maxCount: 1,
     },
   ]),
+
   async (req, res) => {
     try {
+      // ==================================================
+      // FIND USER
+      // ==================================================
+
       const user = await User.findById(
         req.user.id
       );
@@ -62,11 +67,19 @@ router.post(
       if (
         req.files?.profileImage?.length
       ) {
+        // ------------------------------------------------
+        // DELETE OLD PROFILE IMAGE
+        // ------------------------------------------------
+
         if (user.profileImage) {
           await deleteUserImage(
             user.profileImage
           );
         }
+
+        // ------------------------------------------------
+        // UPLOAD NEW PROFILE IMAGE
+        // ------------------------------------------------
 
         user.profileImage =
           await uploadUserImage(
@@ -75,10 +88,19 @@ router.post(
           );
       }
 
+      // ==================================================
+      // SAVE
+      // ==================================================
+
       await user.save();
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       return res.json({
         success: true,
+
         message:
           "Profile image updated successfully",
 
@@ -91,10 +113,12 @@ router.post(
 
         // Read-only fields
         status:
-          user.status || "not_verified",
+          user.status ||
+          "not_verified",
 
         userType:
-          user.userType || "others",
+          user.userType ||
+          "others",
 
         alternatePhone:
           user.alternatePhone || "",
@@ -126,8 +150,13 @@ router.post(
 router.delete(
   "/profile-image",
   verifyToken,
+
   async (req, res) => {
     try {
+      // ==================================================
+      // FIND USER
+      // ==================================================
+
       const user = await User.findById(
         req.user.id
       );
@@ -139,6 +168,10 @@ router.delete(
         });
       }
 
+      // ==================================================
+      // DELETE PROFILE IMAGE
+      // ==================================================
+
       if (user.profileImage) {
         await deleteUserImage(
           user.profileImage
@@ -148,6 +181,10 @@ router.delete(
 
         await user.save();
       }
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       return res.json({
         success: true,
@@ -180,6 +217,10 @@ router.get(
   "/image/*",
   async (req, res) => {
     try {
+      // ==================================================
+      // IMAGE KEY
+      // ==================================================
+
       const key = req.params[0];
 
       if (!key) {
@@ -190,15 +231,24 @@ router.get(
         });
       }
 
+      // ==================================================
+      // R2 GET OBJECT
+      // ==================================================
+
       const command =
         new GetObjectCommand({
           Bucket:
             process.env.R2_BUCKET,
+
           Key: key,
         });
 
       const data =
         await r2.send(command);
+
+      // ==================================================
+      // CONTENT TYPE
+      // ==================================================
 
       res.setHeader(
         "Content-Type",
@@ -206,17 +256,32 @@ router.get(
           "application/octet-stream"
       );
 
-      if (data.ContentLength) {
+      // ==================================================
+      // CONTENT LENGTH
+      // ==================================================
+
+      if (
+        data.ContentLength !==
+        undefined
+      ) {
         res.setHeader(
           "Content-Length",
           data.ContentLength
         );
       }
 
+      // ==================================================
+      // CACHE
+      // ==================================================
+
       res.setHeader(
         "Cache-Control",
         "public, max-age=31536000, immutable"
       );
+
+      // ==================================================
+      // STREAM
+      // ==================================================
 
       if (data.Body) {
         data.Body.pipe(res);
@@ -230,7 +295,7 @@ router.get(
     } catch (err) {
       console.error(
         "IMAGE VIEW ERROR:",
-        err.message
+        err?.message
       );
 
       return res.status(404).json({
@@ -258,8 +323,13 @@ router.get(
 router.get(
   "/profile",
   verifyToken,
+
   async (req, res) => {
     try {
+      // ==================================================
+      // FIND USER
+      // ==================================================
+
       const user =
         await User.findById(
           req.user.id
@@ -272,6 +342,10 @@ router.get(
             "User not found",
         });
       }
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       return res.json({
         success: true,
@@ -302,7 +376,14 @@ router.get(
           // =================================================
           // STATUS
           // =================================================
+          //
           // Badge must use ONLY this field.
+          //
+          // verified     = show verified badge
+          // not_verified = do not show badge
+          //
+          // User does NOT choose this.
+          // Admin changes it.
           // =================================================
 
           status:
@@ -312,6 +393,7 @@ router.get(
           // =================================================
           // USER TYPE
           // =================================================
+          //
           // Does NOT control badge.
           // =================================================
 
@@ -341,6 +423,7 @@ router.get(
 
           // =================================================
           // GALLERY
+          //
           // VIEW ONLY
           // =================================================
 
@@ -365,6 +448,217 @@ router.get(
         success: false,
         message:
           "Failed to fetch profile",
+      });
+    }
+  }
+);
+
+// ==================================================
+// UPDATE MY PROFILE
+//
+// USER CAN UPDATE:
+// ✅ name
+// ✅ email
+// ✅ district
+// ✅ address
+//
+// USER CANNOT UPDATE:
+// ❌ phone
+// ❌ alternatePhone
+// ❌ status
+// ❌ userType
+// ❌ highlightText
+// ❌ gallery
+// ❌ role
+// ==================================================
+
+router.put(
+  "/profile",
+  verifyToken,
+
+  async (req, res) => {
+    try {
+      let {
+        name,
+        email,
+        district,
+        address,
+      } = req.body;
+
+      // ==================================================
+      // FIND USER
+      // ==================================================
+
+      const user =
+        await User.findById(
+          req.user.id
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found",
+        });
+      }
+
+      // ==================================================
+      // NAME
+      // ==================================================
+
+      if (name !== undefined) {
+        name = name
+          .toString()
+          .trim();
+
+        if (!name) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Name is required",
+          });
+        }
+
+        user.name = name;
+      }
+
+      // ==================================================
+      // EMAIL
+      //
+      // Google email cannot be changed.
+      // Normal user email can be changed.
+      // ==================================================
+
+      if (
+        email !== undefined &&
+        !user.googleId
+      ) {
+        user.email =
+          email
+            .toString()
+            .toLowerCase()
+            .trim();
+      }
+
+      // ==================================================
+      // DISTRICT
+      // ==================================================
+
+      if (
+        district !== undefined
+      ) {
+        district =
+          district
+            .toString()
+            .trim();
+
+        if (!district) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "District is required",
+          });
+        }
+
+        user.district =
+          district;
+      }
+
+      // ==================================================
+      // ADDRESS
+      // ==================================================
+
+      if (
+        address !== undefined
+      ) {
+        user.address =
+          address
+            .toString()
+            .trim() || "NA";
+      }
+
+      // ==================================================
+      // SAVE
+      //
+      // District validation from schema
+      // will run here.
+      // ==================================================
+
+      await user.save();
+
+      // ==================================================
+      // REMOVE PASSWORD
+      // ==================================================
+
+      const userResponse =
+        user.toObject();
+
+      delete userResponse.password;
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.json({
+        success: true,
+
+        message:
+          "Profile updated successfully",
+
+        user: userResponse,
+      });
+    } catch (err) {
+      console.error(
+        "UPDATE USER PROFILE ERROR:",
+        err
+      );
+
+      // ==================================================
+      // INVALID DISTRICT
+      // ==================================================
+
+      if (
+        err?.message ===
+        "Invalid district"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid district",
+        });
+      }
+
+      if (
+        err?.message ===
+        "District is required"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "District is required",
+        });
+      }
+
+      // ==================================================
+      // DUPLICATE EMAIL
+      // ==================================================
+
+      if (err?.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Email already exists",
+        });
+      }
+
+      // ==================================================
+      // OTHER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Profile update failed",
       });
     }
   }

@@ -12,272 +12,295 @@ const locationsPath = path.join(
 );
 
 const locations = JSON.parse(
-  fs.readFileSync(locationsPath, "utf-8")
+  fs.readFileSync(
+    locationsPath,
+    "utf-8"
+  )
 );
 
 // =====================================================
 // USER SCHEMA
 // =====================================================
 
-const userSchema = new mongoose.Schema(
-  {
-    // =================================================
-    // BASIC
-    // =================================================
+const userSchema =
+  new mongoose.Schema(
+    {
+      // =================================================
+      // BASIC
+      // =================================================
 
-    // Name entered by the user during Re2Buy registration
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    // =================================================
-    // GOOGLE ACCOUNT DETAILS
-    // =================================================
-
-    // Name received from Google account
-    googleName: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    // Gmail received from Google
-    email: {
-      type: String,
-      unique: true,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-    },
-
-    // Unique Google account ID
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-      index: true,
-      trim: true,
-    },
-
-    // Google profile image URL
-    // Separate from Re2Buy profileImage
-    googleProfileImage: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    // =================================================
-    // PHONE
-    // =================================================
-
-    phone: [
-      {
+      name: {
         type: String,
         required: true,
         trim: true,
-        set: (v) =>
-          v?.toString().replace(/\s+/g, ""),
       },
-    ],
 
-    // =================================================
-    // ALTERNATE PHONE
-    // OPTIONAL
-    // =================================================
+      // =================================================
+      // GOOGLE ACCOUNT DETAILS
+      // =================================================
 
-    alternatePhone: {
-      type: String,
-      default: "",
-      trim: true,
-      set: (v) =>
-        v?.toString().replace(/\s+/g, ""),
-    },
+      googleName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    // =================================================
-    // PASSWORD
-    // =================================================
+      email: {
+        type: String,
+        unique: true,
+        sparse: true,
+        lowercase: true,
+        trim: true,
+      },
 
-    password: {
-      type: String,
-      required: true,
-    },
+      googleId: {
+        type: String,
+        unique: true,
+        sparse: true,
+        index: true,
+        trim: true,
+      },
 
-    // =================================================
-    // ROLE
-    // =================================================
+      googleProfileImage: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
+      // =================================================
+      // PHONE
+      // =================================================
 
-    // =================================================
-    // CATEGORY
-    // =================================================
+      phone: [
+        {
+          type: String,
+          required: true,
+          trim: true,
 
-    category: {
-      type: String,
-      enum: [
-        "buyer",
-        "seller",
-        "driver",
+          set: (v) =>
+            v
+              ?.toString()
+              .replace(/\s+/g, ""),
+        },
       ],
-      required: true,
+
+      // =================================================
+      // ALTERNATE PHONE
+      // =================================================
+
+      alternatePhone: {
+        type: String,
+        default: "",
+        trim: true,
+
+        set: (v) =>
+          v
+            ?.toString()
+            .replace(/\s+/g, ""),
+      },
+
+      // =================================================
+      // PASSWORD
+      // =================================================
+
+      password: {
+        type: String,
+        required: true,
+      },
+
+      // =================================================
+      // ROLE
+      // =================================================
+
+      role: {
+        type: String,
+
+        enum: [
+          "user",
+          "admin",
+        ],
+
+        default: "user",
+      },
+
+      // =================================================
+      // CATEGORY
+      // =================================================
+
+      category: {
+        type: String,
+
+        enum: [
+          "buyer",
+          "seller",
+          "driver",
+        ],
+
+        required: true,
+      },
+
+      // =================================================
+      // USER TYPE
+      // =================================================
+
+      // This does NOT control verification badge.
+
+      userType: {
+        type: String,
+
+        enum: [
+          "verified",
+          "mediator",
+          "dealer",
+          "premium",
+          "others",
+          "partner",
+          "black",
+        ],
+
+        default: "others",
+      },
+
+      // =================================================
+      // STATUS
+      // =================================================
+
+      // Badge is controlled ONLY by this field.
+      //
+      // verified     = show verified badge
+      // not_verified = do not show badge
+      //
+      // User does NOT choose this.
+      // Admin changes it.
+
+      status: {
+        type: String,
+
+        enum: [
+          "not_verified",
+          "verified",
+        ],
+
+        required: true,
+
+        default:
+          "not_verified",
+      },
+
+      // =================================================
+      // HIGHLIGHT
+      // =================================================
+
+      highlightText: {
+        type: String,
+        default: "",
+        trim: true,
+        maxlength: 250,
+      },
+
+      // =================================================
+      // LOCATION
+      // =================================================
+
+      district: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      address: {
+        type: String,
+        default: "NA",
+        trim: true,
+      },
+
+      // =================================================
+      // RE2BUY PROFILE IMAGE
+      // =================================================
+
+      // User-uploaded / Re2Buy profile image.
+      // Separate from googleProfileImage.
+
+      profileImage: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      // =================================================
+      // GALLERY
+      // =================================================
+
+      galleryImages: {
+        type: [String],
+        default: [],
+      },
+
+      // =================================================
+      // PASSWORD REQUEST
+      // =================================================
+
+      forgotRequest: {
+        type: Boolean,
+        default: false,
+      },
+
+      forgotRequestAt: {
+        type: Date,
+        default: null,
+      },
+
+      requestedPassword: {
+        type: String,
+        default: null,
+      },
     },
 
-    // =================================================
-    // USER TYPE
-    // =================================================
-
-    // This does NOT control the verification badge.
-
-    userType: {
-      type: String,
-      enum: [
-        "verified",
-        "mediator",
-        "dealer",
-        "premium",
-        "others",
-        "partner",
-        "black",
-      ],
-      default: "others",
-    },
-
-    // =================================================
-    // STATUS
-    // =================================================
-
-    // Badge is controlled ONLY by this field.
-    //
-    // verified     = show verified badge
-    // not_verified = do not show badge
-    //
-    // User does NOT choose this.
-    // Admin changes it.
-
-    status: {
-      type: String,
-      enum: [
-        "not_verified",
-        "verified",
-      ],
-      required: true,
-      default: "not_verified",
-    },
-
-    // =================================================
-    // HIGHLIGHT
-    // OPTIONAL
-    // =================================================
-
-    highlightText: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 250,
-    },
-
-    // =================================================
-    // LOCATION
-    // =================================================
-
-    district: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    address: {
-      type: String,
-      default: "NA",
-      trim: true,
-    },
-
-    // =================================================
-    // RE2BUY PROFILE IMAGE
-    // =================================================
-
-    // User-uploaded / Re2Buy profile image.
-    // This is separate from googleProfileImage.
-
-    profileImage: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    // =================================================
-    // GALLERY
-    // =================================================
-
-    galleryImages: {
-      type: [String],
-      default: [],
-    },
-
-    // =================================================
-    // PASSWORD REQUEST
-    // =================================================
-
-    forgotRequest: {
-      type: Boolean,
-      default: false,
-    },
-
-    forgotRequestAt: {
-      type: Date,
-      default: null,
-    },
-
-    requestedPassword: {
-      type: String,
-      default: null,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+    {
+      timestamps: true,
+    }
+  );
 
 // =====================================================
 // DISTRICT VALIDATION
 // =====================================================
 
-userSchema.pre("save", function (next) {
-  try {
-    if (!this.district) {
-      return next(
-        new Error("District is required")
-      );
+userSchema.pre(
+  "save",
+  function (next) {
+    try {
+      if (!this.district) {
+        return next(
+          new Error(
+            "District is required"
+          )
+        );
+      }
+
+      const districtKey =
+        Object.keys(
+          locations
+        ).find(
+          (d) =>
+            d.toLowerCase() ===
+            this.district.toLowerCase()
+        );
+
+      if (!districtKey) {
+        throw new Error(
+          "Invalid district"
+        );
+      }
+
+      this.district =
+        districtKey;
+
+      next();
+    } catch (error) {
+      next(error);
     }
-
-    const districtKey = Object.keys(
-      locations
-    ).find(
-      (d) =>
-        d.toLowerCase() ===
-        this.district.toLowerCase()
-    );
-
-    if (!districtKey) {
-      throw new Error(
-        "Invalid district"
-      );
-    }
-
-    this.district = districtKey;
-
-    next();
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 // =====================================================
 // INDEXES
@@ -303,8 +326,8 @@ userSchema.index({
   userType: 1,
 });
 
-// Google indexes are already defined on fields.
-// No duplicate index definitions needed.
+// Google indexes are already defined
+// on fields.
 
 // =====================================================
 // MODEL

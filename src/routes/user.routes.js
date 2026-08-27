@@ -29,7 +29,6 @@ const router = express.Router();
 // ❌ Change status
 // ❌ Change userType
 // ❌ Change highlight
-// ❌ Change alternate phone
 // ==================================================
 
 router.post(
@@ -317,7 +316,20 @@ router.get(
 // ✅ Alternate phone
 // ✅ Highlight
 //
-// THESE ARE READ ONLY FOR USER
+// USER CAN EDIT:
+// ✅ Name
+// ✅ Alternate phone
+// ✅ District
+// ✅ Address
+//
+// THESE ARE READ ONLY:
+// ❌ Phone
+// ❌ Email
+// ❌ Category
+// ❌ Status
+// ❌ User Type
+// ❌ Highlight
+// ❌ Gallery
 // ==================================================
 
 router.get(
@@ -376,15 +388,6 @@ router.get(
           // =================================================
           // STATUS
           // =================================================
-          //
-          // Badge must use ONLY this field.
-          //
-          // verified     = show verified badge
-          // not_verified = do not show badge
-          //
-          // User does NOT choose this.
-          // Admin changes it.
-          // =================================================
 
           status:
             user.status ||
@@ -393,21 +396,22 @@ router.get(
           // =================================================
           // USER TYPE
           // =================================================
-          //
-          // Does NOT control badge.
-          // =================================================
 
           userType:
             user.userType ||
             "others",
 
           // =================================================
-          // OPTIONAL
+          // ALTERNATE PHONE
           // =================================================
 
           alternatePhone:
             user.alternatePhone ||
             "",
+
+          // =================================================
+          // HIGHLIGHT
+          // =================================================
 
           highlightText:
             user.highlightText ||
@@ -458,13 +462,14 @@ router.get(
 //
 // USER CAN UPDATE:
 // ✅ name
-// ✅ email
+// ✅ alternatePhone
 // ✅ district
 // ✅ address
 //
 // USER CANNOT UPDATE:
 // ❌ phone
-// ❌ alternatePhone
+// ❌ email
+// ❌ category
 // ❌ status
 // ❌ userType
 // ❌ highlightText
@@ -480,7 +485,7 @@ router.put(
     try {
       let {
         name,
-        email,
+        alternatePhone,
         district,
         address,
       } = req.body;
@@ -507,9 +512,10 @@ router.put(
       // ==================================================
 
       if (name !== undefined) {
-        name = name
-          .toString()
-          .trim();
+        name =
+          name
+            .toString()
+            .trim();
 
         if (!name) {
           return res.status(400).json({
@@ -523,21 +529,38 @@ router.put(
       }
 
       // ==================================================
-      // EMAIL
+      // ALTERNATE PHONE
       //
-      // Google email cannot be changed.
-      // Normal user email can be changed.
+      // USER CAN EDIT
+      // OPTIONAL
+      // 10 DIGITS ONLY
       // ==================================================
 
       if (
-        email !== undefined &&
-        !user.googleId
+        alternatePhone !==
+        undefined
       ) {
-        user.email =
-          email
+        alternatePhone =
+          alternatePhone
             .toString()
-            .toLowerCase()
+            .replace(/\s+/g, "")
             .trim();
+
+        if (
+          alternatePhone !== "" &&
+          !/^[0-9]{10}$/.test(
+            alternatePhone
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Alternate phone must contain 10 digits",
+          });
+        }
+
+        user.alternatePhone =
+          alternatePhone;
       }
 
       // ==================================================
@@ -580,8 +603,8 @@ router.put(
       // ==================================================
       // SAVE
       //
-      // District validation from schema
-      // will run here.
+      // District validation from
+      // user schema will run here.
       // ==================================================
 
       await user.save();
@@ -627,6 +650,10 @@ router.put(
             "Invalid district",
         });
       }
+
+      // ==================================================
+      // DISTRICT REQUIRED
+      // ==================================================
 
       if (
         err?.message ===

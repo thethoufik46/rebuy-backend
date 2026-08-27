@@ -1,42 +1,65 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 
-import {
-  verifyToken,
-  isAdmin,
-} from "../middleware/auth.js";
-
-import uploadUser from "../middleware/uploadUser.js";
 import User from "../models/user_model.js";
-
-import {
-  uploadUserImage,
-  deleteUserImage,
-} from "../utils/userUpload.js";
+import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // ============================================================
-// CONSTANTS
+// ADMIN AUTH
 // ============================================================
 
-const ALLOWED_ROLES = [
+const verifyAdmin = async (req, res, next) => {
+  try {
+    await verifyToken(req, res, async () => {
+      const user = await User.findById(req.user.id).select(
+        "-password"
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Admin user not found",
+        });
+      }
+
+      if (user.role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin access required",
+        });
+      }
+
+      req.admin = user;
+      next();
+    });
+  } catch (error) {
+    console.error("ADMIN AUTH ERROR:", error);
+
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized",
+    });
+  }
+};
+
+// ============================================================
+// VALIDATION HELPERS
+// ============================================================
+
+const validRoles = [
   "user",
   "admin",
 ];
 
-const ALLOWED_CATEGORIES = [
+const validCategories = [
   "buyer",
   "seller",
   "driver",
 ];
 
-const ALLOWED_STATUS = [
-  "not_verified",
-  "verified",
-];
-
-const ALLOWED_USER_TYPES = [
+const validUserTypes = [
   "verified",
   "mediator",
   "dealer",
@@ -46,33 +69,12 @@ const ALLOWED_USER_TYPES = [
   "black",
 ];
 
-// ============================================================
-// HELPERS
-// ============================================================
+const validStatuses = [
+  "not_verified",
+  "verified",
+];
 
-const cleanPhone = (value) => {
-  if (value === undefined || value === null) {
-    return "";
-  }
-
-  return value
-    .toString()
-    .replace(/\s+/g, "")
-    .trim();
-};
-
-const cleanEmail = (value) => {
-  if (value === undefined || value === null) {
-    return "";
-  }
-
-  return value
-    .toString()
-    .trim()
-    .toLowerCase();
-};
-
-const cleanText = (value) => {
+const clean = (value) => {
   if (value === undefined || value === null) {
     return "";
   }
@@ -80,401 +82,71 @@ const cleanText = (value) => {
   return value.toString().trim();
 };
 
-// ============================================================
-// CREATE USER
-// ADMIN ONLY
-//
-// Required:
-// name
-// phone
-// password
-// category
-// district
-//
-// Optional:
-// email
-// alternatePhone
-// address
-// status
-// userType
-// role
-// highlightText
-// profileImage
-// gallery
-// ============================================================
+const validateAlternatePhone = (
+  alternatePhone
+) => {
+  const value = clean(alternatePhone);
 
-router.post(
-  "/users",
-  verifyToken,
-  isAdmin,
-
-  uploadUser.fields([
-    {
-      name: "profileImage",
-      maxCount: 1,
-    },
-    {
-      name: "gallery",
-      maxCount: 10,
-    },
-  ]),
-
-  async (req, res) => {
-    try {
-      const {
-        name,
-        phone,
-        password,
-        category,
-        district,
-        email,
-        alternatePhone,
-        address,
-        status,
-        userType,
-        role,
-        highlightText,
-      } = req.body;
-
-      // ========================================================
-      // REQUIRED FIELDS
-      // ========================================================
-
-      if (
-        !cleanText(name) ||
-        !cleanPhone(phone) ||
-        !cleanText(password) ||
-        !cleanText(category) ||
-        !cleanText(district)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Name, phone, password, category and district are required",
-        });
-      }
-
-      // ========================================================
-      // PASSWORD
-      // ONLY NUMBERS
-      // MIN 6 / MAX 10
-      // ========================================================
-
-      if (
-        !/^\d{6,10}$/.test(
-          password.toString()
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Password must contain only numbers and must be 6 to 10 digits",
-        });
-      }
-
-      // ========================================================
-      // PHONE
-      // ========================================================
-
-      const finalPhone = cleanPhone(phone);
-
-      if (!/^\d{10}$/.test(finalPhone)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Phone number must contain exactly 10 digits",
-        });
-      }
-
-      const phoneExists = await User.findOne({
-        phone: finalPhone,
-      });
-
-      if (phoneExists) {
-        return res.status(400).json({
-          success: false,
-          message: "Phone already exists",
-        });
-      }
-
-      // ========================================================
-      // ALTERNATE PHONE
-      // OPTIONAL
-      // ========================================================
-
-      const finalAlternatePhone =
-        cleanPhone(alternatePhone);
-
-      if (
-        finalAlternatePhone &&
-        !/^\d{10}$/.test(
-          finalAlternatePhone
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Alternate phone must contain exactly 10 digits",
-        });
-      }
-
-      if (
-        finalAlternatePhone &&
-        finalAlternatePhone === finalPhone
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Alternate phone cannot be same as phone",
-        });
-      }
-
-      // ========================================================
-      // EMAIL
-      // OPTIONAL
-      // ========================================================
-
-      const finalEmail = cleanEmail(email);
-
-      if (finalEmail) {
-        const emailExists = await User.findOne({
-          email: finalEmail,
-        });
-
-        if (emailExists) {
-          return res.status(400).json({
-            success: false,
-            message: "Email already exists",
-          });
-        }
-      }
-
-      // ========================================================
-      // CATEGORY
-      // ========================================================
-
-      if (
-        !ALLOWED_CATEGORIES.includes(
-          category
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid category",
-        });
-      }
-
-      // ========================================================
-      // ROLE
-      // ========================================================
-
-      const finalRole = role || "user";
-
-      if (
-        !ALLOWED_ROLES.includes(finalRole)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid role",
-        });
-      }
-
-      // ========================================================
-      // STATUS
-      // BADGE USES ONLY STATUS
-      // ========================================================
-
-      const finalStatus =
-        status || "not_verified";
-
-      if (
-        !ALLOWED_STATUS.includes(
-          finalStatus
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid status",
-        });
-      }
-
-      // ========================================================
-      // USER TYPE
-      // ========================================================
-
-      const finalUserType =
-        userType || "others";
-
-      if (
-        !ALLOWED_USER_TYPES.includes(
-          finalUserType
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid user type",
-        });
-      }
-
-      // ========================================================
-      // HIGHLIGHT
-      // OPTIONAL
-      // ========================================================
-
-      const finalHighlight =
-        cleanText(highlightText);
-
-      if (
-        finalHighlight.length > 250
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Highlight cannot exceed 250 characters",
-        });
-      }
-
-      // ========================================================
-      // HASH PASSWORD
-      // ========================================================
-
-      const hashedPassword =
-        await bcrypt.hash(
-          password.toString(),
-          10
-        );
-
-      // ========================================================
-      // CREATE USER
-      // ========================================================
-
-      const userData = {
-        name: cleanText(name),
-
-        phone: [finalPhone],
-
-        password: hashedPassword,
-
-        category,
-
-        district: cleanText(district),
-
-        address:
-          cleanText(address) || "NA",
-
-        role: finalRole,
-
-        userType:
-          finalUserType,
-
-        status:
-          finalStatus,
-
-        alternatePhone:
-          finalAlternatePhone,
-
-        highlightText:
-          finalHighlight,
-      };
-
-      // Email only when provided
-      if (finalEmail) {
-        userData.email = finalEmail;
-      }
-
-      const user = new User(userData);
-
-      // ========================================================
-      // PROFILE IMAGE
-      // ========================================================
-
-      if (
-        req.files?.profileImage?.length
-      ) {
-        user.profileImage =
-          await uploadUserImage(
-            req.files.profileImage[0],
-            "users/profile"
-          );
-      }
-
-      // ========================================================
-      // GALLERY
-      // ========================================================
-
-      if (
-        req.files?.gallery?.length
-      ) {
-        user.galleryImages =
-          await Promise.all(
-            req.files.gallery.map(
-              (file) =>
-                uploadUserImage(
-                  file,
-                  "users/gallery"
-                )
-            )
-          );
-      }
-
-      await user.save();
-
-      const savedUser =
-        await User.findById(
-          user._id
-        ).select("-password");
-
-      return res.status(201).json({
-        success: true,
-        message:
-          "User created successfully",
-        user: savedUser,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN CREATE USER ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          err.message ||
-          "Failed to create user",
-      });
-    }
+  if (value === "") {
+    return {
+      valid: true,
+      value: "",
+    };
   }
-);
+
+  if (!/^[0-9]{10}$/.test(value)) {
+    return {
+      valid: false,
+      value,
+    };
+  }
+
+  return {
+    valid: true,
+    value,
+  };
+};
+
+const validatePhone = (phone) => {
+  if (!Array.isArray(phone)) {
+    return false;
+  }
+
+  if (phone.length === 0) {
+    return false;
+  }
+
+  return phone.every((item) => {
+    return /^[0-9]{10}$/.test(
+      clean(item)
+    );
+  });
+};
 
 // ============================================================
-// GET ALL USERS
-// ADMIN ONLY
+// ADMIN GET ALL USERS
 // ============================================================
 
 router.get(
   "/users",
-  verifyToken,
-  isAdmin,
-
+  verifyAdmin,
   async (req, res) => {
     try {
-      const users =
-        await User.find({})
-          .select("-password")
-          .sort({
-            createdAt: -1,
-          });
+      const users = await User.find()
+        .select("-password")
+        .sort({
+          createdAt: -1,
+        });
 
       return res.json({
         success: true,
+        count: users.length,
         users,
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "GET ALL USERS ERROR:",
-        err
+        "ADMIN GET USERS ERROR:",
+        error
       );
 
       return res.status(500).json({
@@ -487,15 +159,12 @@ router.get(
 );
 
 // ============================================================
-// GET SINGLE USER
-// ADMIN ONLY
+// ADMIN GET SINGLE USER
 // ============================================================
 
 router.get(
   "/users/:id",
-  verifyToken,
-  isAdmin,
-
+  verifyAdmin,
   async (req, res) => {
     try {
       const user =
@@ -506,8 +175,7 @@ router.get(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
@@ -515,10 +183,10 @@ router.get(
         success: true,
         user,
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "GET SINGLE USER ERROR:",
-        err
+        "ADMIN GET USER ERROR:",
+        error
       );
 
       return res.status(500).json({
@@ -531,26 +199,395 @@ router.get(
 );
 
 // ============================================================
-// UPDATE USER
-// ADMIN ONLY
+// ADMIN CREATE USER
+//
+// ADMIN CAN CREATE:
+// ✅ name
+// ✅ googleName
+// ✅ email
+// ✅ googleId
+// ✅ googleProfileImage
+// ✅ phone
+// ✅ alternatePhone
+// ✅ password
+// ✅ role
+// ✅ category
+// ✅ userType
+// ✅ status
+// ✅ highlightText
+// ✅ district
+// ✅ address
+// ✅ profileImage
+// ✅ galleryImages
+// ============================================================
+
+router.post(
+  "/users",
+  verifyAdmin,
+  async (req, res) => {
+    try {
+      let {
+        name,
+        googleName,
+        email,
+        googleId,
+        googleProfileImage,
+        phone,
+        alternatePhone,
+        password,
+        role,
+        category,
+        userType,
+        status,
+        highlightText,
+        district,
+        address,
+        profileImage,
+        galleryImages,
+      } = req.body;
+
+      // ========================================================
+      // CLEAN
+      // ========================================================
+
+      name = clean(name);
+      googleName = clean(googleName);
+      email = clean(email).toLowerCase();
+      googleId = clean(googleId);
+      googleProfileImage =
+        clean(googleProfileImage);
+
+      alternatePhone =
+        clean(alternatePhone);
+
+      password = clean(password);
+
+      role = clean(role) || "user";
+      category = clean(category);
+      userType =
+        clean(userType) || "others";
+      status =
+        clean(status) ||
+        "not_verified";
+
+      highlightText =
+        clean(highlightText);
+
+      district = clean(district);
+
+      address =
+        clean(address) || "NA";
+
+      profileImage =
+        clean(profileImage);
+
+      // ========================================================
+      // REQUIRED
+      // ========================================================
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: "Name is required",
+        });
+      }
+
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password is required",
+        });
+      }
+
+      if (!category) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Category is required",
+        });
+      }
+
+      if (!district) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "District is required",
+        });
+      }
+
+      // ========================================================
+      // PHONE
+      // ========================================================
+
+      if (!validatePhone(phone)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Phone must contain at least one valid 10 digit number",
+        });
+      }
+
+      phone = phone.map((item) =>
+        clean(item)
+      );
+
+      // ========================================================
+      // ALTERNATE PHONE
+      // ========================================================
+
+      const alternateValidation =
+        validateAlternatePhone(
+          alternatePhone
+        );
+
+      if (!alternateValidation.valid) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Alternate phone must contain 10 digits",
+        });
+      }
+
+      alternatePhone =
+        alternateValidation.value;
+
+      // ========================================================
+      // ENUM VALIDATION
+      // ========================================================
+
+      if (
+        !validRoles.includes(role)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role",
+        });
+      }
+
+      if (
+        !validCategories.includes(
+          category
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid category",
+        });
+      }
+
+      if (
+        !validUserTypes.includes(
+          userType
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid user type",
+        });
+      }
+
+      if (
+        !validStatuses.includes(
+          status
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid status",
+        });
+      }
+
+      // ========================================================
+      // CHECK EMAIL
+      // ========================================================
+
+      if (email) {
+        const existingEmail =
+          await User.findOne({
+            email,
+          });
+
+        if (existingEmail) {
+          return res.status(409).json({
+            success: false,
+            message:
+              "Email already exists",
+          });
+        }
+      }
+
+      // ========================================================
+      // CHECK GOOGLE ID
+      // ========================================================
+
+      if (googleId) {
+        const existingGoogle =
+          await User.findOne({
+            googleId,
+          });
+
+        if (existingGoogle) {
+          return res.status(409).json({
+            success: false,
+            message:
+              "Google account already exists",
+          });
+        }
+      }
+
+      // ========================================================
+      // HASH PASSWORD
+      // ========================================================
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+      // ========================================================
+      // CREATE USER
+      // ========================================================
+
+      const user =
+        new User({
+          name,
+
+          googleName,
+
+          email:
+            email || undefined,
+
+          googleId:
+            googleId || undefined,
+
+          googleProfileImage,
+
+          phone,
+
+          alternatePhone,
+
+          password:
+            hashedPassword,
+
+          role,
+
+          category,
+
+          userType,
+
+          status,
+
+          highlightText,
+
+          district,
+
+          address,
+
+          profileImage,
+
+          galleryImages:
+            Array.isArray(
+              galleryImages
+            )
+              ? galleryImages
+              : [],
+        });
+
+      await user.save();
+
+      // ========================================================
+      // RESPONSE
+      // ========================================================
+
+      const responseUser =
+        user.toObject();
+
+      delete responseUser.password;
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "User created successfully",
+        user: responseUser,
+      });
+    } catch (error) {
+      console.error(
+        "ADMIN CREATE USER ERROR:",
+        error
+      );
+
+      if (
+        error?.code === 11000
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Duplicate email or Google account",
+        });
+      }
+
+      if (
+        error?.message ===
+        "Invalid district"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid district",
+        });
+      }
+
+      if (
+        error?.message ===
+        "District is required"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "District is required",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to create user",
+      });
+    }
+  }
+);
+
+// ============================================================
+// ADMIN UPDATE USER
+//
+// ADMIN CAN CHANGE EVERYTHING:
+// ✅ name
+// ✅ googleName
+// ✅ email
+// ✅ googleId
+// ✅ googleProfileImage
+// ✅ phone
+// ✅ alternatePhone
+// ✅ password
+// ✅ role
+// ✅ category
+// ✅ userType
+// ✅ status
+// ✅ highlightText
+// ✅ district
+// ✅ address
+// ✅ profileImage
+// ✅ galleryImages
 // ============================================================
 
 router.put(
   "/users/:id",
-  verifyToken,
-  isAdmin,
-
-  uploadUser.fields([
-    {
-      name: "profileImage",
-      maxCount: 1,
-    },
-    {
-      name: "gallery",
-      maxCount: 10,
-    },
-  ]),
-
+  verifyAdmin,
   async (req, res) => {
     try {
       const user =
@@ -561,256 +598,209 @@ router.put(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
-      const {
-        name,
-        phone,
-        password,
-        category,
-        district,
-        email,
-        alternatePhone,
-        address,
-        status,
-        userType,
-        role,
-        highlightText,
-      } = req.body;
-
       // ========================================================
-      // NAME
-      // ========================================================
-
-      if (name !== undefined) {
-        const value =
-          cleanText(name);
-
-        if (!value) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Name cannot be empty",
-          });
-        }
-
-        user.name = value;
-      }
-
-      // ========================================================
-      // PHONE
-      // ========================================================
-
-      if (phone !== undefined) {
-        const finalPhone =
-          cleanPhone(phone);
-
-        if (
-          !/^\d{10}$/.test(
-            finalPhone
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Phone number must contain exactly 10 digits",
-          });
-        }
-
-        const phoneExists =
-          await User.findOne({
-            phone: finalPhone,
-            _id: {
-              $ne: user._id,
-            },
-          });
-
-        if (phoneExists) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Phone already exists",
-          });
-        }
-
-        user.phone = [finalPhone];
-
-        if (
-          user.alternatePhone &&
-          user.alternatePhone ===
-            finalPhone
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Alternate phone cannot be same as phone",
-          });
-        }
-      }
-
-      // ========================================================
-      // ALTERNATE PHONE
-      // OPTIONAL
-      // EMPTY = REMOVE
+      // BASIC
       // ========================================================
 
       if (
-        alternatePhone !== undefined
+        req.body.name !== undefined
       ) {
-        const finalAlternate =
-          cleanPhone(
-            alternatePhone
+        const name =
+          clean(req.body.name);
+
+        if (!name) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Name is required",
+          });
+        }
+
+        user.name = name;
+      }
+
+      // ========================================================
+      // GOOGLE NAME
+      // ========================================================
+
+      if (
+        req.body.googleName !==
+        undefined
+      ) {
+        user.googleName =
+          clean(
+            req.body.googleName
           );
-
-        if (
-          finalAlternate &&
-          !/^\d{10}$/.test(
-            finalAlternate
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Alternate phone must contain exactly 10 digits",
-          });
-        }
-
-        const primaryPhone =
-          user.phone?.[0] || "";
-
-        if (
-          finalAlternate &&
-          finalAlternate ===
-            primaryPhone
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Alternate phone cannot be same as phone",
-          });
-        }
-
-        user.alternatePhone =
-          finalAlternate;
       }
 
       // ========================================================
       // EMAIL
-      // OPTIONAL
-      // EMPTY = REMOVE
       // ========================================================
 
-      if (email !== undefined) {
-        const finalEmail =
-          cleanEmail(email);
+      if (
+        req.body.email !==
+        undefined
+      ) {
+        const email =
+          clean(
+            req.body.email
+          ).toLowerCase();
 
-        if (finalEmail) {
-          const emailExists =
+        if (email) {
+          const duplicate =
             await User.findOne({
-              email: finalEmail,
+              email,
               _id: {
-                $ne: user._id,
+                $ne:
+                  user._id,
               },
             });
 
-          if (emailExists) {
-            return res.status(400).json({
+          if (duplicate) {
+            return res.status(409).json({
               success: false,
               message:
                 "Email already exists",
             });
           }
 
-          user.email = finalEmail;
+          user.email = email;
         } else {
           user.email = undefined;
         }
       }
 
       // ========================================================
-      // PASSWORD
-      // ONLY IF ADMIN ENTERS NEW PASSWORD
+      // GOOGLE ID
       // ========================================================
 
       if (
-        password !== undefined &&
-        password.toString().trim() !== ""
+        req.body.googleId !==
+        undefined
       ) {
-        if (
-          !/^\d{6,10}$/.test(
-            password.toString()
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Password must contain only numbers and must be 6 to 10 digits",
-          });
-        }
+        const googleId =
+          clean(
+            req.body.googleId
+          );
 
-        user.password =
-          await bcrypt.hash(
-            password.toString(),
-            10
+        if (googleId) {
+          const duplicate =
+            await User.findOne({
+              googleId,
+              _id: {
+                $ne:
+                  user._id,
+              },
+            });
+
+          if (duplicate) {
+            return res.status(409).json({
+              success: false,
+              message:
+                "Google account already exists",
+            });
+          }
+
+          user.googleId =
+            googleId;
+        } else {
+          user.googleId =
+            undefined;
+        }
+      }
+
+      // ========================================================
+      // GOOGLE PROFILE IMAGE
+      // ========================================================
+
+      if (
+        req.body.googleProfileImage !==
+        undefined
+      ) {
+        user.googleProfileImage =
+          clean(
+            req.body
+              .googleProfileImage
           );
       }
 
       // ========================================================
-      // CATEGORY
+      // PHONE
       // ========================================================
 
       if (
-        category !== undefined
+        req.body.phone !==
+        undefined
       ) {
         if (
-          !ALLOWED_CATEGORIES.includes(
-            category
+          !validatePhone(
+            req.body.phone
           )
         ) {
           return res.status(400).json({
             success: false,
             message:
-              "Invalid category",
+              "Phone must contain at least one valid 10 digit number",
           });
         }
 
-        user.category = category;
+        user.phone =
+          req.body.phone.map(
+            (item) =>
+              clean(item)
+          );
       }
 
       // ========================================================
-      // DISTRICT
+      // ALTERNATE PHONE
       // ========================================================
 
       if (
-        district !== undefined
+        req.body.alternatePhone !==
+        undefined
       ) {
-        const value =
-          cleanText(district);
+        const validation =
+          validateAlternatePhone(
+            req.body
+              .alternatePhone
+          );
 
-        if (!value) {
+        if (!validation.valid) {
           return res.status(400).json({
             success: false,
             message:
-              "District cannot be empty",
+              "Alternate phone must contain 10 digits",
           });
         }
 
-        user.district = value;
+        user.alternatePhone =
+          validation.value;
       }
 
       // ========================================================
-      // ADDRESS
+      // PASSWORD
       // ========================================================
 
       if (
-        address !== undefined
+        req.body.password !==
+        undefined
       ) {
-        user.address =
-          cleanText(address) ||
-          "NA";
+        const password =
+          clean(
+            req.body.password
+          );
+
+        if (password) {
+          user.password =
+            await bcrypt.hash(
+              password,
+              10
+            );
+        }
       }
 
       // ========================================================
@@ -818,10 +808,16 @@ router.put(
       // ========================================================
 
       if (
-        role !== undefined
+        req.body.role !==
+        undefined
       ) {
+        const role =
+          clean(
+            req.body.role
+          );
+
         if (
-          !ALLOWED_ROLES.includes(
+          !validRoles.includes(
             role
           )
         ) {
@@ -836,42 +832,49 @@ router.put(
       }
 
       // ========================================================
-      // STATUS
-      // ADMIN ONLY
-      //
-      // BADGE IS BASED ONLY ON THIS FIELD
+      // CATEGORY
       // ========================================================
 
       if (
-        status !== undefined
+        req.body.category !==
+        undefined
       ) {
+        const category =
+          clean(
+            req.body.category
+          );
+
         if (
-          !ALLOWED_STATUS.includes(
-            status
+          !validCategories.includes(
+            category
           )
         ) {
           return res.status(400).json({
             success: false,
             message:
-              "Invalid status. Allowed: not_verified, verified",
+              "Invalid category",
           });
         }
 
-        user.status = status;
+        user.category =
+          category;
       }
 
       // ========================================================
       // USER TYPE
-      // ADMIN ONLY
-      //
-      // Does NOT control badge
       // ========================================================
 
       if (
-        userType !== undefined
+        req.body.userType !==
+        undefined
       ) {
+        const userType =
+          clean(
+            req.body.userType
+          );
+
         if (
-          !ALLOWED_USER_TYPES.includes(
+          !validUserTypes.includes(
             userType
           )
         ) {
@@ -887,167 +890,212 @@ router.put(
       }
 
       // ========================================================
-      // HIGHLIGHT
-      // ADMIN ONLY
-      // EMPTY = REMOVE
+      // STATUS
       // ========================================================
 
       if (
-        highlightText !== undefined
-      ) {
-        const value =
-          cleanText(
-            highlightText
-          );
-
-        if (
-          value.length > 250
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Highlight cannot exceed 250 characters",
-          });
-        }
-
-        user.highlightText =
-          value;
-      }
-
-      // ========================================================
-      // PROFILE IMAGE
-      // ADMIN ONLY
-      // ========================================================
-
-      if (
-        req.files?.profileImage?.length
-      ) {
-        if (user.profileImage) {
-          await deleteUserImage(
-            user.profileImage
-          );
-        }
-
-        user.profileImage =
-          await uploadUserImage(
-            req.files.profileImage[0],
-            "users/profile"
-          );
-      }
-
-      // ========================================================
-      // EXISTING GALLERY
-      //
-      // Flutter/Admin can send:
-      // existingGallery = JSON.stringify([...])
-      //
-      // Removed images are deleted from R2
-      // ========================================================
-
-      if (
-        req.body.existingGallery !==
+        req.body.status !==
         undefined
       ) {
-        let existingGallery;
-
-        try {
-          existingGallery =
-            Array.isArray(
-              req.body.existingGallery
-            )
-              ? req.body.existingGallery
-              : JSON.parse(
-                  req.body.existingGallery
-                );
-        } catch {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Invalid existingGallery format",
-          });
-        }
+        const status =
+          clean(
+            req.body.status
+          );
 
         if (
-          !Array.isArray(
-            existingGallery
+          !validStatuses.includes(
+            status
           )
         ) {
           return res.status(400).json({
             success: false,
             message:
-              "existingGallery must be an array",
+              "Invalid status",
           });
         }
 
-        const imagesToDelete =
-          (
-            user.galleryImages || []
-          ).filter(
-            (img) =>
-              !existingGallery.includes(
-                img
-              )
-          );
-
-        for (
-          const img of
-            imagesToDelete
-        ) {
-          await deleteUserImage(img);
-        }
-
-        user.galleryImages =
-          existingGallery;
+        user.status =
+          status;
       }
 
       // ========================================================
-      // NEW GALLERY IMAGES
+      // HIGHLIGHT
       // ========================================================
 
       if (
-        req.files?.gallery?.length
+        req.body.highlightText !==
+        undefined
       ) {
-        const newGallery =
-          await Promise.all(
-            req.files.gallery.map(
-              (file) =>
-                uploadUserImage(
-                  file,
-                  "users/gallery"
-                )
-            )
+        const highlightText =
+          clean(
+            req.body.highlightText
           );
 
-        user.galleryImages = [
-          ...(user.galleryImages ||
-            []),
-          ...newGallery,
-        ];
+        if (
+          highlightText.length >
+          250
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Highlight text cannot exceed 250 characters",
+          });
+        }
+
+        user.highlightText =
+          highlightText;
       }
+
+      // ========================================================
+      // DISTRICT
+      // ========================================================
+
+      if (
+        req.body.district !==
+        undefined
+      ) {
+        const district =
+          clean(
+            req.body.district
+          );
+
+        if (!district) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "District is required",
+          });
+        }
+
+        user.district =
+          district;
+      }
+
+      // ========================================================
+      // ADDRESS
+      // ========================================================
+
+      if (
+        req.body.address !==
+        undefined
+      ) {
+        user.address =
+          clean(
+            req.body.address
+          ) || "NA";
+      }
+
+      // ========================================================
+      // PROFILE IMAGE
+      // ========================================================
+
+      if (
+        req.body.profileImage !==
+        undefined
+      ) {
+        user.profileImage =
+          clean(
+            req.body.profileImage
+          );
+      }
+
+      // ========================================================
+      // GALLERY
+      // ========================================================
+
+      if (
+        req.body.galleryImages !==
+        undefined
+      ) {
+        if (
+          !Array.isArray(
+            req.body.galleryImages
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "galleryImages must be an array",
+          });
+        }
+
+        user.galleryImages =
+          req.body.galleryImages
+            .map(
+              (item) =>
+                clean(item)
+            )
+            .filter(
+              (item) =>
+                item.isNotEmpty
+            );
+      }
+
+      // ========================================================
+      // SAVE
+      //
+      // District validation runs
+      // from User schema.
+      // ========================================================
 
       await user.save();
 
-      const updatedUser =
-        await User.findById(
-          user._id
-        ).select("-password");
+      // ========================================================
+      // RESPONSE
+      // ========================================================
+
+      const responseUser =
+        user.toObject();
+
+      delete responseUser.password;
 
       return res.json({
         success: true,
         message:
           "User updated successfully",
-        user: updatedUser,
+        user: responseUser,
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
         "ADMIN UPDATE USER ERROR:",
-        err
+        error
       );
+
+      if (
+        error?.code === 11000
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Duplicate email or Google account",
+        });
+      }
+
+      if (
+        error?.message ===
+        "Invalid district"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid district",
+        });
+      }
+
+      if (
+        error?.message ===
+        "District is required"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "District is required",
+        });
+      }
 
       return res.status(500).json({
         success: false,
         message:
-          err.message ||
           "Failed to update user",
       });
     }
@@ -1055,588 +1103,12 @@ router.put(
 );
 
 // ============================================================
-// CHANGE STATUS
-// ADMIN ONLY
-// ============================================================
-
-router.patch(
-  "/users/:id/status",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const { status } =
-        req.body;
-
-      if (
-        !ALLOWED_STATUS.includes(
-          status
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid status. Allowed: not_verified, verified",
-        });
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.params.id,
-          {
-            status,
-          },
-          {
-            new: true,
-            runValidators: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message:
-          "Status updated successfully",
-        status: user.status,
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN STATUS ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update status",
-      });
-    }
-  }
-);
-
-// ============================================================
-// CHANGE USER TYPE
-// ADMIN ONLY
-// ============================================================
-
-router.patch(
-  "/users/:id/user-type",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const {
-        userType,
-      } = req.body;
-
-      if (
-        !ALLOWED_USER_TYPES.includes(
-          userType
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid user type",
-        });
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.params.id,
-          {
-            userType,
-          },
-          {
-            new: true,
-            runValidators: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message:
-          "User type updated successfully",
-        userType:
-          user.userType,
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN USER TYPE ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update user type",
-      });
-    }
-  }
-);
-
-// ============================================================
-// CHANGE HIGHLIGHT
-// ADMIN ONLY
-// ============================================================
-
-router.patch(
-  "/users/:id/highlight",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const value =
-        cleanText(
-          req.body.highlightText
-        );
-
-      if (
-        value.length > 250
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Highlight cannot exceed 250 characters",
-        });
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.params.id,
-          {
-            highlightText: value,
-          },
-          {
-            new: true,
-            runValidators: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: value
-          ? "Highlight updated successfully"
-          : "Highlight removed successfully",
-
-        highlightText:
-          user.highlightText || "",
-
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN HIGHLIGHT ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update highlight",
-      });
-    }
-  }
-);
-
-// ============================================================
-// CHANGE ALTERNATE PHONE
-// ADMIN ONLY
-// ============================================================
-
-router.patch(
-  "/users/:id/alternate-phone",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const user =
-        await User.findById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      const value =
-        cleanPhone(
-          req.body.alternatePhone
-        );
-
-      if (
-        value &&
-        !/^\d{10}$/.test(value)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Alternate phone must contain exactly 10 digits",
-        });
-      }
-
-      const primaryPhone =
-        user.phone?.[0] || "";
-
-      if (
-        value &&
-        value === primaryPhone
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Alternate phone cannot be same as phone",
-        });
-      }
-
-      user.alternatePhone =
-        value;
-
-      await user.save();
-
-      const updatedUser =
-        await User.findById(
-          user._id
-        ).select("-password");
-
-      return res.json({
-        success: true,
-        message: value
-          ? "Alternate phone updated successfully"
-          : "Alternate phone removed successfully",
-
-        alternatePhone:
-          updatedUser.alternatePhone ||
-          "",
-
-        user: updatedUser,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN ALTERNATE PHONE ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update alternate phone",
-      });
-    }
-  }
-);
-
-// ============================================================
-// CHANGE ROLE
-// ADMIN ONLY
-// ============================================================
-
-router.patch(
-  "/users/:id/role",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const { role } =
-        req.body;
-
-      if (
-        !ALLOWED_ROLES.includes(
-          role
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid role",
-        });
-      }
-
-      const user =
-        await User.findByIdAndUpdate(
-          req.params.id,
-          {
-            role,
-          },
-          {
-            new: true,
-            runValidators: true,
-          }
-        ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message:
-          "Role updated successfully",
-        role: user.role,
-        user,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN ROLE ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to update role",
-      });
-    }
-  }
-);
-
-// ============================================================
-// DELETE PROFILE IMAGE
-// ADMIN ONLY
-// ============================================================
-
-router.delete(
-  "/users/:id/profile-image",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const user =
-        await User.findById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      if (user.profileImage) {
-        await deleteUserImage(
-          user.profileImage
-        );
-
-        user.profileImage = "";
-
-        await user.save();
-      }
-
-      return res.json({
-        success: true,
-        message:
-          "Profile image deleted",
-        profileImage: "",
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN DELETE PROFILE ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to delete profile image",
-      });
-    }
-  }
-);
-
-// ============================================================
-// DELETE SINGLE GALLERY IMAGE
-// ADMIN ONLY
-// ============================================================
-
-router.delete(
-  "/users/:id/gallery/:index",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const user =
-        await User.findById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      const index =
-        Number(req.params.index);
-
-      const gallery =
-        user.galleryImages || [];
-
-      if (
-        Number.isNaN(index) ||
-        index < 0 ||
-        index >= gallery.length
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid gallery index",
-        });
-      }
-
-      const image =
-        gallery[index];
-
-      await deleteUserImage(image);
-
-      gallery.splice(index, 1);
-
-      user.galleryImages =
-        gallery;
-
-      await user.save();
-
-      return res.json({
-        success: true,
-        message:
-          "Gallery image deleted",
-        galleryImages:
-          user.galleryImages,
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN DELETE GALLERY ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to delete gallery image",
-      });
-    }
-  }
-);
-
-// ============================================================
-// DELETE ALL GALLERY
-// ADMIN ONLY
-// ============================================================
-
-router.delete(
-  "/users/:id/gallery",
-  verifyToken,
-  isAdmin,
-
-  async (req, res) => {
-    try {
-      const user =
-        await User.findById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      const gallery =
-        user.galleryImages || [];
-
-      for (
-        const image of gallery
-      ) {
-        await deleteUserImage(
-          image
-        );
-      }
-
-      user.galleryImages = [];
-
-      await user.save();
-
-      return res.json({
-        success: true,
-        message:
-          "All gallery images deleted",
-        galleryImages: [],
-      });
-    } catch (err) {
-      console.error(
-        "ADMIN DELETE ALL GALLERY ERROR:",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to delete gallery",
-      });
-    }
-  }
-);
-
-// ============================================================
-// DELETE USER
-// ADMIN ONLY
-//
-// Deletes:
-// - MongoDB user
-// - Profile image
-// - All gallery images
+// ADMIN DELETE USER
 // ============================================================
 
 router.delete(
   "/users/:id",
-  verifyToken,
-  isAdmin,
-
+  verifyAdmin,
   async (req, res) => {
     try {
       const user =
@@ -1647,41 +1119,36 @@ router.delete(
       if (!user) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
-      // Delete profile image
-      if (user.profileImage) {
-        await deleteUserImage(
-          user.profileImage
-        );
-      }
-
-      // Delete gallery images
-      for (
-        const image of
-          user.galleryImages || []
+      // Prevent admin from deleting
+      // the currently logged-in admin.
+      if (
+        user._id.toString() ===
+        req.admin._id.toString()
       ) {
-        await deleteUserImage(
-          image
-        );
+        return res.status(400).json({
+          success: false,
+          message:
+            "You cannot delete your own admin account",
+        });
       }
 
       await User.findByIdAndDelete(
-        user._id
+        req.params.id
       );
 
       return res.json({
         success: true,
         message:
-          "User and all images deleted successfully",
+          "User deleted successfully",
       });
-    } catch (err) {
+    } catch (error) {
       console.error(
         "ADMIN DELETE USER ERROR:",
-        err
+        error
       );
 
       return res.status(500).json({

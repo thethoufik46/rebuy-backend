@@ -49,20 +49,21 @@ const orderSchema = new mongoose.Schema(
     // ORDER STATUS
     // ============================================================
 
-    status: {
-      type: String,
-      enum: [
-        "booking",
-        "verification",
-        "advance",
-        "delivery",
-        "cancel_requested",
-        "cancelled",
-      ],
-      default: "booking",
-      required: true,
-      index: true,
-    },
+status: {
+  type: String,
+  enum: [
+    "booking",
+    "verification",
+    "advance",
+    "finance",
+    "delivery",
+    "cancel_requested",
+    "cancelled",
+  ],
+  default: "booking",
+  required: true,
+  index: true,
+},
 
     // ============================================================
     // USER VISIBILITY

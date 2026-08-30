@@ -1,12 +1,12 @@
-// ======================= buycar_model.js =======================
+// ======================= buyrequest_model.js =======================
 
 import mongoose from "mongoose";
 
-const buyCarSchema = new mongoose.Schema(
+const buyRequestSchema = new mongoose.Schema(
   {
-    /* ============================================================
-       TYPE
-    ============================================================ */
+    // ============================================================
+    // TYPE
+    // ============================================================
 
     type: {
       type: String,
@@ -20,9 +20,9 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* ============================================================
-       USER
-    ============================================================ */
+    // ============================================================
+    // USER
+    // ============================================================
 
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -37,9 +37,9 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* ============================================================
-       USER DETAILS
-    ============================================================ */
+    // ============================================================
+    // USER DETAILS
+    // ============================================================
 
     name: {
       type: String,
@@ -59,9 +59,9 @@ const buyCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* ============================================================
-       CAR
-    ============================================================ */
+    // ============================================================
+    // CAR
+    // ============================================================
 
     car: {
       model: {
@@ -69,7 +69,9 @@ const buyCarSchema = new mongoose.Schema(
         trim: true,
       },
 
-      budget: Number,
+      budget: {
+        type: Number,
+      },
 
       paymentType: {
         type: String,
@@ -97,9 +99,9 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* ============================================================
-       BIKE
-    ============================================================ */
+    // ============================================================
+    // BIKE
+    // ============================================================
 
     bike: {
       model: {
@@ -107,7 +109,9 @@ const buyCarSchema = new mongoose.Schema(
         trim: true,
       },
 
-      budget: Number,
+      budget: {
+        type: Number,
+      },
 
       paymentType: {
         type: String,
@@ -127,9 +131,9 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* ============================================================
-       PROPERTY
-    ============================================================ */
+    // ============================================================
+    // PROPERTY
+    // ============================================================
 
     property: {
       category: {
@@ -145,7 +149,9 @@ const buyCarSchema = new mongoose.Schema(
         trim: true,
       },
 
-      budget: Number,
+      budget: {
+        type: Number,
+      },
 
       timeline: {
         type: String,
@@ -157,9 +163,9 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* ============================================================
-       ELECTRONICS
-    ============================================================ */
+    // ============================================================
+    // ELECTRONICS
+    // ============================================================
 
     electronics: {
       category: {
@@ -171,7 +177,9 @@ const buyCarSchema = new mongoose.Schema(
         ],
       },
 
-      budget: Number,
+      budget: {
+        type: Number,
+      },
 
       timeline: {
         type: String,
@@ -183,9 +191,9 @@ const buyCarSchema = new mongoose.Schema(
       },
     },
 
-    /* ============================================================
-       COMMON
-    ============================================================ */
+    // ============================================================
+    // COMMON DESCRIPTION
+    // ============================================================
 
     description: {
       type: String,
@@ -193,10 +201,10 @@ const buyCarSchema = new mongoose.Schema(
       default: "",
     },
 
-    /* ============================================================
-       AUDIO
-       R2 PUBLIC URL
-    ============================================================ */
+    // ============================================================
+    // AUDIO
+    // R2 PUBLIC URL
+    // ============================================================
 
     audioNote: {
       type: String,
@@ -204,9 +212,9 @@ const buyCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* ============================================================
-       ADMIN STATUS
-    ============================================================ */
+    // ============================================================
+    // ADMIN STATUS
+    // ============================================================
 
     status: {
       type: String,
@@ -225,9 +233,9 @@ const buyCarSchema = new mongoose.Schema(
       trim: true,
     },
 
-    /* ============================================================
-       SOFT DELETE
-    ============================================================ */
+    // ============================================================
+    // SOFT DELETE
+    // ============================================================
 
     isDeleted: {
       type: Boolean,
@@ -241,10 +249,8 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
 
-    /*
-      24 HOURS AFTER THIS TIME:
-      document becomes permanently deleted.
-    */
+    // 24 hours after this time the request
+    // can be permanently deleted.
 
     deleteExpiresAt: {
       type: Date,
@@ -252,31 +258,39 @@ const buyCarSchema = new mongoose.Schema(
       index: true,
     },
   },
-
   {
     timestamps: true,
   }
 );
 
-/* ============================================================
-   INDEXES
-============================================================ */
+// ============================================================
+// INDEXES
+// ============================================================
 
-buyCarSchema.index({
+buyRequestSchema.index({
   user: 1,
   isDeleted: 1,
 });
 
-buyCarSchema.index({
+buyRequestSchema.index({
   isDeleted: 1,
   deleteExpiresAt: 1,
 });
 
-buyCarSchema.index({
+buyRequestSchema.index({
+  type: 1,
+  status: 1,
+});
+
+buyRequestSchema.index({
   createdAt: -1,
 });
 
+// ============================================================
+// MODEL
+// ============================================================
+
 export default mongoose.model(
-  "BuyCar",
-  buyCarSchema
+  "BuyRequest",
+  buyRequestSchema
 );

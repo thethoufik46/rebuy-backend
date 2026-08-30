@@ -40,7 +40,7 @@ import bikeRoutes from "./routes/bike.routes.js";
 
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
-
+import buyRequestRoutes from "./routes/buyrequest.routes.js";
 // ============================================================
 // COMMON ORDER ROUTE
 // CAR + BIKE + PROPERTY + ELECTRONICS
@@ -49,7 +49,6 @@ import searchRoutes from "./routes/search.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 
 import sellCarRoutes from "./routes/sellcar.routes.js";
-import buyCarRoutes from "./routes/buycar.routes.js";
 
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
 import buyPropertyRoutes from "./routes/buyproperty.routes.js";
@@ -389,6 +388,19 @@ app.use(
   searchRoutes
 );
 
+
+// ------------------------------------------------------------
+// BUY REQUEST
+// CAR + BIKE + PROPERTY + ELECTRONICS
+// ------------------------------------------------------------
+
+app.use(
+  "/api/buyrequest",
+  buyRequestRoutes
+);
+
+
+
 // ------------------------------------------------------------
 // WISHLIST
 // ------------------------------------------------------------
@@ -417,14 +429,7 @@ app.use(
   sellCarRoutes
 );
 
-// ------------------------------------------------------------
-// BUY CAR / NEED
-// ------------------------------------------------------------
 
-app.use(
-  "/api/buycar",
-  buyCarRoutes
-);
 
 // ------------------------------------------------------------
 // SELL PROPERTY

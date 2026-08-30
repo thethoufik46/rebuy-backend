@@ -67,7 +67,7 @@ import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 
 import leadRoutes from "./routes/lead.routes.js";
-
+import commonSearchRoute from "./routes/common.search.route.js";
 /*
 ============================================================
 SURVEY ROUTES
@@ -507,6 +507,8 @@ app.use(
   leadRoutes
 );
 
+
+app.use("/api", commonSearchRoute);
 // ------------------------------------------------------------
 // RECENTLY VIEWED
 // ------------------------------------------------------------

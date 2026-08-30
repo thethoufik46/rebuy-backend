@@ -7,6 +7,7 @@ import {
 
 import r2 from "../config/r2.js";
 
+
 // ============================================================
 // ENV
 // ============================================================
@@ -25,12 +26,15 @@ const PUBLIC_URL =
 const getPublicBase = () => {
   return String(
     PUBLIC_URL || ""
-  ).replace(/\/+$/, "");
+  ).replace(
+    /\/+$/,
+    ""
+  );
 };
 
 
 // ============================================================
-// ALLOWED AUDIO
+// ALLOWED AUDIO EXTENSIONS
 // ============================================================
 
 const ALLOWED_EXTENSIONS = [
@@ -44,10 +48,12 @@ const ALLOWED_EXTENSIONS = [
 
 
 // ============================================================
-// GET SAFE EXTENSION
+// GET SAFE AUDIO EXTENSION
 // ============================================================
 
-const getAudioExtension = (file) => {
+const getAudioExtension = (
+  file
+) => {
 
   // ----------------------------------------------------------
   // First try original filename
@@ -60,8 +66,10 @@ const getAudioExtension = (file) => {
         file.originalname
       ).trim();
 
+
     const parts =
       originalName.split(".");
+
 
     if (parts.length > 1) {
 
@@ -69,7 +77,11 @@ const getAudioExtension = (file) => {
         parts
           .pop()
           .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
+          .replace(
+            /[^a-z0-9]/g,
+            ""
+          );
+
 
       if (
         ALLOWED_EXTENSIONS.includes(
@@ -139,7 +151,7 @@ const getAudioExtension = (file) => {
 
 
 // ============================================================
-// VALIDATE R2
+// VALIDATE R2 CONFIG
 // ============================================================
 
 const validateR2Config = () => {
@@ -206,8 +218,14 @@ export const uploadBuyRequestAudio = async (
         folder ||
           "buyrequest/audio"
       )
-        .replace(/^\/+/, "")
-        .replace(/\/+$/, "");
+        .replace(
+          /^\/+/,
+          ""
+        )
+        .replace(
+          /\/+$/,
+          ""
+        );
 
 
     // --------------------------------------------------------
@@ -318,10 +336,18 @@ export const uploadBuyRequestAudio = async (
 
     await r2.send(
       new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-        Body: file.buffer,
-        ContentType: contentType,
+
+        Bucket:
+          BUCKET,
+
+        Key:
+          key,
+
+        Body:
+          file.buffer,
+
+        ContentType:
+          contentType,
       })
     );
 
@@ -470,8 +496,12 @@ export const deleteBuyRequestAudio = async (
 
     await r2.send(
       new DeleteObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
+
+        Bucket:
+          BUCKET,
+
+        Key:
+          key,
       })
     );
 

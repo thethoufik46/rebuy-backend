@@ -3,6 +3,7 @@
 import BuyRequest from "../models/buyrequest_model.js";
 
 import {
+  uploadBuyRequestAudio,
   deleteBuyRequestAudio,
 } from "../utils/buyRequestAudio.js";
 
@@ -25,25 +26,44 @@ const getUserId = (req) => {
 
 
 // ============================================================
+// SAFE OBJECT PARSER
+// ============================================================
+
+const parseObject = (value) => {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return undefined;
+  }
+};
+
+
+// ============================================================
 // PERMANENT CLEANUP
 // ============================================================
 //
-// This function:
-//
-// 1. Finds soft-deleted requests.
-// 2. Fixes old records without deleteExpiresAt.
-// 3. Checks 24 hour expiry.
-// 4. Deletes R2 audio.
-// 5. Permanently deletes Mongo document.
+// 24 hours after soft delete:
+// MongoDB document -> permanently deleted
+// R2 audio        -> permanently deleted
 //
 // ============================================================
 
 export const cleanupExpiredBuyRequests = async () => {
   try {
 
-    const now =
-      new Date();
-
+    const now = new Date();
 
     const deletedRequests =
       await BuyRequest.find({
@@ -61,9 +81,7 @@ export const cleanupExpiredBuyRequests = async () => {
     let deletedCount = 0;
 
 
-    for (
-      const request of deletedRequests
-    ) {
+    for (const request of deletedRequests) {
 
       let expiresAt =
         request.deleteExpiresAt;
@@ -124,10 +142,6 @@ export const cleanupExpiredBuyRequests = async () => {
 
       try {
 
-        // ------------------------------------------------------
-        // Delete audio from Cloudflare R2
-        // ------------------------------------------------------
-
         if (request.audioNote) {
 
           await deleteBuyRequestAudio(
@@ -136,11 +150,6 @@ export const cleanupExpiredBuyRequests = async () => {
         }
 
       } catch (audioError) {
-
-        // ------------------------------------------------------
-        // Audio deletion failure should NOT
-        // stop Mongo cleanup.
-        // ------------------------------------------------------
 
         console.error(
           "R2 AUDIO DELETE ERROR 👉",
@@ -182,6 +191,23 @@ export const cleanupExpiredBuyRequests = async () => {
 // ============================================================
 // 🟢 ADD BUY REQUEST
 // ============================================================
+//
+// IMPORTANT:
+//
+// Flutter sends multipart/form-data.
+//
+// type
+// name
+// phone
+// location
+// description
+//
+// car / bike / property / electronics
+// come as JSON strings.
+//
+// audio comes through req.file.
+//
+// ============================================================
 
 export const addBuyRequest = async (
   req,
@@ -190,13 +216,16 @@ export const addBuyRequest = async (
 
   try {
 
-    const {
+    // ========================================================
+    // BODY
+    // ========================================================
+
+    let {
       type,
       name,
       phone,
       location,
       description,
-      audioNote,
 
       car,
       bike,
@@ -206,7 +235,18 @@ export const addBuyRequest = async (
 
 
     // ========================================================
-    // TYPE
+    // CLEAN TYPE
+    // ========================================================
+
+    type = String(
+      type || ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+    // ========================================================
+    // TYPE REQUIRED
     // ========================================================
 
     if (!type) {
@@ -219,7 +259,47 @@ export const addBuyRequest = async (
 
 
     // ========================================================
-    // TYPE VALIDATION
+    // VALID TYPES
+    // ========================================================
+
+    const allowedTypes = [
+      "car",
+      "bike",
+      "property",
+      "electronics",
+    ];
+
+
+    if (
+      !allowedTypes.includes(type)
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request type",
+      });
+    }
+
+
+    // ========================================================
+    // PARSE NESTED DATA
+    // ========================================================
+
+    car =
+      parseObject(car);
+
+    bike =
+      parseObject(bike);
+
+    property =
+      parseObject(property);
+
+    electronics =
+      parseObject(electronics);
+
+
+    // ========================================================
+    // CAR VALIDATION
     // ========================================================
 
     if (
@@ -234,6 +314,10 @@ export const addBuyRequest = async (
     }
 
 
+    // ========================================================
+    // BIKE VALIDATION
+    // ========================================================
+
     if (
       type === "bike" &&
       !bike?.model
@@ -246,6 +330,10 @@ export const addBuyRequest = async (
     }
 
 
+    // ========================================================
+    // PROPERTY VALIDATION
+    // ========================================================
+
     if (
       type === "property" &&
       !property?.category
@@ -257,6 +345,10 @@ export const addBuyRequest = async (
       });
     }
 
+
+    // ========================================================
+    // ELECTRONICS VALIDATION
+    // ========================================================
 
     if (
       type === "electronics" &&
@@ -288,13 +380,132 @@ export const addBuyRequest = async (
 
 
     // ========================================================
-    // CREATE BUY REQUEST
+    // BASIC DATA
+    // ========================================================
+
+    const cleanName =
+      String(
+        name || ""
+      ).trim();
+
+
+    const cleanPhone =
+      String(
+        phone || ""
+      ).replace(
+        /\D/g,
+        ""
+      );
+
+
+    const cleanLocation =
+      String(
+        location || ""
+      ).trim();
+
+
+    const cleanDescription =
+      String(
+        description || ""
+      ).trim();
+
+
+    // ========================================================
+    // NAME
+    // ========================================================
+
+    if (!cleanName) {
+
+      return res.status(400).json({
+        success: false,
+        message: "Name is required",
+      });
+    }
+
+
+    // ========================================================
+    // PHONE
+    // ========================================================
+
+    if (
+      !/^[6-9]\d{9}$/.test(
+        cleanPhone
+      )
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid phone number",
+      });
+    }
+
+
+    // ========================================================
+    // LOCATION
+    // ========================================================
+
+    if (!cleanLocation) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Location is required",
+      });
+    }
+
+
+    // ========================================================
+    // AUDIO
+    // ========================================================
+
+    let audioNote = null;
+
+
+    if (req.file) {
+
+      try {
+
+        audioNote =
+          await uploadBuyRequestAudio(
+            req.file,
+            "buyrequest/audio"
+          );
+
+      } catch (audioError) {
+
+        console.error(
+          "BUY REQUEST AUDIO UPLOAD ERROR 👉",
+          audioError
+        );
+
+
+        return res.status(500).json({
+          success: false,
+          message:
+            "Audio upload failed",
+        });
+      }
+    }
+
+
+    // ========================================================
+    // CREATE REQUEST
     // ========================================================
 
     const newRequest =
       new BuyRequest({
 
+        // ----------------------------------------------------
+        // TYPE
+        // ----------------------------------------------------
+
         type,
+
+
+        // ----------------------------------------------------
+        // USER
+        // ----------------------------------------------------
 
         user:
           userId,
@@ -303,44 +514,34 @@ export const addBuyRequest = async (
           userId.toString(),
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // USER DETAILS
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         name:
-          String(
-            name || ""
-          ).trim(),
+          cleanName,
 
         phone:
-          String(
-            phone || ""
-          ).trim(),
+          cleanPhone,
 
         location:
-          String(
-            location || ""
-          ).trim(),
+          cleanLocation,
 
         description:
-          String(
-            description || ""
-          ).trim(),
+          cleanDescription,
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // AUDIO
-        //
-        // Must be R2 public URL.
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         audioNote:
-          audioNote || null,
+          audioNote,
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // TYPE DATA
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         car:
           type === "car"
@@ -363,9 +564,9 @@ export const addBuyRequest = async (
             : undefined,
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // ADMIN
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         status:
           "pending",
@@ -374,9 +575,9 @@ export const addBuyRequest = async (
           "",
 
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // DELETE
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         isDeleted:
           false,
@@ -389,17 +590,20 @@ export const addBuyRequest = async (
       });
 
 
+    // ========================================================
+    // SAVE
+    // ========================================================
+
     await newRequest.save();
 
 
     // ========================================================
-    // RESPONSE
+    // SUCCESS
     // ========================================================
 
     return res.status(201).json({
 
-      success:
-        true,
+      success: true,
 
       message:
         "Buy request submitted successfully",
@@ -407,6 +611,7 @@ export const addBuyRequest = async (
       data:
         newRequest,
     });
+
 
   } catch (error) {
 
@@ -418,11 +623,10 @@ export const addBuyRequest = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Failed to submit buy request",
     });
   }
@@ -441,11 +645,15 @@ export const getMyBuyRequests = async (
   try {
 
     // --------------------------------------------------------
-    // Cleanup expired requests first.
+    // CLEANUP
     // --------------------------------------------------------
 
     await cleanupExpiredBuyRequests();
 
+
+    // --------------------------------------------------------
+    // USER
+    // --------------------------------------------------------
 
     const userId =
       getUserId(req);
@@ -461,7 +669,7 @@ export const getMyBuyRequests = async (
 
 
     // ========================================================
-    // ACTIVE REQUESTS
+    // ACTIVE
     // ========================================================
 
     const active =
@@ -469,16 +677,6 @@ export const getMyBuyRequests = async (
 
         user:
           userId,
-
-        /*
-          $ne handles:
-
-          isDeleted: false
-
-          OR
-
-          old records where field doesn't exist.
-        */
 
         isDeleted: {
           $ne: true,
@@ -490,7 +688,7 @@ export const getMyBuyRequests = async (
 
 
     // ========================================================
-    // DELETED REQUESTS
+    // DELETED
     // ========================================================
 
     const deletedRaw =
@@ -515,7 +713,7 @@ export const getMyBuyRequests = async (
 
 
     // ========================================================
-    // MAKE SURE EXPIRY EXISTS
+    // RECOVERY WINDOW
     // ========================================================
 
     for (
@@ -527,7 +725,7 @@ export const getMyBuyRequests = async (
 
 
       // ------------------------------------------------------
-      // OLD RECORD FIX
+      // OLD RECORD
       // ------------------------------------------------------
 
       if (
@@ -553,7 +751,7 @@ export const getMyBuyRequests = async (
 
 
       // ------------------------------------------------------
-      // No expiry = don't show
+      // NO EXPIRY
       // ------------------------------------------------------
 
       if (!expiresAt) {
@@ -562,7 +760,7 @@ export const getMyBuyRequests = async (
 
 
       // ------------------------------------------------------
-      // Still recoverable
+      // STILL RECOVERABLE
       // ------------------------------------------------------
 
       if (
@@ -585,8 +783,7 @@ export const getMyBuyRequests = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       count:
         active.length,
@@ -595,6 +792,7 @@ export const getMyBuyRequests = async (
 
       deleted,
     });
+
 
   } catch (error) {
 
@@ -606,11 +804,10 @@ export const getMyBuyRequests = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Failed to fetch buy requests",
     });
   }
@@ -647,8 +844,7 @@ export const updateMyBuyRequest = async (
 
       return res.status(404).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Buy request not found",
@@ -657,53 +853,172 @@ export const updateMyBuyRequest = async (
 
 
     // ========================================================
-    // ALLOWED FIELDS
+    // BASIC FIELDS
     // ========================================================
 
-    const allowedFields = [
-
-      "type",
-
-      "name",
-
-      "phone",
-
-      "location",
-
-      "description",
-
-      "audioNote",
-
-      "car",
-
-      "bike",
-
-      "property",
-
-      "electronics",
-    ];
-
-
-    // ========================================================
-    // UPDATE
-    // ========================================================
-
-    for (
-      const field of allowedFields
+    if (
+      req.body.type !== undefined
     ) {
 
+      request.type =
+        String(
+          req.body.type
+        )
+          .trim()
+          .toLowerCase();
+    }
+
+
+    if (
+      req.body.name !== undefined
+    ) {
+
+      request.name =
+        String(
+          req.body.name
+        ).trim();
+    }
+
+
+    if (
+      req.body.phone !== undefined
+    ) {
+
+      const cleanPhone =
+        String(
+          req.body.phone
+        ).replace(
+          /\D/g,
+          ""
+        );
+
+
       if (
-        Object.prototype.hasOwnProperty.call(
-          req.body,
-          field
+        !/^[6-9]\d{9}$/.test(
+          cleanPhone
         )
       ) {
 
-        request[field] =
-          req.body[field];
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid phone number",
+        });
       }
+
+
+      request.phone =
+        cleanPhone;
     }
 
+
+    if (
+      req.body.location !== undefined
+    ) {
+
+      request.location =
+        String(
+          req.body.location
+        ).trim();
+    }
+
+
+    if (
+      req.body.description !== undefined
+    ) {
+
+      request.description =
+        String(
+          req.body.description
+        ).trim();
+    }
+
+
+    // ========================================================
+    // NESTED DATA
+    // ========================================================
+
+    if (
+      req.body.car !== undefined
+    ) {
+
+      request.car =
+        parseObject(
+          req.body.car
+        );
+    }
+
+
+    if (
+      req.body.bike !== undefined
+    ) {
+
+      request.bike =
+        parseObject(
+          req.body.bike
+        );
+    }
+
+
+    if (
+      req.body.property !== undefined
+    ) {
+
+      request.property =
+        parseObject(
+          req.body.property
+        );
+    }
+
+
+    if (
+      req.body.electronics !== undefined
+    ) {
+
+      request.electronics =
+        parseObject(
+          req.body.electronics
+        );
+    }
+
+
+    // ========================================================
+    // AUDIO UPDATE
+    // ========================================================
+
+    if (req.file) {
+
+      if (request.audioNote) {
+
+        try {
+
+          await deleteBuyRequestAudio(
+            request.audioNote
+          );
+
+        } catch (audioError) {
+
+          console.error(
+            "OLD AUDIO DELETE ERROR 👉",
+            audioError
+          );
+        }
+      }
+
+
+      request.audioNote =
+        await uploadBuyRequestAudio(
+          req.file,
+          "buyrequest/audio"
+        );
+    }
+
+
+    // ========================================================
+    // SAVE
+    // ========================================================
 
     await request.save();
 
@@ -714,8 +1029,7 @@ export const updateMyBuyRequest = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       message:
         "Buy request updated successfully",
@@ -723,6 +1037,7 @@ export const updateMyBuyRequest = async (
       data:
         request,
     });
+
 
   } catch (error) {
 
@@ -734,11 +1049,10 @@ export const updateMyBuyRequest = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Buy request update failed",
     });
   }
@@ -775,8 +1089,7 @@ export const deleteMyBuyRequest = async (
 
       return res.status(404).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Buy request not found",
@@ -785,16 +1098,12 @@ export const deleteMyBuyRequest = async (
 
 
     // ========================================================
-    // EXACT DELETE TIME
+    // DELETE TIME
     // ========================================================
 
     const deletedAt =
       new Date();
 
-
-    // ========================================================
-    // EXACT +24 HOURS
-    // ========================================================
 
     const deleteExpiresAt =
       new Date(
@@ -804,7 +1113,7 @@ export const deleteMyBuyRequest = async (
 
 
     // ========================================================
-    // SOFT DELETE ONLY
+    // SOFT DELETE
     // ========================================================
 
     request.isDeleted =
@@ -817,16 +1126,12 @@ export const deleteMyBuyRequest = async (
       deleteExpiresAt;
 
 
-    /*
-      IMPORTANT:
-
-      DO NOT delete Mongo document here.
-
-      DO NOT delete R2 audio here.
-
-      User has 24 hours to recover.
-    */
-
+    // IMPORTANT:
+//
+// Mongo document is NOT deleted here.
+// R2 audio is NOT deleted here.
+//
+// User has 24 hours to restore.
 
     await request.save();
 
@@ -837,8 +1142,7 @@ export const deleteMyBuyRequest = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       message:
         "Buy request moved to Recently Deleted",
@@ -856,6 +1160,7 @@ export const deleteMyBuyRequest = async (
         deleteExpiresAt.toISOString(),
     });
 
+
   } catch (error) {
 
     console.error(
@@ -866,11 +1171,10 @@ export const deleteMyBuyRequest = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Buy request delete failed",
     });
   }
@@ -906,8 +1210,7 @@ export const restoreMyBuyRequest = async (
 
       return res.status(404).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Deleted buy request not found or already permanently deleted",
@@ -957,8 +1260,7 @@ export const restoreMyBuyRequest = async (
 
       return res.status(410).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Recovery period information unavailable",
@@ -978,7 +1280,7 @@ export const restoreMyBuyRequest = async (
     ) {
 
       // ------------------------------------------------------
-      // Delete R2 audio only now.
+      // DELETE AUDIO
       // ------------------------------------------------------
 
       if (request.audioNote) {
@@ -1000,7 +1302,7 @@ export const restoreMyBuyRequest = async (
 
 
       // ------------------------------------------------------
-      // Permanent Mongo delete
+      // PERMANENT DELETE
       // ------------------------------------------------------
 
       await BuyRequest.findByIdAndDelete(
@@ -1010,8 +1312,7 @@ export const restoreMyBuyRequest = async (
 
       return res.status(410).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Recovery period expired. Buy request was permanently deleted.",
@@ -1042,8 +1343,7 @@ export const restoreMyBuyRequest = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       message:
         "Buy request recovered successfully",
@@ -1051,6 +1351,7 @@ export const restoreMyBuyRequest = async (
       data:
         request,
     });
+
 
   } catch (error) {
 
@@ -1062,11 +1363,10 @@ export const restoreMyBuyRequest = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Buy request recovery failed",
     });
   }
@@ -1084,9 +1384,9 @@ export const getBuyRequests = async (
 
   try {
 
-    // --------------------------------------------------------
-    // Cleanup expired requests
-    // --------------------------------------------------------
+    // ========================================================
+    // CLEANUP
+    // ========================================================
 
     await cleanupExpiredBuyRequests();
 
@@ -1107,19 +1407,11 @@ export const getBuyRequests = async (
 
     const filter = {
 
-      /*
-        Admin sees active requests only.
-      */
-
       isDeleted: {
         $ne: true,
       },
     };
 
-
-    // --------------------------------------------------------
-    // Type filter
-    // --------------------------------------------------------
 
     if (type) {
 
@@ -1127,10 +1419,6 @@ export const getBuyRequests = async (
         type;
     }
 
-
-    // --------------------------------------------------------
-    // Status filter
-    // --------------------------------------------------------
 
     if (status) {
 
@@ -1140,7 +1428,7 @@ export const getBuyRequests = async (
 
 
     // ========================================================
-    // GET REQUESTS
+    // GET
     // ========================================================
 
     const requests =
@@ -1162,14 +1450,14 @@ export const getBuyRequests = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       count:
         requests.length,
 
       requests,
     });
+
 
   } catch (error) {
 
@@ -1181,11 +1469,10 @@ export const getBuyRequests = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Failed to fetch buy requests",
     });
   }
@@ -1216,8 +1503,7 @@ export const getBuyRequestById = async (
 
       return res.status(404).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Buy request not found",
@@ -1227,11 +1513,11 @@ export const getBuyRequestById = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       request,
     });
+
 
   } catch (error) {
 
@@ -1243,11 +1529,10 @@ export const getBuyRequestById = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Failed to fetch buy request",
     });
   }
@@ -1288,8 +1573,7 @@ export const updateBuyRequestStatus =
 
         return res.status(400).json({
 
-          success:
-            false,
+          success: false,
 
           message:
             "Invalid status",
@@ -1317,8 +1601,7 @@ export const updateBuyRequestStatus =
 
         return res.status(404).json({
 
-          success:
-            false,
+          success: false,
 
           message:
             "Buy request not found",
@@ -1327,7 +1610,7 @@ export const updateBuyRequestStatus =
 
 
       // ======================================================
-      // UPDATE STATUS
+      // UPDATE
       // ======================================================
 
       request.status =
@@ -1351,14 +1634,14 @@ export const updateBuyRequestStatus =
 
       return res.json({
 
-        success:
-          true,
+        success: true,
 
         message:
           "Buy request status updated successfully",
 
         request,
       });
+
 
     } catch (error) {
 
@@ -1370,11 +1653,10 @@ export const updateBuyRequestStatus =
 
       return res.status(500).json({
 
-        success:
-          false,
+        success: false,
 
         message:
-          error.message ||
+          error?.message ||
           "Buy request status update failed",
       });
     }
@@ -1383,13 +1665,6 @@ export const updateBuyRequestStatus =
 
 // ============================================================
 // 🔴 ADMIN PERMANENT DELETE
-// ============================================================
-//
-// Admin can permanently delete any request.
-//
-// MongoDB document -> deleted
-// R2 audio         -> deleted
-//
 // ============================================================
 
 export const deleteBuyRequest = async (
@@ -1400,7 +1675,7 @@ export const deleteBuyRequest = async (
   try {
 
     // ========================================================
-    // FIND REQUEST
+    // FIND
     // ========================================================
 
     const request =
@@ -1413,8 +1688,7 @@ export const deleteBuyRequest = async (
 
       return res.status(404).json({
 
-        success:
-          false,
+        success: false,
 
         message:
           "Buy request not found",
@@ -1445,7 +1719,7 @@ export const deleteBuyRequest = async (
 
 
     // ========================================================
-    // PERMANENT MONGO DELETE
+    // DELETE MONGO
     // ========================================================
 
     await BuyRequest.findByIdAndDelete(
@@ -1459,12 +1733,12 @@ export const deleteBuyRequest = async (
 
     return res.json({
 
-      success:
-        true,
+      success: true,
 
       message:
         "Buy request permanently deleted",
     });
+
 
   } catch (error) {
 
@@ -1476,11 +1750,10 @@ export const deleteBuyRequest = async (
 
     return res.status(500).json({
 
-      success:
-        false,
+      success: false,
 
       message:
-        error.message ||
+        error?.message ||
         "Buy request permanent delete failed",
     });
   }

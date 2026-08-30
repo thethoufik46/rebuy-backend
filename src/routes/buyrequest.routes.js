@@ -1,4 +1,7 @@
-// ======================= buyrequest.routes.js =======================
+// ============================================================
+// buyrequest.routes.js
+// FINAL FULL CODE
+// ============================================================
 
 import express from "express";
 
@@ -8,7 +11,6 @@ import {
   updateMyBuyRequest,
   deleteMyBuyRequest,
   restoreMyBuyRequest,
-
   getBuyRequests,
   getBuyRequestById,
   updateBuyRequestStatus,
@@ -20,6 +22,8 @@ import {
   isAdmin,
 } from "../middleware/auth.js";
 
+import uploadBuyRequest from "../middleware/uploadBuyRequest.js";
+
 const router = express.Router();
 
 
@@ -30,11 +34,17 @@ const router = express.Router();
 
 // ------------------------------------------------------------
 // ADD BUY REQUEST
+//
+// Flutter sends multipart/form-data.
+//
+// audio field:
+// optional
 // ------------------------------------------------------------
 
 router.post(
   "/add",
   verifyToken,
+  uploadBuyRequest.single("audio"),
   addBuyRequest
 );
 
@@ -51,10 +61,10 @@ router.get(
 
 
 // ------------------------------------------------------------
-// RESTORE DELETED BUY REQUEST
+// RESTORE
 //
 // IMPORTANT:
-// This route must be BEFORE /my/:id
+// BEFORE /my/:id
 // ------------------------------------------------------------
 
 router.put(
@@ -66,25 +76,20 @@ router.put(
 
 // ------------------------------------------------------------
 // UPDATE MY BUY REQUEST
+//
+// Supports optional audio.
 // ------------------------------------------------------------
 
 router.put(
   "/my/:id",
   verifyToken,
+  uploadBuyRequest.single("audio"),
   updateMyBuyRequest
 );
 
 
 // ------------------------------------------------------------
-// SOFT DELETE MY BUY REQUEST
-//
-// Request is NOT permanently deleted immediately.
-//
-// isDeleted       = true
-// deletedAt       = current time
-// deleteExpiresAt = current time + 24 hours
-//
-// User can restore within 24 hours.
+// SOFT DELETE
 // ------------------------------------------------------------
 
 router.delete(
@@ -94,16 +99,15 @@ router.delete(
 );
 
 
-
 // ============================================================
 // ADMIN ROUTES
 // ============================================================
 
 
 // ------------------------------------------------------------
-// GET ALL ACTIVE BUY REQUESTS
+// GET ALL BUY REQUESTS
 //
-// Optional query:
+// Optional:
 // ?type=car
 // ?type=bike
 // ?type=property
@@ -123,7 +127,7 @@ router.get(
 
 
 // ------------------------------------------------------------
-// GET SINGLE BUY REQUEST
+// GET SINGLE
 // ------------------------------------------------------------
 
 router.get(
@@ -135,15 +139,7 @@ router.get(
 
 
 // ------------------------------------------------------------
-// UPDATE BUY REQUEST STATUS
-//
-// Allowed:
-// pending
-// approved
-// rejected
-//
-// Admin can also send:
-// adminNote
+// UPDATE STATUS
 // ------------------------------------------------------------
 
 router.put(
@@ -156,9 +152,6 @@ router.put(
 
 // ------------------------------------------------------------
 // ADMIN PERMANENT DELETE
-//
-// This permanently removes the request.
-// R2 audio is also deleted by controller.
 // ------------------------------------------------------------
 
 router.delete(

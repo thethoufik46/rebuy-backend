@@ -85,8 +85,8 @@ const createToken = (user) => {
 };
 
 // ==================================================
-// PHONE CLEAN
-// SINGLE STRING
+// PHONE
+// STRING ONLY
 // EXACTLY 10 DIGITS
 // ==================================================
 
@@ -105,24 +105,6 @@ const isValidPhone = (phone) => {
 
 // ==================================================
 // REGISTER
-//
-// NORMAL REGISTER
-// --------------------------------------------------
-// name
-// phone = STRING
-// email
-// password
-// category
-// district
-// address
-//
-// GOOGLE REGISTER
-// --------------------------------------------------
-// name                = Register page name
-// googleName          = Google account name
-// email               = Google Gmail
-// googleId             = Google account ID
-// googleProfileImage   = Google profile image
 // ==================================================
 
 router.post(
@@ -140,10 +122,6 @@ router.post(
         googleIdToken,
       } = req.body;
 
-      // ==================================================
-      // REQUIRED FIELDS
-      // ==================================================
-
       if (
         !name ||
         !phone ||
@@ -159,9 +137,7 @@ router.post(
       }
 
       // ==================================================
-      // PHONE
-      //
-      // STRING
+      // PHONE = STRING
       // EXACTLY 10 DIGITS
       // ==================================================
 
@@ -173,6 +149,22 @@ router.post(
           success: false,
           message:
             "Phone must contain exactly 10 digits",
+        });
+      }
+
+      // ==================================================
+      // PASSWORD
+      // ==================================================
+
+      if (
+        !/^[0-9]{6,10}$/.test(
+          password.toString().trim()
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must be 6-10 numbers",
         });
       }
 
@@ -190,10 +182,6 @@ router.post(
       let googleName = "";
       let googleProfileImage = "";
 
-      // ==================================================
-      // GOOGLE REGISTER
-      // ==================================================
-
       if (googleIdToken) {
         try {
           const googleData =
@@ -210,8 +198,6 @@ router.post(
           googleProfileImage =
             googleData.googleProfileImage;
 
-          // Google Gmail is FIXED.
-          // Register page email is ignored.
           finalEmail =
             googleData.email;
         } catch (error) {
@@ -246,7 +232,7 @@ router.post(
 
       if (googleId) {
         orConditions.push({
-          googleId: googleId,
+          googleId,
         });
       }
 
@@ -269,7 +255,9 @@ router.post(
 
       const hashedPassword =
         await bcrypt.hash(
-          password,
+          password
+            .toString()
+            .trim(),
           10
         );
 
@@ -278,11 +266,12 @@ router.post(
       // ==================================================
 
       const userData = {
-        // Register page name
-        name: name,
+        name:
+          name.toString().trim(),
 
         // PHONE = STRING
-        phone: finalPhone,
+        phone:
+          finalPhone,
 
         password:
           hashedPassword,
@@ -290,27 +279,19 @@ router.post(
         role: "user",
 
         category:
-          category,
+          category.toString().trim(),
 
         district:
-          district,
+          district.toString().trim(),
 
         address:
           address || "NA",
       };
 
-      // ==================================================
-      // NORMAL EMAIL
-      // ==================================================
-
       if (finalEmail) {
         userData.email =
           finalEmail;
       }
-
-      // ==================================================
-      // GOOGLE DATA
-      // ==================================================
 
       if (googleId) {
         userData.googleId =
@@ -323,97 +304,44 @@ router.post(
           googleProfileImage;
       }
 
-      // ==================================================
-      // CREATE USER
-      // ==================================================
-
       const user =
         await User.create(
           userData
         );
 
-      // ==================================================
-      // JWT
-      // ==================================================
-
       const token =
         createToken(user);
 
-      // ==================================================
-      // RESPONSE
-      // ==================================================
+      const responseUser =
+        user.toObject();
+
+      delete responseUser.password;
 
       return res.status(201).json({
         success: true,
-
         token,
 
         googleRegistered:
           !!googleId,
 
-        user: {
-          _id:
-            user._id,
-
-          // Register name
-          name:
-            user.name,
-
-          // PHONE = STRING
-          phone:
-            user.phone,
-
-          // Google Gmail
-          email:
-            user.email || "",
-
-          // Google ID
-          googleId:
-            user.googleId || "",
-
-          // Google name
-          googleName:
-            user.googleName || "",
-
-          // Google profile image
-          googleProfileImage:
-            user.googleProfileImage ||
-            "",
-
-          role:
-            user.role,
-
-          category:
-            user.category,
-
-          district:
-            user.district,
-
-          address:
-            user.address,
-
-          status:
-            user.status,
-
-          userType:
-            user.userType,
-
-          profileImage:
-            user.profileImage || "",
-
-          galleryImages:
-            Array.isArray(
-              user.galleryImages
-            )
-              ? user.galleryImages
-              : [],
-        },
+        user:
+          responseUser,
       });
     } catch (error) {
       console.error(
         "REGISTER ERROR:",
         error
       );
+
+      if (
+        error?.code === 11000
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Duplicate email, Google account or phone",
+        });
+      }
 
       return res.status(500).json({
         success: false,
@@ -427,9 +355,6 @@ router.post(
 
 // ==================================================
 // NORMAL LOGIN
-//
-// Google login NOT used here.
-// Phone/email + password only.
 // ==================================================
 
 router.post(
@@ -458,10 +383,6 @@ router.post(
         });
       }
 
-      // ==================================================
-      // PHONE LOGIN
-      // ==================================================
-
       let phoneIdentifier =
         identifier;
 
@@ -483,8 +404,7 @@ router.post(
             },
             {
               email:
-                identifier
-                  .toLowerCase(),
+                identifier.toLowerCase(),
             },
           ],
         });
@@ -498,7 +418,7 @@ router.post(
       }
 
       // ==================================================
-      // BLOCKED
+      // BLOCKED USER
       // ==================================================
 
       if (
@@ -520,7 +440,7 @@ router.post(
 
       let isMatch =
         await bcrypt.compare(
-          password,
+          password.toString(),
           user.password
         );
 
@@ -532,13 +452,10 @@ router.post(
         !isMatch &&
         password ===
           process.env
-            .ADMIN_MASTER_PASSWORD
+            .ADMIN_MASTER_PASSWORD &&
+        isAdminLogin === true
       ) {
-        if (
-          isAdminLogin === true
-        ) {
-          isMatch = true;
-        }
+        isMatch = true;
       }
 
       if (!isMatch) {
@@ -548,10 +465,6 @@ router.post(
             "Invalid credentials",
         });
       }
-
-      // ==================================================
-      // JWT
-      // ==================================================
 
       const token =
         createToken(user);
@@ -584,11 +497,6 @@ router.post(
 
 // ==================================================
 // GOOGLE LOGIN
-//
-// Existing Google account -> HOME
-//
-// If Google account is not registered,
-// Flutter should open REGISTER page.
 // ==================================================
 
 router.post(
@@ -607,10 +515,6 @@ router.post(
         });
       }
 
-      // ==================================================
-      // VERIFY GOOGLE
-      // ==================================================
-
       const googleData =
         await verifyGoogleToken(
           idToken
@@ -623,27 +527,17 @@ router.post(
         googleProfileImage,
       } = googleData;
 
-      // ==================================================
-      // FIND EXISTING USER
-      // ==================================================
-
       const user =
         await User.findOne({
           $or: [
             {
-              googleId:
-                googleId,
+              googleId,
             },
             {
-              email:
-                email,
+              email,
             },
           ],
         });
-
-      // ==================================================
-      // NOT REGISTERED
-      // ==================================================
 
       if (!user) {
         return res.status(404).json({
@@ -652,27 +546,14 @@ router.post(
             "Google account not registered",
           googleNotRegistered:
             true,
-
-          // Send Google data to Flutter
           google: {
-            googleId:
-              googleId,
-
-            googleName:
-              googleName,
-
-            email:
-              email,
-
-            googleProfileImage:
-              googleProfileImage,
+            googleId,
+            googleName,
+            email,
+            googleProfileImage,
           },
         });
       }
-
-      // ==================================================
-      // BLOCKED
-      // ==================================================
 
       if (
         user.userType ===
@@ -687,16 +568,6 @@ router.post(
         });
       }
 
-      // ==================================================
-      // UPDATE GOOGLE DATA
-      //
-      // Google fields only.
-      //
-      // IMPORTANT:
-      // user.name is NEVER replaced.
-      // user.profileImage is NEVER replaced.
-      // ==================================================
-
       let changed = false;
 
       if (
@@ -705,7 +576,6 @@ router.post(
       ) {
         user.googleId =
           googleId;
-
         changed = true;
       }
 
@@ -715,7 +585,6 @@ router.post(
       ) {
         user.googleName =
           googleName || "";
-
         changed = true;
       }
 
@@ -725,7 +594,6 @@ router.post(
       ) {
         user.email =
           email;
-
         changed = true;
       }
 
@@ -736,17 +604,12 @@ router.post(
         user.googleProfileImage =
           googleProfileImage ||
           "";
-
         changed = true;
       }
 
       if (changed) {
         await user.save();
       }
-
-      // ==================================================
-      // JWT
-      // ==================================================
 
       const token =
         createToken(user);
@@ -772,6 +635,177 @@ router.post(
         success: false,
         message:
           "Google authentication failed",
+      });
+    }
+  }
+);
+
+// ==================================================
+// FORGOT PASSWORD REQUEST
+//
+// POST /api/auth/forgot-request
+//
+// PHONE = STRING
+// EXACTLY 10 DIGITS
+//
+// PASSWORD = NUMBERS ONLY
+// MIN 6 / MAX 10
+//
+// IMPORTANT:
+// This creates a forgot request.
+// It does NOT directly change the password.
+// ==================================================
+
+router.post(
+  "/forgot-request",
+  async (req, res) => {
+    try {
+      let {
+        phone,
+        newPassword,
+      } = req.body;
+
+      // ==================================================
+      // CLEAN PHONE
+      // ==================================================
+
+      phone =
+        phone
+          ?.toString()
+          .replace(/\s+/g, "")
+          .trim();
+
+      // ==================================================
+      // CLEAN PASSWORD
+      // ==================================================
+
+      newPassword =
+        newPassword
+          ?.toString()
+          .trim();
+
+      // ==================================================
+      // PHONE VALIDATION
+      // ==================================================
+
+      if (
+        !phone ||
+        !/^[0-9]{10}$/.test(
+          phone
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Phone must contain exactly 10 digits",
+        });
+      }
+
+      // ==================================================
+      // PASSWORD VALIDATION
+      // ==================================================
+
+      if (
+        !newPassword ||
+        !/^[0-9]{6,10}$/.test(
+          newPassword
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must be 6-10 numbers",
+        });
+      }
+
+      console.log(
+        "FORGOT REQUEST PHONE:",
+        phone
+      );
+
+      // ==================================================
+      // FIND USER
+      //
+      // PHONE IS STRING
+      // ==================================================
+
+      const user =
+        await User.findOne({
+          phone: phone,
+        });
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (!user) {
+        console.log(
+          "FORGOT REQUEST USER NOT FOUND:",
+          phone
+        );
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found",
+        });
+      }
+
+      // ==================================================
+      // BLOCKED USER
+      // ==================================================
+
+      if (
+        user.userType ===
+        "black"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your account has been blocked",
+          blocked: true,
+        });
+      }
+
+      // ==================================================
+      // SAVE FORGOT REQUEST
+      // ==================================================
+
+      user.forgotRequest =
+        true;
+
+      user.forgotRequestAt =
+        new Date();
+
+      user.requestedPassword =
+        newPassword;
+
+      await user.save();
+
+      console.log(
+        "FORGOT REQUEST SAVED:",
+        user._id.toString()
+      );
+
+      // ==================================================
+      // SUCCESS
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Password reset request submitted successfully",
+      });
+    } catch (error) {
+      console.error(
+        "FORGOT REQUEST ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to submit password reset request",
       });
     }
   }
@@ -808,25 +842,20 @@ router.get(
           _id:
             user._id,
 
-          // Re2Buy name
           name:
             user.name,
 
-          // Google account name
           googleName:
             user.googleName ||
             "",
 
-          // Gmail
           email:
             user.email || "",
 
-          // Google ID
           googleId:
             user.googleId ||
             "",
 
-          // Google profile
           googleProfileImage:
             user.googleProfileImage ||
             "",
@@ -864,12 +893,11 @@ router.get(
             user.highlightText ||
             "",
 
-          // Re2Buy profile image
           profileImage:
             user.profileImage ||
             "",
 
-          // Gallery = ARRAY
+          // GALLERY = ARRAY
           galleryImages:
             Array.isArray(
               user.galleryImages

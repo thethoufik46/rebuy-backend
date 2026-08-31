@@ -48,9 +48,7 @@ router.post(
       // FIND USER
       // ==================================================
 
-      const user = await User.findById(
-        req.user.id
-      );
+      const user = await User.findById(req.user.id);
 
       if (!user) {
         return res.status(404).json({
@@ -63,9 +61,7 @@ router.post(
       // PROFILE IMAGE ONLY
       // ==================================================
 
-      if (
-        req.files?.profileImage?.length
-      ) {
+      if (req.files?.profileImage?.length) {
         // ------------------------------------------------
         // DELETE OLD PROFILE IMAGE
         // ------------------------------------------------
@@ -367,7 +363,8 @@ router.get(
 
           name: user.name,
 
-          phone: user.phone,
+          // PHONE IS NOW STRING
+          phone: user.phone || "",
 
           // EMAIL OPTIONAL
           email:
@@ -428,12 +425,15 @@ router.get(
           // =================================================
           // GALLERY
           //
-          // VIEW ONLY
+          // ARRAY
           // =================================================
 
           galleryImages:
-            user.galleryImages ||
-            [],
+            Array.isArray(
+              user.galleryImages
+            )
+              ? user.galleryImages
+              : [],
 
           createdAt:
             user.createdAt,
@@ -512,10 +512,9 @@ router.put(
       // ==================================================
 
       if (name !== undefined) {
-        name =
-          name
-            .toString()
-            .trim();
+        name = name
+          .toString()
+          .trim();
 
         if (!name) {
           return res.status(400).json({

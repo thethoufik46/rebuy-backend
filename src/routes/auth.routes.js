@@ -22,7 +22,9 @@ const googleClient = new OAuth2Client(
 
 const verifyGoogleToken = async (idToken) => {
   if (!idToken) {
-    throw new Error("Google ID token required");
+    throw new Error(
+      "Google ID token required"
+    );
   }
 
   const ticket =
@@ -83,11 +85,36 @@ const createToken = (user) => {
 };
 
 // ==================================================
+// PHONE CLEAN
+// SINGLE STRING
+// EXACTLY 10 DIGITS
+// ==================================================
+
+const cleanPhone = (phone) => {
+  return phone
+    ?.toString()
+    .replace(/\s+/g, "")
+    .trim();
+};
+
+const isValidPhone = (phone) => {
+  return /^[0-9]{10}$/.test(
+    cleanPhone(phone) || ""
+  );
+};
+
+// ==================================================
 // REGISTER
 //
 // NORMAL REGISTER
 // --------------------------------------------------
-// name          = Register page name
+// name
+// phone = STRING
+// email
+// password
+// category
+// district
+// address
 //
 // GOOGLE REGISTER
 // --------------------------------------------------
@@ -128,6 +155,24 @@ router.post(
           success: false,
           message:
             "Required fields missing",
+        });
+      }
+
+      // ==================================================
+      // PHONE
+      //
+      // STRING
+      // EXACTLY 10 DIGITS
+      // ==================================================
+
+      const finalPhone =
+        cleanPhone(phone);
+
+      if (!isValidPhone(finalPhone)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Phone must contain exactly 10 digits",
         });
       }
 
@@ -189,7 +234,7 @@ router.post(
 
       const orConditions = [
         {
-          phone: phone,
+          phone: finalPhone,
         },
       ];
 
@@ -236,7 +281,8 @@ router.post(
         // Register page name
         name: name,
 
-        phone: phone,
+        // PHONE = STRING
+        phone: finalPhone,
 
         password:
           hashedPassword,
@@ -313,6 +359,7 @@ router.post(
           name:
             user.name,
 
+          // PHONE = STRING
           phone:
             user.phone,
 
@@ -350,6 +397,16 @@ router.post(
 
           userType:
             user.userType,
+
+          profileImage:
+            user.profileImage || "",
+
+          galleryImages:
+            Array.isArray(
+              user.galleryImages
+            )
+              ? user.galleryImages
+              : [],
         },
       });
     } catch (error) {
@@ -401,12 +458,28 @@ router.post(
         });
       }
 
+      // ==================================================
+      // PHONE LOGIN
+      // ==================================================
+
+      let phoneIdentifier =
+        identifier;
+
+      if (
+        /^[0-9]+$/.test(
+          identifier
+        )
+      ) {
+        phoneIdentifier =
+          cleanPhone(identifier);
+      }
+
       const user =
         await User.findOne({
           $or: [
             {
               phone:
-                identifier,
+                phoneIdentifier,
             },
             {
               email:
@@ -581,7 +654,6 @@ router.post(
             true,
 
           // Send Google data to Flutter
-          // so Register page can use it.
           google: {
             googleId:
               googleId,
@@ -731,6 +803,7 @@ router.get(
 
       return res.json({
         success: true,
+
         user: {
           _id:
             user._id,
@@ -758,8 +831,9 @@ router.get(
             user.googleProfileImage ||
             "",
 
+          // PHONE = STRING
           phone:
-            user.phone,
+            user.phone || "",
 
           alternatePhone:
             user.alternatePhone ||
@@ -795,9 +869,13 @@ router.get(
             user.profileImage ||
             "",
 
+          // Gallery = ARRAY
           galleryImages:
-            user.galleryImages ||
-            [],
+            Array.isArray(
+              user.galleryImages
+            )
+              ? user.galleryImages
+              : [],
 
           createdAt:
             user.createdAt,

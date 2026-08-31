@@ -13,9 +13,9 @@ const router = express.Router();
 const verifyAdmin = async (req, res, next) => {
   try {
     await verifyToken(req, res, async () => {
-      const user = await User.findById(req.user.id).select(
-        "-password"
-      );
+      const user = await User.findById(
+        req.user.id
+      ).select("-password");
 
       if (!user) {
         return res.status(404).json({
@@ -35,7 +35,10 @@ const verifyAdmin = async (req, res, next) => {
       next();
     });
   } catch (error) {
-    console.error("ADMIN AUTH ERROR:", error);
+    console.error(
+      "ADMIN AUTH ERROR:",
+      error
+    );
 
     return res.status(401).json({
       success: false,
@@ -75,17 +78,40 @@ const validStatuses = [
 ];
 
 const clean = (value) => {
-  if (value === undefined || value === null) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
     return "";
   }
 
-  return value.toString().trim();
+  return value
+    .toString()
+    .trim();
 };
+
+// ============================================================
+// PHONE VALIDATION
+// SINGLE STRING
+// EXACTLY 10 DIGITS
+// ============================================================
+
+const validatePhone = (phone) => {
+  const value = clean(phone);
+
+  return /^[0-9]{10}$/.test(value);
+};
+
+// ============================================================
+// ALTERNATE PHONE VALIDATION
+// ============================================================
 
 const validateAlternatePhone = (
   alternatePhone
 ) => {
-  const value = clean(alternatePhone);
+  const value = clean(
+    alternatePhone
+  );
 
   if (value === "") {
     return {
@@ -94,7 +120,9 @@ const validateAlternatePhone = (
     };
   }
 
-  if (!/^[0-9]{10}$/.test(value)) {
+  if (
+    !/^[0-9]{10}$/.test(value)
+  ) {
     return {
       valid: false,
       value,
@@ -105,22 +133,6 @@ const validateAlternatePhone = (
     valid: true,
     value,
   };
-};
-
-const validatePhone = (phone) => {
-  if (!Array.isArray(phone)) {
-    return false;
-  }
-
-  if (phone.length === 0) {
-    return false;
-  }
-
-  return phone.every((item) => {
-    return /^[0-9]{10}$/.test(
-      clean(item)
-    );
-  });
 };
 
 // ============================================================
@@ -201,24 +213,12 @@ router.get(
 // ============================================================
 // ADMIN CREATE USER
 //
-// ADMIN CAN CREATE:
-// ✅ name
-// ✅ googleName
-// ✅ email
-// ✅ googleId
-// ✅ googleProfileImage
-// ✅ phone
-// ✅ alternatePhone
-// ✅ password
-// ✅ role
-// ✅ category
-// ✅ userType
-// ✅ status
-// ✅ highlightText
-// ✅ district
-// ✅ address
-// ✅ profileImage
-// ✅ galleryImages
+// PHONE:
+// ✅ String
+// ✅ Exactly 10 digits
+//
+// GALLERY:
+// ✅ Array
 // ============================================================
 
 router.post(
@@ -251,21 +251,37 @@ router.post(
       // ========================================================
 
       name = clean(name);
-      googleName = clean(googleName);
-      email = clean(email).toLowerCase();
-      googleId = clean(googleId);
+
+      googleName =
+        clean(googleName);
+
+      email =
+        clean(email).toLowerCase();
+
+      googleId =
+        clean(googleId);
+
       googleProfileImage =
         clean(googleProfileImage);
+
+      // PHONE = STRING
+      phone = clean(phone);
 
       alternatePhone =
         clean(alternatePhone);
 
-      password = clean(password);
+      password =
+        clean(password);
 
-      role = clean(role) || "user";
-      category = clean(category);
+      role =
+        clean(role) || "user";
+
+      category =
+        clean(category);
+
       userType =
         clean(userType) || "others";
+
       status =
         clean(status) ||
         "not_verified";
@@ -273,7 +289,8 @@ router.post(
       highlightText =
         clean(highlightText);
 
-      district = clean(district);
+      district =
+        clean(district);
 
       address =
         clean(address) || "NA";
@@ -318,19 +335,17 @@ router.post(
 
       // ========================================================
       // PHONE
+      // SINGLE STRING
+      // EXACTLY 10 DIGITS
       // ========================================================
 
       if (!validatePhone(phone)) {
         return res.status(400).json({
           success: false,
           message:
-            "Phone must contain at least one valid 10 digit number",
+            "Phone must contain exactly 10 digits",
         });
       }
-
-      phone = phone.map((item) =>
-        clean(item)
-      );
 
       // ========================================================
       // ALTERNATE PHONE
@@ -341,7 +356,9 @@ router.post(
           alternatePhone
         );
 
-      if (!alternateValidation.valid) {
+      if (
+        !alternateValidation.valid
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -450,6 +467,25 @@ router.post(
         );
 
       // ========================================================
+      // GALLERY
+      // ARRAY ONLY
+      // ========================================================
+
+      const cleanGallery =
+        Array.isArray(
+          galleryImages
+        )
+          ? galleryImages
+              .map((item) =>
+                clean(item)
+              )
+              .filter(
+                (item) =>
+                  item.length > 0
+              )
+          : [];
+
+      // ========================================================
       // CREATE USER
       // ========================================================
 
@@ -467,6 +503,7 @@ router.post(
 
           googleProfileImage,
 
+          // PHONE = STRING
           phone,
 
           alternatePhone,
@@ -490,12 +527,9 @@ router.post(
 
           profileImage,
 
+          // GALLERY = ARRAY
           galleryImages:
-            Array.isArray(
-              galleryImages
-            )
-              ? galleryImages
-              : [],
+            cleanGallery,
         });
 
       await user.save();
@@ -565,24 +599,12 @@ router.post(
 // ============================================================
 // ADMIN UPDATE USER
 //
-// ADMIN CAN CHANGE EVERYTHING:
-// ✅ name
-// ✅ googleName
-// ✅ email
-// ✅ googleId
-// ✅ googleProfileImage
-// ✅ phone
-// ✅ alternatePhone
-// ✅ password
-// ✅ role
-// ✅ category
-// ✅ userType
-// ✅ status
-// ✅ highlightText
-// ✅ district
-// ✅ address
-// ✅ profileImage
-// ✅ galleryImages
+// PHONE:
+// ✅ String
+// ✅ Exactly 10 digits
+//
+// GALLERY:
+// ✅ Array
 // ============================================================
 
 router.put(
@@ -610,7 +632,9 @@ router.put(
         req.body.name !== undefined
       ) {
         const name =
-          clean(req.body.name);
+          clean(
+            req.body.name
+          );
 
         if (!name) {
           return res.status(400).json({
@@ -655,8 +679,7 @@ router.put(
             await User.findOne({
               email,
               _id: {
-                $ne:
-                  user._id,
+                $ne: user._id,
               },
             });
 
@@ -670,7 +693,8 @@ router.put(
 
           user.email = email;
         } else {
-          user.email = undefined;
+          user.email =
+            undefined;
         }
       }
 
@@ -692,8 +716,7 @@ router.put(
             await User.findOne({
               googleId,
               _id: {
-                $ne:
-                  user._id,
+                $ne: user._id,
               },
             });
 
@@ -730,29 +753,30 @@ router.put(
 
       // ========================================================
       // PHONE
+      // SINGLE STRING
+      // EXACTLY 10 DIGITS
       // ========================================================
 
       if (
         req.body.phone !==
         undefined
       ) {
-        if (
-          !validatePhone(
+        const phone =
+          clean(
             req.body.phone
-          )
+          );
+
+        if (
+          !validatePhone(phone)
         ) {
           return res.status(400).json({
             success: false,
             message:
-              "Phone must contain at least one valid 10 digit number",
+              "Phone must contain exactly 10 digits",
           });
         }
 
-        user.phone =
-          req.body.phone.map(
-            (item) =>
-              clean(item)
-          );
+        user.phone = phone;
       }
 
       // ========================================================
@@ -1001,6 +1025,7 @@ router.put(
 
       // ========================================================
       // GALLERY
+      // ARRAY ONLY
       // ========================================================
 
       if (
@@ -1021,21 +1046,17 @@ router.put(
 
         user.galleryImages =
           req.body.galleryImages
-            .map(
-              (item) =>
-                clean(item)
+            .map((item) =>
+              clean(item)
             )
             .filter(
               (item) =>
-                item.isNotEmpty
+                item.length > 0
             );
       }
 
       // ========================================================
       // SAVE
-      //
-      // District validation runs
-      // from User schema.
       // ========================================================
 
       await user.save();

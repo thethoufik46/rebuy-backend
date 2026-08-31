@@ -8,6 +8,7 @@ import path from "path";
 /* =====================================================
    LOAD TAMIL NADU LOCATIONS JSON
 ===================================================== */
+
 const locationsPath = path.join(
   process.cwd(),
   "src/tamilnadu_locations.json"
@@ -68,7 +69,6 @@ const propertySchema = new mongoose.Schema(
     category: {
       type: String,
       enum: [
-
         "Residential / Layout Plot (வீட்டு நிலம் / லேஅவுட் பிளாட் விற்பனை)",
         "Agricultural Land (விவசாய நிலம் விற்பனை)",
         "DTCP / CMDA Approved Plot (அங்கீகரிக்கப்பட்ட நிலம் விற்பனை)",
@@ -90,12 +90,10 @@ const propertySchema = new mongoose.Schema(
         "Rental House (வாடகை வீடு விற்பனை)",
         "Rental Apartment (வாடகை அபார்ட்மெண்ட் விற்பனை)",
         "Rental Shop (வாடகை கடை விற்பனை)",
-        "Rental Office (வாடகை அலுவலகம் விற்பனை)"
-
+        "Rental Office (வாடகை அலுவலகம் விற்பனை)",
       ],
       required: true,
     },
-
 
     price: {
       type: Number,
@@ -108,28 +106,28 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
 
- bedrooms: {
-  type: String,
-  trim: true,
-  enum: [
-    "1 BHK",
-    "2 BHK",
-    "3 BHK",
-    "4 BHK",
-    "5 BHK",
-    "6 BHK",
-    "7 BHK",
-    "8 BHK",
-    "9 BHK",
-    "10+ BHK"
-  ],
-  default: null,
-},
+    bedrooms: {
+      type: String,
+      trim: true,
+      enum: [
+        "1 BHK",
+        "2 BHK",
+        "3 BHK",
+        "4 BHK",
+        "5 BHK",
+        "6 BHK",
+        "7 BHK",
+        "8 BHK",
+        "9 BHK",
+        "10+ BHK",
+      ],
+      default: null,
+    },
 
     landArea: {
-  type: Number,
-  default: null,
-},
+      type: Number,
+      default: null,
+    },
 
     homeArea: {
       type: String,
@@ -153,10 +151,47 @@ const propertySchema = new mongoose.Schema(
         "North-East Facing (வடகிழக்கு நோக்கு)",
         "North-West Facing (வடமேற்கு நோக்கு)",
         "South-East Facing (தென்கிழக்கு நோக்கு)",
-        "South-West Facing (தென்மேற்கு நோக்கு)"
+        "South-West Facing (தென்மேற்கு நோக்கு)",
       ],
       default: null,
     },
+
+    /* ==============================
+       📄 PROPERTY DOCUMENTS
+       MULTI SELECT
+    ============================== */
+
+    documents: {
+      type: [String],
+      enum: [
+        "dtcp_approval",
+        "cmda_approval",
+        "fmb",
+        "ec",
+        "mother_deed",
+        "sale_deed",
+        "parent_link_documents",
+        "survey_sketch",
+        "adangal",
+        "chitta",
+        "patta",
+        "a_register",
+        "tslr",
+        "property_tax_receipt",
+        "land_tax_kist_receipt",
+        "approved_layout_plan",
+        "building_approval",
+        "legal_heir_certificate",
+        "road_access_document",
+        "court_litigation_check",
+        "land_classification",
+        "government_acquisition_check",
+        "boundary_verification",
+        "encroachment_waterbody_check",
+      ],
+      default: [],
+    },
+
     /* ==============================
        STATUS FLOW
     ============================== */
@@ -168,7 +203,7 @@ const propertySchema = new mongoose.Schema(
         "booking",
         "sold",
         "draft",
-        "delete_requested"
+        "delete_requested",
       ],
       default: "draft",
     },
@@ -189,6 +224,10 @@ const propertySchema = new mongoose.Schema(
     },
 
     description: String,
+
+    /* ==============================
+       MEDIA
+    ============================== */
 
     bannerImage: {
       type: String,
@@ -215,22 +254,26 @@ const propertySchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 /* =====================================================
    PRE SAVE LOGIC
 ===================================================== */
+
 propertySchema.pre("save", async function (next) {
   try {
     /* 🔢 AUTO PROPERTY ID */
+
     if (!this.propertyId) {
       const counter = await Counter.findByIdAndUpdate(
         { _id: "propertyId" },
         { $inc: { seq: 1 } },
         {
           new: true,
-          upsert: true
+          upsert: true,
         }
       );
 
@@ -238,6 +281,7 @@ propertySchema.pre("save", async function (next) {
     }
 
     /* 📍 DISTRICT VALIDATION */
+
     const districtKey = Object.keys(locations).find(
       (d) => d.toLowerCase() === this.district.toLowerCase()
     );
@@ -249,6 +293,7 @@ propertySchema.pre("save", async function (next) {
     this.district = districtKey;
 
     /* 🏙️ CITY VALIDATION */
+
     if (this.city) {
       if (!locations[districtKey].includes(this.city)) {
         throw new Error("City does not belong to district");
@@ -261,4 +306,8 @@ propertySchema.pre("save", async function (next) {
   }
 });
 
-export default mongoose.model("Property", propertySchema); 
+/* =====================================================
+   EXPORT MODEL
+===================================================== */
+
+export default mongoose.model("Property", propertySchema);

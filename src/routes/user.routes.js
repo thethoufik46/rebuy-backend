@@ -509,6 +509,7 @@ router.put(
 
       // ==================================================
       // NAME
+      // MAXIMUM 50 CHARACTERS
       // ==================================================
 
       if (name !== undefined) {
@@ -521,6 +522,14 @@ router.put(
             success: false,
             message:
               "Name is required",
+          });
+        }
+
+        if (name.length > 50) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Name must not exceed 50 characters",
           });
         }
 
@@ -588,15 +597,27 @@ router.put(
 
       // ==================================================
       // ADDRESS
+      // MAXIMUM 500 CHARACTERS
       // ==================================================
 
       if (
         address !== undefined
       ) {
-        user.address =
+        address =
           address
             .toString()
-            .trim() || "NA";
+            .trim();
+
+        if (address.length > 500) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Address must not exceed 500 characters",
+          });
+        }
+
+        user.address =
+          address || "NA";
       }
 
       // ==================================================
@@ -662,6 +683,29 @@ router.put(
           success: false,
           message:
             "District is required",
+        });
+      }
+
+      // ==================================================
+      // MONGOOSE MAXLENGTH VALIDATION
+      // ==================================================
+
+      if (
+        err?.name ===
+        "ValidationError"
+      ) {
+        const messages =
+          Object.values(
+            err.errors || {}
+          ).map(
+            (e) => e.message
+          );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            messages[0] ||
+            "Invalid profile data",
         });
       }
 

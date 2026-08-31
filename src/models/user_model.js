@@ -28,11 +28,12 @@ const userSchema = new mongoose.Schema(
     // BASIC
     // =================================================
 
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+  name: {
+  type: String,
+  required: true,
+  trim: true,
+  maxlength: 50,
+},
 
     // =================================================
     // GOOGLE ACCOUNT DETAILS
@@ -184,11 +185,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    address: {
-      type: String,
-      default: "NA",
-      trim: true,
-    },
+  address: {
+  type: String,
+  default: "NA",
+  trim: true,
+  maxlength: 500,
+},
 
     // =================================================
     // RE2BUY PROFILE IMAGE

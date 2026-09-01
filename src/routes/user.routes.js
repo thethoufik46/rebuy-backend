@@ -741,7 +741,7 @@ router.put(
 //
 // ❌ POST   /gallery
 // ❌ PUT    /gallery
-// ❌ PATCH  /gallery
+// ❌ PATCH  /gallery 
 // ❌ DELETE /gallery/:index
 // ❌ DELETE /gallery
 //

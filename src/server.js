@@ -37,7 +37,7 @@ import bikeModelRoutes from "./routes/bike.model.routes.js";
 
 import carRoutes from "./routes/car.routes.js";
 import bikeRoutes from "./routes/bike.routes.js";
-
+import oldSpareRoutes from "./routes/oldspare.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import buyRequestRoutes from "./routes/buyrequest.routes.js";
@@ -297,6 +297,13 @@ app.use(
   "/api/brands",
   brandRoutes
 );
+
+
+app.use(
+  "/api/oldspare",
+  oldSpareRoutes
+);
+
 
 // ------------------------------------------------------------
 // MOBILE BRANDS

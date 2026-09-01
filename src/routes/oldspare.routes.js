@@ -11,7 +11,7 @@ import {
   getMyOldSpareById,
   updateMyOldSpare,
   deleteMyOldSpare,
-
+  restoreMyOldSpare,
   getOldSpares,
   getOldSpareById,
   updateOldSpareStatus,
@@ -25,8 +25,7 @@ import {
 
 import uploadOldSpare from "../middleware/uploadOldSpare.js";
 
-const router =
-  express.Router();
+const router = express.Router();
 
 // ============================================================
 // USER ROUTES
@@ -46,9 +45,7 @@ const router =
 router.post(
   "/add",
   verifyToken,
-  uploadOldSpare.single(
-    "oldSpareImage"
-  ),
+  uploadOldSpare.single("oldSpareImage"),
   addOldSpare
 );
 
@@ -63,8 +60,20 @@ router.get(
 );
 
 // ------------------------------------------------------------
+// RESTORE MY OLD SPARE
+//
+// IMPORTANT:
+// Must be BEFORE /my/:id
+// ------------------------------------------------------------
+
+router.put(
+  "/my/:id/restore",
+  verifyToken,
+  restoreMyOldSpare
+);
+
+// ------------------------------------------------------------
 // GET MY SINGLE OLD SPARE
-// IMPORTANT: BEFORE /my/:id UPDATE/DELETE
 // ------------------------------------------------------------
 
 router.get(
@@ -80,9 +89,7 @@ router.get(
 router.put(
   "/my/:id",
   verifyToken,
-  uploadOldSpare.single(
-    "oldSpareImage"
-  ),
+  uploadOldSpare.single("oldSpareImage"),
   updateMyOldSpare
 );
 
@@ -101,7 +108,9 @@ router.delete(
 // ============================================================
 
 // ------------------------------------------------------------
-// GET ALL
+// GET ALL OLD SPARES
+//
+// Optional:
 //
 // ?category=car
 // ?category=bike
@@ -120,7 +129,7 @@ router.get(
 );
 
 // ------------------------------------------------------------
-// GET SINGLE
+// GET SINGLE OLD SPARE
 // ------------------------------------------------------------
 
 router.get(

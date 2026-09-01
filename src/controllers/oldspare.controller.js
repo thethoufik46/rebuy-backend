@@ -1,6 +1,7 @@
 // ============================================================
 // oldspare.controller.js
 // OLD SPARE WANT CONTROLLER
+// FINAL FULL CODE
 // ============================================================
 
 import OldSpare from "../models/oldspare_model.js";
@@ -70,7 +71,11 @@ export const addOldSpare = async (
       });
     }
 
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+    if (
+      !/^[6-9]\d{9}$/.test(
+        cleanPhone
+      )
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -144,7 +149,8 @@ export const addOldSpare = async (
       ).trim();
 
     if (
-      cleanDescription.length > 200
+      cleanDescription.length >
+      200
     ) {
       return res.status(400).json({
         success: false,
@@ -306,6 +312,136 @@ export const getMyOldSpares = async (
 };
 
 // ============================================================
+// RESTORE MY OLD SPARE
+//
+// PUT /my/:id/restore
+//
+// Restore allowed only within 24 hours
+// ============================================================
+
+export const restoreMyOldSpare =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const userId =
+        getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Unauthorized",
+        });
+      }
+
+      // ========================================================
+      // FIND DELETED USER REQUEST
+      // ========================================================
+
+      const spare =
+        await OldSpare.findOne({
+          _id:
+            req.params.id,
+
+          user:
+            userId,
+
+          isDeleted:
+            true,
+        });
+
+      if (!spare) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Deleted old spare request not found",
+        });
+      }
+
+      // ========================================================
+      // DELETED DATE CHECK
+      // ========================================================
+
+      if (!spare.deletedAt) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Restore period expired",
+        });
+      }
+
+      // ========================================================
+      // 24 HOURS CHECK
+      // ========================================================
+
+      const deletedTime =
+        new Date(
+          spare.deletedAt
+        ).getTime();
+
+      const currentTime =
+        Date.now();
+
+      const elapsed =
+        currentTime -
+        deletedTime;
+
+      const twentyFourHours =
+        24 *
+        60 *
+        60 *
+        1000;
+
+      if (
+        elapsed >
+        twentyFourHours
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Restore period expired",
+        });
+      }
+
+      // ========================================================
+      // RESTORE
+      // ========================================================
+
+      spare.isDeleted =
+        false;
+
+      spare.deletedAt =
+        null;
+
+      await spare.save();
+
+      // ========================================================
+      // RESPONSE
+      // ========================================================
+
+      return res.json({
+        success: true,
+        message:
+          "Old spare request restored successfully",
+        data: spare,
+      });
+    } catch (error) {
+      console.error(
+        "RESTORE OLD SPARE ERROR 👉",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to restore old spare request",
+      });
+    }
+  };
+
+// ============================================================
 // GET SINGLE USER OLD SPARE
 // ============================================================
 
@@ -440,7 +576,9 @@ export const updateMyOldSpare =
             "car",
             "bike",
             "load_vehicle",
-          ].includes(category)
+          ].includes(
+            category
+          )
         ) {
           return res.status(400).json({
             success: false,
@@ -723,7 +861,9 @@ export const updateOldSpareStatus =
           "pending",
           "approved",
           "rejected",
-        ].includes(status)
+        ].includes(
+          status
+        )
       ) {
         return res.status(400).json({
           success: false,

@@ -1,3 +1,4 @@
+
 // ============================================================
 // oldSpareImage.js
 // OLD SPARE IMAGE R2 UPLOAD / DELETE
@@ -15,7 +16,6 @@ import r2 from "../config/r2.js";
 // ============================================================
 
 const BUCKET = process.env.R2_BUCKET;
-
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 // ============================================================
@@ -23,40 +23,33 @@ const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 // ============================================================
 
 const getPublicBase = () => {
-  return String(
-    PUBLIC_URL || ""
-  ).replace(
-    /\/+$/,
-    ""
-  );
+  return String(PUBLIC_URL || "").replace(/\/+$/, "");
 };
 
 // ============================================================
-// EXTENSION
+// IMAGE EXTENSION
 // ============================================================
 
 const getImageExtension = (file) => {
-  const mime = String(
-    file?.mimetype || ""
-  ).toLowerCase();
+  const mime = String(file?.mimetype || "").toLowerCase();
 
-  if (mime === "image/jpeg") {
-    return "jpg";
-  }
-
-  if (mime === "image/jpg") {
-    return "jpg";
-  }
-
-  if (mime === "image/png") {
-    return "png";
-  }
-
-  if (mime === "image/webp") {
-    return "webp";
-  }
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/jpg") return "jpg";
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
 
   return "jpg";
+};
+
+// ============================================================
+// CONTENT TYPE
+// ============================================================
+
+const getContentType = (ext) => {
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+
+  return "image/jpeg";
 };
 
 // ============================================================
@@ -65,20 +58,16 @@ const getImageExtension = (file) => {
 
 const validateR2Config = () => {
   if (!BUCKET) {
-    throw new Error(
-      "R2_BUCKET is missing"
-    );
+    throw new Error("R2_BUCKET is missing");
   }
 
   if (!PUBLIC_URL) {
-    throw new Error(
-      "R2_PUBLIC_URL is missing"
-    );
+    throw new Error("R2_PUBLIC_URL is missing");
   }
 };
 
 // ============================================================
-// UPLOAD
+// UPLOAD OLD SPARE IMAGE
 // ============================================================
 
 export const uploadOldSpareImage = async (
@@ -91,9 +80,7 @@ export const uploadOldSpareImage = async (
       !file.buffer ||
       !Buffer.isBuffer(file.buffer)
     ) {
-      throw new Error(
-        "Invalid old spare image"
-      );
+      throw new Error("Invalid old spare image");
     }
 
     validateR2Config();
@@ -101,18 +88,12 @@ export const uploadOldSpareImage = async (
     const cleanFolder = String(
       folder || "oldspare/images"
     )
-      .replace(
-        /^\/+/,
-        ""
-      )
-      .replace(
-        /\/+$/,
-        ""
-      );
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "");
 
-    const ext =
-      getImageExtension(file);
+    const ext = getImageExtension(file);
 
+    // Unique filename
     const fileName =
       `${Date.now()}-` +
       `${Math.random()
@@ -120,25 +101,13 @@ export const uploadOldSpareImage = async (
         .substring(2, 12)}` +
       `.${ext}`;
 
-    const key =
-      `${cleanFolder}/${fileName}`;
+    // R2 object key
+    const key = `${cleanFolder}/${fileName}`;
 
-    let contentType =
-      file.mimetype ||
-      "image/jpeg";
+    // Correct MIME type
+    const contentType = getContentType(ext);
 
-    if (ext === "jpg") {
-      contentType = "image/jpeg";
-    }
-
-    if (ext === "png") {
-      contentType = "image/png";
-    }
-
-    if (ext === "webp") {
-      contentType = "image/webp";
-    }
-
+    // Upload to Cloudflare R2
     await r2.send(
       new PutObjectCommand({
         Bucket: BUCKET,
@@ -148,17 +117,18 @@ export const uploadOldSpareImage = async (
       })
     );
 
-    const publicBase =
-      getPublicBase();
+    // Public image URL
+    const publicBase = getPublicBase();
 
-    const publicUrl =
-      `${publicBase}/${key}`;
+    const publicUrl = `${publicBase}/${key}`;
 
     console.log(
       "OLD SPARE IMAGE UPLOADED 👉",
       publicUrl
     );
 
+    // IMPORTANT:
+    // This URL is saved into MongoDB
     return publicUrl;
   } catch (error) {
     console.error(
@@ -174,12 +144,10 @@ export const uploadOldSpareImage = async (
 };
 
 // ============================================================
-// DELETE
+// DELETE OLD SPARE IMAGE
 // ============================================================
 
-export const deleteOldSpareImage = async (
-  url
-) => {
+export const deleteOldSpareImage = async (url) => {
   try {
     if (!url) {
       return true;
@@ -193,8 +161,7 @@ export const deleteOldSpareImage = async (
       return false;
     }
 
-    const publicBase =
-      getPublicBase();
+    const publicBase = getPublicBase();
 
     if (!publicBase) {
       console.error(
@@ -204,22 +171,20 @@ export const deleteOldSpareImage = async (
       return false;
     }
 
-    const imageUrl =
-      String(url).trim();
+    const imageUrl = String(url).trim();
 
     if (!imageUrl) {
       return true;
     }
 
-    // ----------------------------------------------------------
+    // ========================================================
     // SECURITY
-    // ----------------------------------------------------------
+    // Only delete images belonging to our R2 public URL
+    // ========================================================
 
-    if (
-      !imageUrl.startsWith(
-        `${publicBase}/`
-      )
-    ) {
+    const prefix = `${publicBase}/`;
+
+    if (!imageUrl.startsWith(prefix)) {
       console.warn(
         "OLD SPARE IMAGE DELETE SKIPPED - external URL 👉",
         imageUrl
@@ -228,15 +193,16 @@ export const deleteOldSpareImage = async (
       return false;
     }
 
-    const key =
-      imageUrl.substring(
-        `${publicBase}/`.length
-      );
+    // Extract R2 object key
+    const key = imageUrl.substring(
+      prefix.length
+    );
 
     if (!key) {
       return false;
     }
 
+    // Delete from R2
     await r2.send(
       new DeleteObjectCommand({
         Bucket: BUCKET,
@@ -259,6 +225,10 @@ export const deleteOldSpareImage = async (
     return false;
   }
 };
+
+// ============================================================
+// DEFAULT EXPORT
+// ============================================================
 
 export default {
   uploadOldSpareImage,

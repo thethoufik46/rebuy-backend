@@ -1,9 +1,9 @@
 // ======================= car_brand_model.js =======================
-// C:\flutter_projects\rebuy-backend\src\models\car_brand_model.js
+// C:\flutter_projects\rebuy-backend\src\models\car\car_brand_model.js
 
 import mongoose from "mongoose";
 
-const brandSchema = new mongoose.Schema(
+const carBrandSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -11,12 +11,23 @@ const brandSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+
     logoUrl: {
       type: String,
       required: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-export default mongoose.model("Brand", brandSchema);
+// IMPORTANT:
+// Explicit collection name = carbrands
+const CarBrand = mongoose.model(
+  "CarBrand",
+  carBrandSchema,
+  "carbrands"
+);
+
+export default CarBrand;

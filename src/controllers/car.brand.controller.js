@@ -1,15 +1,17 @@
 // ======================= car.brand.controller.js =======================
 // C:\flutter_projects\rebuy-backend\src\controllers\car.brand.controller.js
 
-import Brand from "../models/car_brand_model.js";
+import CarBrand from "../models/car_brand_model.js";
+
 import {
   uploadCarImage,
   deleteCarImage,
 } from "../utils/carBrand.js";
 
-/* =====================================================
-   CREATE BRAND
-===================================================== */
+// =====================================================
+// CREATE CAR BRAND
+// =====================================================
+
 export const addBrand = async (req, res) => {
   try {
     const { name } = req.body;
@@ -17,33 +19,47 @@ export const addBrand = async (req, res) => {
     if (!name || !req.file) {
       return res.status(400).json({
         success: false,
-        message: "Brand name and logo required",
+        message: "Car brand name and logo required",
       });
     }
 
-    const existing = await Brand.findOne({
-      name: new RegExp(`^${name.trim()}$`, "i"),
+    const cleanName = name.trim();
+
+    const existing = await CarBrand.findOne({
+      name: new RegExp(
+        `^${cleanName}$`,
+        "i"
+      ),
     });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Brand already exists",
+        message: "Car brand already exists",
       });
     }
 
-    const logoUrl = await uploadCarImage(req.file, "brands");
+    // New logos go into carbrands/
+    const logoUrl = await uploadCarImage(
+      req.file,
+      "carbrands"
+    );
 
-    const brand = await Brand.create({
-      name: name.trim(),
+    const carBrand = await CarBrand.create({
+      name: cleanName,
       logoUrl,
     });
 
     return res.status(201).json({
       success: true,
-      brand,
+      brand: carBrand,
     });
   } catch (err) {
+    console.error(
+      "❌ CREATE CAR BRAND ERROR 👉",
+      err
+    );
+
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -51,15 +67,13 @@ export const addBrand = async (req, res) => {
   }
 };
 
-/* =====================================================
-   GET BRANDS
-===================================================== */
-/* =====================================================
-   GET BRANDS
-===================================================== */
+// =====================================================
+// GET CAR BRANDS
+// =====================================================
+
 export const getBrands = async (req, res) => {
   try {
-    let brands = await Brand.find();
+    let brands = await CarBrand.find();
 
     brands.sort((a, b) => {
       const aName = a.name.trim().toLowerCase();
@@ -74,7 +88,9 @@ export const getBrands = async (req, res) => {
       if (bName === "maruti suzuki") return 1;
 
       // 3. Others alphabetical
-      return a.name.localeCompare(b.name);
+      return a.name.localeCompare(
+        b.name
+      );
     });
 
     return res.status(200).json({
@@ -82,6 +98,11 @@ export const getBrands = async (req, res) => {
       brands,
     });
   } catch (err) {
+    console.error(
+      "❌ GET CAR BRANDS ERROR 👉",
+      err
+    );
+
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -89,39 +110,81 @@ export const getBrands = async (req, res) => {
   }
 };
 
-/* =====================================================
-   UPDATE BRAND
-===================================================== */
+// =====================================================
+// UPDATE CAR BRAND
+// =====================================================
+
 export const updateBrand = async (req, res) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
 
-    const brand = await Brand.findById(id);
+    const carBrand =
+      await CarBrand.findById(id);
 
-    if (!brand) {
+    if (!carBrand) {
       return res.status(404).json({
         success: false,
-        message: "Brand not found",
+        message: "Car brand not found",
       });
     }
 
+    // -------------------------------------------------
+    // UPDATE NAME
+    // -------------------------------------------------
+
     if (name && name.trim()) {
-      brand.name = name.trim();
+      const cleanName = name.trim();
+
+      const duplicate =
+        await CarBrand.findOne({
+          name: new RegExp(
+            `^${cleanName}$`,
+            "i"
+          ),
+          _id: {
+            $ne: id,
+          },
+        });
+
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          message: "Car brand already exists",
+        });
+      }
+
+      carBrand.name = cleanName;
     }
+
+    // -------------------------------------------------
+    // UPDATE LOGO
+    // -------------------------------------------------
 
     if (req.file) {
-      await deleteCarImage(brand.logoUrl);
-      brand.logoUrl = await uploadCarImage(req.file, "brands");
+      await deleteCarImage(
+        carBrand.logoUrl
+      );
+
+      carBrand.logoUrl =
+        await uploadCarImage(
+          req.file,
+          "carbrands"
+        );
     }
 
-    await brand.save();
+    await carBrand.save();
 
     return res.status(200).json({
       success: true,
-      brand,
+      brand: carBrand,
     });
   } catch (err) {
+    console.error(
+      "❌ UPDATE CAR BRAND ERROR 👉",
+      err
+    );
+
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -129,30 +192,43 @@ export const updateBrand = async (req, res) => {
   }
 };
 
-/* =====================================================
-   DELETE BRAND
-===================================================== */
+// =====================================================
+// DELETE CAR BRAND
+// =====================================================
+
 export const deleteBrand = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const brand = await Brand.findById(id);
+    const carBrand =
+      await CarBrand.findById(id);
 
-    if (!brand) {
+    if (!carBrand) {
       return res.status(404).json({
         success: false,
-        message: "Brand not found",
+        message: "Car brand not found",
       });
     }
 
-    await deleteCarImage(brand.logoUrl);
-    await brand.deleteOne();
+    // Delete logo from R2
+    await deleteCarImage(
+      carBrand.logoUrl
+    );
+
+    // Delete MongoDB document
+    await carBrand.deleteOne();
 
     return res.status(200).json({
       success: true,
-      message: "Brand deleted successfully",
+      message:
+        "Car brand deleted successfully",
     });
   } catch (err) {
+    console.error(
+      "❌ DELETE CAR BRAND ERROR 👉",
+      err
+    );
+
     return res.status(500).json({
       success: false,
       message: err.message,

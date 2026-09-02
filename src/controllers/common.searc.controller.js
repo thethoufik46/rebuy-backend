@@ -4,7 +4,7 @@ import Electronics from "../models/electronics_model.js";
 import Property from "../models/property_model.js";
 
 import Brand from "../models/car_brand_model.js";
-import Variant from "../models/car_variant_model.js";
+import Variant from "../models/car_model_model.js";
 
 import BikeBrand from "../models/bike_brand_model.js";
 import BikeModel from "../models/bike_model.js";

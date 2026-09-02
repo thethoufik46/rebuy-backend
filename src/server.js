@@ -32,7 +32,7 @@ import pcBrandRoutes from "./routes/pc_brand.routes.js";
 import laptopBrandRoutes from "./routes/laptop_brand.routes.js";
 import electronicsRoutes from "./routes/electronics.routes.js";
 
-import variantRoutes from "./routes/car_variant.routes.js";
+import variantRoutes from "./routes/car.model.routes.js";
 import bikeModelRoutes from "./routes/bike.model.routes.js";
 
 import carRoutes from "./routes/car.routes.js";

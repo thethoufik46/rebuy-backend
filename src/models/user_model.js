@@ -39,33 +39,33 @@ const userSchema = new mongoose.Schema(
     // GOOGLE ACCOUNT DETAILS
     // =================================================
 
-    googleName: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+ googleName: {
+  type: String,
+  required: true,
+  trim: true,
+},
 
-    email: {
-      type: String,
-      unique: true,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-    },
+email: {
+  type: String,
+  required: true,
+  unique: true,
+  lowercase: true,
+  trim: true,
+},
 
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-      index: true,
-      trim: true,
-    },
+googleId: {
+  type: String,
+  required: true,
+  unique: true,
+  index: true,
+  trim: true,
+},
 
-    googleProfileImage: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+googleProfileImage: {
+  type: String,
+  required: true,
+  trim: true,
+},
 
     // =================================================
     // PHONE

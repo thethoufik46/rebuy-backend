@@ -1,0 +1,125 @@
+src/
+│
+├── models/
+│   │
+│   ├── car/
+│   │   │
+│   │   ├── brand/
+│   │   │   └── car_brand_model.js
+│   │   │
+│   │   ├── model/
+│   │   │   └── car_model_model.js
+│   │   │
+│   │   └── variant/
+│   │       └── car_variant_model.js
+│   │
+│   └── bike/
+│       │
+│       ├── brand/
+│       │   └── bike_brand_model.js
+│       │
+│       ├── model/
+│       │   └── bike_model_model.js
+│       │
+│       └── variant/
+│           └── bike_variant_model.js
+│
+│
+├── utils/
+│   │
+│   ├── car/
+│   │   │
+│   │   ├── brand/
+│   │   │   └── carBrand.js
+│   │   │
+│   │   ├── model/
+│   │   │   └── carModel.js
+│   │   │
+│   │   └── variant/
+│   │       └── carVariant.js
+│   │
+│   └── bike/
+│       │
+│       ├── brand/
+│       │   └── bikeBrand.js
+│       │
+│       ├── model/
+│       │   └── bikeModel.js
+│       │
+│       └── variant/
+│           └── bikeVariant.js
+│
+│
+├── middleware/
+│   │
+│   ├── car/
+│   │   │
+│   │   ├── brand/
+│   │   │   └── uploadCarBrand.js
+│   │   │
+│   │   ├── model/
+│   │   │   └── uploadCarModel.js
+│   │   │
+│   │   └── variant/
+│   │       └── uploadCarVariant.js
+│   │
+│   └── bike/
+│       │
+│       ├── brand/
+│       │   └── uploadBikeBrand.js
+│       │
+│       ├── model/
+│       │   └── uploadBikeModel.js
+│       │
+│       └── variant/
+│           └── uploadBikeVariant.js
+│
+│
+├── controllers/
+│   │
+│   ├── car/
+│   │   │
+│   │   ├── brand/
+│   │   │   └── car.brand.controller.js
+│   │   │
+│   │   ├── model/
+│   │   │   └── car.model.controller.js
+│   │   │
+│   │   └── variant/
+│   │       └── car.variant.controller.js
+│   │
+│   └── bike/
+│       │
+│       ├── brand/
+│       │   └── bike.brand.controller.js
+│       │
+│       ├── model/
+│       │   └── bike.model.controller.js
+│       │
+│       └── variant/
+│           └── bike.variant.controller.js
+│
+│
+└── routes/
+    │
+    ├── car/
+    │   │
+    │   ├── brand/
+    │   │   └── car.brand.routes.js
+    │   │
+    │   ├── model/
+    │   │   └── car.model.routes.js
+    │   │
+    │   └── variant/
+    │       └── car.variant.routes.js
+    │
+    └── bike/
+        │
+        ├── brand/
+        │   └── bike_brand.routes.js
+        │
+        ├── model/
+        │   └── bike.model.routes.js
+        │
+        └── variant/
+            └── bike.variant.routes.js

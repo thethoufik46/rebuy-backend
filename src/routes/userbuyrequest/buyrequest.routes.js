@@ -15,15 +15,14 @@ import {
   getBuyRequestById,
   updateBuyRequestStatus,
   deleteBuyRequest,
-} from "../controllers/buyrequest.controller.js";
+} from "../../controllers/userbuyrequest/buyrequest.controller.js";
 
 import {
   verifyToken,
   isAdmin,
-} from "../middleware/auth.js";
+} from "../../middleware/auth.js";
 
-import uploadBuyRequest from "../middleware/uploadBuyRequest.js";
-
+import uploadBuyRequest from "../../middleware/userbuyrequest/uploadBuyRequest.js";
 const router = express.Router();
 
 

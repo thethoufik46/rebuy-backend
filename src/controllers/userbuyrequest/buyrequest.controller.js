@@ -1,12 +1,10 @@
 // ======================= buyrequest.controller.js =======================
 
-import BuyRequest from "../models/buyrequest_model.js";
-
+import BuyRequest from "../../models/userbuyrequest/buyrequest_model.js";
 import {
   uploadBuyRequestAudio,
   deleteBuyRequestAudio,
-} from "../utils/buyRequestAudio.js";
-
+} from "../../utils/userbuyrequest/buyRequestAudio.js";
 
 // ============================================================
 // CONSTANTS

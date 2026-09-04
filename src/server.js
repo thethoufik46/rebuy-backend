@@ -56,7 +56,7 @@ import oldSpareRoutes from "./routes/oldspare.routes.js";
 
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
-import buyRequestRoutes from "./routes/buyrequest.routes.js";
+import buyRequestRoutes from "./routes/userbuyrequest/buyrequest.routes.js";
 
 // ============================================================
 // COMMON ORDER ROUTE
@@ -70,7 +70,6 @@ import orderRoutes from "./routes/order.routes.js";
 import sellCarRoutes from "./routes/sellcar.routes.js";
 
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
-import buyPropertyRoutes from "./routes/buyproperty.routes.js";
 
 import propertyRoutes from "./routes/property.routes.js";
 
@@ -490,10 +489,7 @@ app.use(
 // BUY PROPERTY
 // ============================================================
 
-app.use(
-  "/api/buyproperty",
-  buyPropertyRoutes
-);
+
 
 // ============================================================
 // PROPERTIES

@@ -1,12 +1,17 @@
 // ============================================================
 // CAR BRAND ROUTES
+// File:
+// src/routes/car/brand/car.brand.routes.js
 // ============================================================
 
 import express from "express";
 
 import { verifyToken } from "../../../middleware/auth.js";
 
-import uploadCarBrand from "../../../middleware/car/brand/uploadCarBrand.js";
+// IMPORTANT:
+// Actual middleware filename:
+// uploadCarbrand.js
+import uploadCarBrand from "../../../middleware/car/brand/uploadCarbrand.js";
 
 import {
   addCarBrand,
@@ -65,5 +70,9 @@ router.delete(
   verifyToken,
   deleteCarBrand
 );
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 export default router;

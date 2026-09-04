@@ -1,6 +1,14 @@
+// ============================================================
+// MOBILE BRAND ROUTES
+// File:
+// src/routes/mobile_brand.routes.js
+// ============================================================
+
 import express from "express";
+
 import { verifyToken } from "../middleware/auth.js";
-import uploadCarBrand from "../middleware/car/brand/uploadCarBrand.js";
+
+import uploadMobileBrand from "../middleware/uploadMobileBrand.js";
 
 import {
   addMobileBrand,
@@ -11,26 +19,49 @@ import {
 
 const router = express.Router();
 
+// ============================================================
+// PUBLIC ROUTES
+// ============================================================
+
+// GET ALL MOBILE BRANDS
+// GET /api/mobile-brands
+router.get(
+  "/",
+  getMobileBrands
+);
+
+// ============================================================
+// PROTECTED ROUTES
+// ============================================================
+
+// ADD MOBILE BRAND
+// POST /api/mobile-brands/add
 router.post(
   "/add",
   verifyToken,
-  uploadCarBrand.single("logo"),
+  uploadMobileBrand.single("logo"),
   addMobileBrand
 );
 
-router.get("/", getMobileBrands);
-
+// UPDATE MOBILE BRAND
+// PUT /api/mobile-brands/:id
 router.put(
   "/:id",
   verifyToken,
-  uploadCarBrand.single("logo"),
+  uploadMobileBrand.single("logo"),
   updateMobileBrand
 );
 
+// DELETE MOBILE BRAND
+// DELETE /api/mobile-brands/:id
 router.delete(
   "/:id",
   verifyToken,
   deleteMobileBrand
 );
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 export default router;

@@ -1,6 +1,6 @@
 import express from "express";
 import { verifyToken } from "../middleware/auth.js";
-import uploadCarBrand from "../middleware/car/brand/uploadCarbrand.js";
+import uploadCarBrand from "../middleware/car/brand/uploadCarBrand.js";
 
 import {
   addMobileBrand,

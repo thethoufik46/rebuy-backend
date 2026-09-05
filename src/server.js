@@ -88,8 +88,7 @@ import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 
 import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 
-import leadRoutes from "./routes/lead.routes.js";
-
+import leadRoutes from "./routes/leads/lead.routes.js";
 import commonSearchRoute from "./routes/common.search.route.js";
 
 // ============================================================

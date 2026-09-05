@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
@@ -5,6 +6,7 @@ import path from "path";
 /* =====================================================
    LOAD TAMIL NADU DISTRICTS JSON
 ===================================================== */
+
 const locationsPath = path.join(
   process.cwd(),
   "src/tamilnadu_locations.json"
@@ -15,8 +17,31 @@ const locations = JSON.parse(
 );
 
 /* =====================================================
+   REASON HISTORY SUB-SCHEMA
+===================================================== */
+
+const reasonHistorySchema = new mongoose.Schema(
+  {
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
+/* =====================================================
    LEAD SCHEMA
 ===================================================== */
+
 const leadSchema = new mongoose.Schema(
   {
     phone: {
@@ -96,10 +121,26 @@ const leadSchema = new mongoose.Schema(
       trim: true,
     },
 
-    reason: {
+    /* =================================================
+       REASON CHAT / HISTORY
+    ================================================= */
+
+    reasonHistory: {
+      type: [reasonHistorySchema],
+      default: [],
+    },
+
+    /* =================================================
+       PUBLISH
+       off = not published
+       on  = published
+    ================================================= */
+
+    publish: {
       type: String,
-      default: "",
-      trim: true,
+      enum: ["off", "on"],
+      default: "off",
+      index: true,
     },
 
     audioNote: {
@@ -107,9 +148,9 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
-    /* ==========================
+    /* =================================================
        SOFT DELETE
-    ========================== */
+    ================================================= */
 
     isDeleted: {
       type: Boolean,
@@ -130,6 +171,7 @@ const leadSchema = new mongoose.Schema(
 /* =====================================================
    DISTRICT VALIDATION
 ===================================================== */
+
 leadSchema.pre("save", function (next) {
   if (!this.district) return next();
 
@@ -142,6 +184,7 @@ leadSchema.pre("save", function (next) {
   }
 
   this.district = districtKey;
+
   next();
 });
 
@@ -151,8 +194,13 @@ leadSchema.pre("save", function (next) {
 
 leadSchema.index({ phone: 1 }, { unique: true });
 leadSchema.index({ status: 1 });
+leadSchema.index({ publish: 1 });
 leadSchema.index({ isDeleted: 1 });
 leadSchema.index({ deletedAt: -1 });
 leadSchema.index({ createdAt: -1 });
+
+/* =====================================================
+   EXPORT
+===================================================== */
 
 export default mongoose.model("Lead", leadSchema);

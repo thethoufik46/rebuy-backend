@@ -3,7 +3,7 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 
-import r2 from "../config/r2.js";
+import r2 from "../../config/r2.js";
 
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;

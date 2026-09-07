@@ -1,10 +1,10 @@
 // ======================= car_model.js =======================
 
 import mongoose from "mongoose";
-import Counter from "./counter_model.js";
+import Counter from "../counter_model.js";
 
 
-import { encryptSeller } from "../utils/sellerCrypto.js";
+import { encryptSeller } from "../../utils/sellerCrypto.js";
 
 import fs from "fs";
 import path from "path";

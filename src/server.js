@@ -43,8 +43,9 @@
   import electronicsRoutes from "./routes/electronics.routes.js";
 
   // ---------------- VEHICLES ----------------
+import userCarRoutes from "./routes/car/user.car.routes.js";
+import adminCarRoutes from "./routes/car/admin.car.routes.js";
 
-  import carRoutes from "./routes/car.routes.js";
   import bikeRoutes from "./routes/bike.routes.js";
 
   import bikeModelRoutes from "./routes/bike/model/bike.model.routes.js";
@@ -67,7 +68,6 @@
 
   // ---------------- SELL / PROPERTY ----------------
 
-  import sellCarRoutes from "./routes/sellcar.routes.js";
 
   import sellPropertyRoutes from "./routes/sellproperty.routes.js";
 
@@ -414,10 +414,11 @@
   // CARS
   // ============================================================
 
-  app.use(
-    "/api/cars",
-    carRoutes
-  );
+// IMPORTANT: admin first
+router.use("/admin", adminCarRoutes);
+
+// User routes
+router.use("/", userCarRoutes);
 
   // ============================================================
   // BIKES
@@ -470,10 +471,6 @@
   // SELL CAR
   // ============================================================
 
-  app.use(
-    "/api/sellcar",
-    sellCarRoutes
-  );
 
   // ============================================================
   // SELL PROPERTY

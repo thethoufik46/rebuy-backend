@@ -3,7 +3,7 @@
 // RE2BUY
 // ============================================================
 
-import Car from "../models/car_model.js";
+import Car from "../models/car/car_model.js";
 import Bike from "../models/bike_model.js";
 import Electronics from "../models/electronics_model.js";
 import Property from "../models/property_model.js";

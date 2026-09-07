@@ -1,4 +1,4 @@
-// src/middleware/uploadCar.js
+// src/middleware//car/uploadCar.js
 import multer from "multer";
 
 const storage = multer.memoryStorage();

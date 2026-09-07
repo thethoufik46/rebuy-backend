@@ -534,8 +534,6 @@ router.get(
 
       /* --------------------------------------------------------
          MANUAL BRAND + VARIANT FETCH
-         IMPORTANT:
-         Avoid Mongoose populate ref/model mismatch.
       -------------------------------------------------------- */
 
       const [
@@ -864,6 +862,12 @@ router.put(
         "year",
         "price",
         "km",
+
+        /* NEW FIELDS */
+        "serviceRecord",
+        "csrKm",
+        "stig",
+
         "color",
         "fuel",
         "transmission",

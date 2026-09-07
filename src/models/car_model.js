@@ -187,6 +187,43 @@ const carSchema = new mongoose.Schema(
     },
 
     /* =====================================================
+       SERVICE RECORD
+       
+       Dropdown:
+       available
+       not available
+    ===================================================== */
+
+    serviceRecord: {
+      type: String,
+      enum: [
+        "available",
+        "not available",
+      ],
+      default: null,
+    },
+
+    /* =====================================================
+       CSR KM
+    ===================================================== */
+
+    csrKm: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    /* =====================================================
+       STIG
+    ===================================================== */
+
+    stig: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    /* =====================================================
        COLOR
     ===================================================== */
 
@@ -527,6 +564,62 @@ carSchema.pre("save", async function (next) {
           "City does not belong to district"
         );
       }
+    }
+
+    /* =====================================================
+       SERVICE RECORD VALIDATION
+    ===================================================== */
+
+    if (this.serviceRecord) {
+      this.serviceRecord = String(
+        this.serviceRecord
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        ![
+          "available",
+          "not available",
+        ].includes(this.serviceRecord)
+      ) {
+        throw new Error(
+          "Invalid service record. Use available or not available"
+        );
+      }
+    }
+
+    /* =====================================================
+       CSR KM VALIDATION
+    ===================================================== */
+
+    if (
+      this.csrKm !== null &&
+      this.csrKm !== undefined
+    ) {
+      this.csrKm = Number(this.csrKm);
+
+      if (
+        !Number.isFinite(this.csrKm) ||
+        this.csrKm < 0
+      ) {
+        throw new Error(
+          "CSR KM must be a valid number greater than or equal to 0"
+        );
+      }
+    }
+
+    /* =====================================================
+       STIG
+    ===================================================== */
+
+    if (
+      this.stig !== null &&
+      this.stig !== undefined
+    ) {
+      this.stig = String(
+        this.stig
+      ).trim();
     }
 
     next();

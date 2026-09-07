@@ -414,12 +414,11 @@ import adminCarRoutes from "./routes/car/admin.car.routes.js";
   // CARS
   // ============================================================
 
-// IMPORTANT: admin first
-router.use("/admin", adminCarRoutes);
+// Admin car routes
+app.use("/api/cars/admin", adminCarRoutes);
 
-// User routes
-router.use("/", userCarRoutes);
-
+// User car routes
+app.use("/api/cars", userCarRoutes);
   // ============================================================
   // BIKES
   // ============================================================

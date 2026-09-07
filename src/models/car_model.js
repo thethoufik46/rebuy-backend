@@ -1,11 +1,12 @@
-import mongoose from "mongoose";
+// ======================= car_model.js =======================
 
+import mongoose from "mongoose";
 import Counter from "./counter_model.js";
+
 
 import { encryptSeller } from "../utils/sellerCrypto.js";
 
 import fs from "fs";
-
 import path from "path";
 
 /* =====================================================
@@ -27,6 +28,10 @@ const locations = JSON.parse(
 
 const carSchema = new mongoose.Schema(
   {
+    /* =====================================================
+       CAR ID
+    ===================================================== */
+
     carId: {
       type: Number,
       unique: true,
@@ -44,7 +49,7 @@ const carSchema = new mongoose.Schema(
     },
 
     /* =====================================================
-       LINKED USER (OPTIONAL)
+       LINKED USER
     ===================================================== */
 
     sellerUser: {
@@ -55,39 +60,57 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        BRAND
+       Brand
+         ↓
+       Model
+         ↓
+       Variant
     ===================================================== */
 
     brand: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Brand",
+      ref: "CarBrand",
       required: true,
-    },
-
-    /* =====================================================
-       VARIANT
-    ===================================================== */
-
-    variant: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Variant",
-      default: null,
+      index: true,
     },
 
     /* =====================================================
        MODEL
+
+       IMPORTANT:
+       Model is linked to CarModel collection.
+
+       Brand
+         ↓
+       CarModel
+         ↓
+       CarVariant
     ===================================================== */
 
     model: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CarModel",
+      required: true,
+      index: true,
+    },
+
+    /* =====================================================
+       VARIANT
+
+       Variant belongs to selected CarModel.
+    ===================================================== */
+
+    variant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CarVariant",
       default: null,
+      index: true,
     },
 
     /* =====================================================
        REGISTRATION STATE
-       
-       TN = Tamil Nadu (DEFAULT + FIRST)
-       
-       Example:
+
+       TN = Tamil Nadu
        TN 38
        PY 01
     ===================================================== */
@@ -143,7 +166,6 @@ const carSchema = new mongoose.Schema(
 
        Exactly 2 digits
 
-       Example:
        01
        10
        38
@@ -188,10 +210,6 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        SERVICE RECORD
-       
-       Dropdown:
-       available
-       not available
     ===================================================== */
 
     serviceRecord: {
@@ -462,45 +480,49 @@ carSchema.pre("save", async function (next) {
         .trim()
         .toUpperCase();
 
+      const validStates = [
+        "TN",
+        "AP",
+        "AR",
+        "AS",
+        "BR",
+        "CG",
+        "GA",
+        "GJ",
+        "HR",
+        "HP",
+        "JH",
+        "KA",
+        "KL",
+        "MP",
+        "MH",
+        "MN",
+        "ML",
+        "MZ",
+        "NL",
+        "OD",
+        "PB",
+        "RJ",
+        "SK",
+        "TS",
+        "TR",
+        "UP",
+        "UK",
+        "WB",
+        "AN",
+        "CH",
+        "DN",
+        "DL",
+        "JK",
+        "LA",
+        "LD",
+        "PY",
+      ];
+
       if (
-        ![
-          "TN",
-          "AP",
-          "AR",
-          "AS",
-          "BR",
-          "CG",
-          "GA",
-          "GJ",
-          "HR",
-          "HP",
-          "JH",
-          "KA",
-          "KL",
-          "MP",
-          "MH",
-          "MN",
-          "ML",
-          "MZ",
-          "NL",
-          "OD",
-          "PB",
-          "RJ",
-          "SK",
-          "TS",
-          "TR",
-          "UP",
-          "UK",
-          "WB",
-          "AN",
-          "CH",
-          "DN",
-          "DL",
-          "JK",
-          "LA",
-          "LD",
-          "PY",
-        ].includes(this.registrationState)
+        !validStates.includes(
+          this.registrationState
+        )
       ) {
         throw new Error(
           "Invalid registration state"
@@ -511,7 +533,7 @@ carSchema.pre("save", async function (next) {
     /* =====================================================
        REGISTRATION NUMBER VALIDATION
 
-       Must contain exactly 2 digits
+       Exactly 2 digits
     ===================================================== */
 
     if (this.registrationNumber) {
@@ -539,7 +561,8 @@ carSchema.pre("save", async function (next) {
     ).find(
       (d) =>
         d.toLowerCase() ===
-        this.district.toLowerCase()
+        String(this.district || "")
+          .toLowerCase()
     );
 
     if (!districtKey) {
@@ -581,7 +604,9 @@ carSchema.pre("save", async function (next) {
         ![
           "available",
           "not available",
-        ].includes(this.serviceRecord)
+        ].includes(
+          this.serviceRecord
+        )
       ) {
         throw new Error(
           "Invalid service record. Use available or not available"
@@ -597,7 +622,9 @@ carSchema.pre("save", async function (next) {
       this.csrKm !== null &&
       this.csrKm !== undefined
     ) {
-      this.csrKm = Number(this.csrKm);
+      this.csrKm = Number(
+        this.csrKm
+      );
 
       if (
         !Number.isFinite(this.csrKm) ||
@@ -630,9 +657,14 @@ carSchema.pre("save", async function (next) {
 
 /* =====================================================
    EXPORT CAR MODEL
+
+   MongoDB collection = cars
 ===================================================== */
 
-export default mongoose.model(
+const Car = mongoose.model(
   "Car",
-  carSchema
+  carSchema,
+  "cars"
 );
+
+export default Car;

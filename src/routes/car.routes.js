@@ -115,18 +115,268 @@ const validateCarHierarchy = async (
 };
 
 /* =========================================================
+   CAR BRAND / MODEL / VARIANT MASTER DATA
+   Flutter CarApi compatible routes
+========================================================= */
+
+router.get("/brands", async (req, res) => {
+  try {
+    const brands = await CarBrand.find({})
+      .select("_id name logoUrl")
+      .sort({ name: 1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      count: brands.length,
+      brands,
+    });
+  } catch (error) {
+    console.error("GET BRANDS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message || "Failed to get brands",
+    });
+  }
+});
+
+router.get("/carmodels", async (req, res) => {
+  try {
+    const models = await CarModel.find({})
+      .select("_id brand title imageUrl")
+      .sort({ title: 1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      count: models.length,
+      models,
+    });
+  } catch (error) {
+    console.error("GET MODELS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message || "Failed to get models",
+    });
+  }
+});
+
+router.get(
+  "/carmodels/brand/:brandId",
+  async (req, res) => {
+    try {
+      const { brandId } = req.params;
+
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          brandId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
+        });
+      }
+
+      const models = await CarModel.find({
+        brand: brandId,
+      })
+        .select("_id brand title imageUrl")
+        .sort({ title: 1 })
+        .lean();
+
+      return res.json({
+        success: true,
+        count: models.length,
+        models,
+      });
+    } catch (error) {
+      console.error(
+        "GET MODELS BY BRAND ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get models by brand",
+      });
+    }
+  }
+);
+
+router.get(
+  "/carvariants",
+  async (req, res) => {
+    try {
+      const variants = await CarVariant.find({})
+        .select(
+          "_id carModel title imageUrl"
+        )
+        .sort({ title: 1 })
+        .lean();
+
+      return res.json({
+        success: true,
+        count: variants.length,
+        variants,
+      });
+    } catch (error) {
+      console.error(
+        "GET VARIANTS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get variants",
+      });
+    }
+  }
+);
+
+router.get(
+  "/carvariants/model/:modelId",
+  async (req, res) => {
+    try {
+      const { modelId } = req.params;
+
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          modelId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid model id",
+        });
+      }
+
+      const variants =
+        await CarVariant.find({
+          carModel: modelId,
+        })
+          .select(
+            "_id carModel title imageUrl"
+          )
+          .sort({ title: 1 })
+          .lean();
+
+      return res.json({
+        success: true,
+        count: variants.length,
+        variants,
+      });
+    } catch (error) {
+      console.error(
+        "GET VARIANTS BY MODEL ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get variants by model",
+      });
+    }
+  }
+);
+
+/* Older Flutter compatibility */
+router.get(
+  "/carvariants/brand/:brandId",
+  async (req, res) => {
+    try {
+      const { brandId } = req.params;
+
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          brandId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid brand id",
+        });
+      }
+
+      const models = await CarModel.find({
+        brand: brandId,
+      })
+        .select("_id")
+        .lean();
+
+      const modelIds = models.map(
+        (item) => item._id
+      );
+
+      const variants = modelIds.length
+        ? await CarVariant.find({
+            carModel: {
+              $in: modelIds,
+            },
+          })
+            .select(
+              "_id carModel title imageUrl"
+            )
+            .sort({ title: 1 })
+            .lean()
+        : [];
+
+      return res.json({
+        success: true,
+        count: variants.length,
+        variants,
+      });
+    } catch (error) {
+      console.error(
+        "GET VARIANTS BY BRAND ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get variants by brand",
+      });
+    }
+  }
+);
+
+/* =========================================================
    CREATE CAR - ADMIN
 ========================================================= */
 
 router.post(
-  "/admin",
+  ["/add", "/admin"],
   verifyToken,
   isAdmin,
   uploadCar.fields([
-    { name: "bannerImage", maxCount: 1 },
-    { name: "galleryImages", maxCount: 20 },
-    { name: "audioNote", maxCount: 1 },
-    { name: "videos", maxCount: 10 },
+    {
+      name: "banner",
+      maxCount: 1,
+    },
+    {
+      name: "gallery",
+      maxCount: 20,
+    },
+    {
+      name: "audio",
+      maxCount: 1,
+    },
+    {
+      name: "videos",
+      maxCount: 10,
+    },
   ]),
   async (req, res) => {
     try {
@@ -240,30 +490,30 @@ router.post(
 
       if (
         req.files &&
-        req.files.bannerImage &&
-        req.files.bannerImage[0]
+        req.files.banner &&
+        req.files.banner[0]
       ) {
         carData.bannerImage =
-          req.files.bannerImage[0].path;
+          req.files.banner[0].path;
       }
 
       if (
         req.files &&
-        req.files.galleryImages
+        req.files.gallery
       ) {
         carData.galleryImages =
-          req.files.galleryImages.map(
+          req.files.gallery.map(
             (file) => file.path
           );
       }
 
       if (
         req.files &&
-        req.files.audioNote &&
-        req.files.audioNote[0]
+        req.files.audio &&
+        req.files.audio[0]
       ) {
         carData.audioNote =
-          req.files.audioNote[0].path;
+          req.files.audio[0].path;
       }
 
       if (
@@ -276,7 +526,8 @@ router.post(
           );
       }
 
-      const car = await Car.create(carData);
+      const car =
+        await Car.create(carData);
 
       const responseCar =
         car.toObject();
@@ -288,7 +539,8 @@ router.post(
 
       return res.status(201).json({
         success: true,
-        message: "Car created successfully",
+        message:
+          "Car created successfully",
         car: responseCar,
       });
     } catch (error) {
@@ -307,423 +559,30 @@ router.post(
   }
 );
 
-/* =========================================================
-   GET ALL CARS
-========================================================= */
-
-router.get(
-  "/",
-  verifyTokenOptional,
-  async (req, res) => {
-    try {
-      const {
-        brand,
-        model,
-        variant,
-        status,
-        district,
-        city,
-        fuel,
-        transmission,
-        owner,
-        board,
-        insurance,
-        search,
-      } = req.query;
-
-      const filter = {};
-
-      if (brand) {
-        filter.brand = brand;
-      }
-
-      if (model) {
-        filter.model = model;
-      }
-
-      if (variant) {
-        filter.variant = variant;
-      }
-
-      if (status) {
-        filter.status = status;
-      } else if (
-        !req.user ||
-        req.user.role !== "admin"
-      ) {
-        filter.status = {
-          $nin: [
-            "draft",
-            "delete_requested",
-          ],
-        };
-      }
-
-      if (district) {
-        filter.district = district;
-      }
-
-      if (city) {
-        filter.city = city;
-      }
-
-      if (fuel) {
-        filter.fuel = fuel;
-      }
-
-      if (transmission) {
-        filter.transmission =
-          transmission;
-      }
-
-      if (owner) {
-        filter.owner = owner;
-      }
-
-      if (board) {
-        filter.board = board;
-      }
-
-      if (insurance) {
-        filter.insurance = insurance;
-      }
-
-      if (search) {
-        filter.$or = [
-          {
-            description: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-          {
-            district: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-          {
-            city: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-        ];
-      }
-
-      const cars =
-        await Car.find(filter)
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
-
-      const brandIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.brand
-                ? car.brand.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const modelIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.model
-                ? car.model.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const variantIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.variant
-                ? car.variant.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const [
-        brands,
-        models,
-        variants,
-      ] = await Promise.all([
-        CarBrand.find({
-          _id: {
-            $in: brandIds,
-          },
-        })
-          .select("_id name logoUrl")
-          .lean(),
-
-        CarModel.find({
-          _id: {
-            $in: modelIds,
-          },
-        })
-          .select("_id title imageUrl brand")
-          .lean(),
-
-        CarVariant.find({
-          _id: {
-            $in: variantIds,
-          },
-        })
-          .select("_id title imageUrl carModel")
-          .lean(),
-      ]);
-
-      const brandMap =
-        new Map(
-          brands.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const modelMap =
-        new Map(
-          models.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const variantMap =
-        new Map(
-          variants.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const isAdminUser =
-        !!req.user &&
-        req.user.role === "admin";
-
-      const result =
-        cars.map((car) => {
-          if (car.brand) {
-            car.brand =
-              brandMap.get(
-                car.brand.toString()
-              ) || car.brand;
-          }
-
-          if (car.model) {
-            car.model =
-              modelMap.get(
-                car.model.toString()
-              ) || car.model;
-          }
-
-          if (car.variant) {
-            car.variant =
-              variantMap.get(
-                car.variant.toString()
-              ) || car.variant;
-          }
-
-          return prepareSellerForResponse(
-            car,
-            isAdminUser
-          );
-        });
-
-      return res.json({
-        success: true,
-        count: result.length,
-        cars: result,
-      });
-    } catch (error) {
-      console.error(
-        "Get cars error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get cars",
-      });
-    }
-  }
-);
 
 /* =========================================================
-   GET MY CARS
-========================================================= */
-
-router.get(
-  "/my",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const cars =
-        await Car.find({
-          $or: [
-            {
-              createdBy: req.user.id,
-            },
-            {
-              sellerUser: req.user.id,
-            },
-          ],
-        })
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
-
-      const isAdminUser =
-        req.user.role === "admin";
-
-      const result =
-        cars.map((car) =>
-          prepareSellerForResponse(
-            car,
-            isAdminUser
-          )
-        );
-
-      return res.json({
-        success: true,
-        count: result.length,
-        cars: result,
-      });
-    } catch (error) {
-      console.error(
-        "Get my cars error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get my cars",
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   GET CAR BY ID
-========================================================= */
-
-router.get(
-  "/:id",
-  verifyTokenOptional,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      const car = await Car.findById(id)
-        .populate(
-          "brand",
-          "name logoUrl"
-        )
-        .populate(
-          "model",
-          "title imageUrl brand"
-        )
-        .populate(
-          "variant",
-          "title imageUrl carModel"
-        )
-        .lean();
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      const isAdminUser =
-        !!req.user &&
-        req.user.role === "admin";
-
-      prepareSellerForResponse(
-        car,
-        isAdminUser
-      );
-
-      return res.json({
-        success: true,
-        car,
-      });
-    } catch (error) {
-      console.error(
-        "Get car by id error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get car",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   USER CREATE CAR
+   CREATE CAR - USER
 ========================================================= */
 
 router.post(
-  "/",
+  ["/user-add", "/"],
   verifyToken,
   uploadCar.fields([
     {
-      name: "bannerImage",
+      name: "banner",
       maxCount: 1,
     },
     {
-      name: "galleryImages",
-      maxCount: 20,
+      name: "gallery",
+      maxCount: 10,
     },
     {
-      name: "audioNote",
+      name: "audio",
       maxCount: 1,
     },
     {
       name: "videos",
-      maxCount: 10,
+      maxCount: 3,
     },
   ]),
   async (req, res) => {
@@ -732,7 +591,6 @@ router.post(
         brand,
         model,
         variant,
-        videoLink,
 
         registrationState,
         registrationNumber,
@@ -758,7 +616,23 @@ router.post(
         district,
         city,
         description,
+
+        videoLink,
       } = req.body;
+
+      if (!brand) {
+        return res.status(400).json({
+          success: false,
+          message: "Brand is required",
+        });
+      }
+
+      if (!model) {
+        return res.status(400).json({
+          success: false,
+          message: "Model is required",
+        });
+      }
 
       await validateCarHierarchy(
         brand,
@@ -766,17 +640,23 @@ router.post(
         variant || null
       );
 
+      if (
+        !req.files ||
+        !req.files.banner ||
+        !req.files.banner[0]
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Banner image is required",
+        });
+      }
+
       const carData = {
         ...req.body,
 
         brand,
         model,
         variant: variant || null,
-
-        videoLink:
-          videoLink ||
-          req.body.videoLink ||
-          null,
 
         registrationState:
           registrationState || "TN",
@@ -817,8 +697,6 @@ router.post(
             ? encryptSeller(seller)
             : undefined,
 
-        sellerUser: req.user.id,
-
         sellerinfo,
 
         district,
@@ -829,45 +707,49 @@ router.post(
         description:
           description || null,
 
+        videoLink:
+          videoLink || null,
+
         createdBy: req.user.id,
+
+        sellerUser: req.user.id,
       };
 
-      if (
-        req.files &&
-        req.files.bannerImage &&
-        req.files.bannerImage[0]
-      ) {
-        carData.bannerImage =
-          req.files.bannerImage[0].path;
-      }
+      carData.bannerImage =
+        req.files.banner[0].path;
 
       if (
-        req.files &&
-        req.files.galleryImages
+        req.files.gallery &&
+        req.files.gallery.length
       ) {
         carData.galleryImages =
-          req.files.galleryImages.map(
+          req.files.gallery.map(
             (file) => file.path
           );
+      } else {
+        carData.galleryImages = [];
       }
 
       if (
-        req.files &&
-        req.files.audioNote &&
-        req.files.audioNote[0]
+        req.files.audio &&
+        req.files.audio[0]
       ) {
         carData.audioNote =
-          req.files.audioNote[0].path;
+          req.files.audio[0].path;
+      } else {
+        carData.audioNote = null;
       }
 
       if (
-        req.files &&
-        req.files.videos
+        req.files.videos &&
+        req.files.videos.length
       ) {
         carData.videos =
           req.files.videos.map(
             (file) => file.path
           );
+      } else {
+        carData.videos = [];
       }
 
       const car =
@@ -876,10 +758,9 @@ router.post(
       const responseCar =
         car.toObject();
 
-      // Seller must be ADMIN only.
       prepareSellerForResponse(
         responseCar,
-        true
+        false
       );
 
       return res.status(201).json({
@@ -905,7 +786,604 @@ router.post(
 );
 
 /* =========================================================
+   GET ALL CARS / FILTER
+========================================================= */
+
+router.get(
+  "/",
+  verifyTokenOptional,
+  async (req, res) => {
+    try {
+      const {
+        brand,
+        model,
+        variant,
+
+        fuel,
+        transmission,
+
+        district,
+        city,
+
+        minPrice,
+        maxPrice,
+
+        minYear,
+        maxYear,
+
+        registrationState,
+        registrationNumber,
+
+        status,
+      } = req.query;
+
+      const filter = {};
+
+      if (brand) {
+        if (
+          mongoose.Types.ObjectId.isValid(
+            brand
+          )
+        ) {
+          filter.brand = brand;
+        }
+      }
+
+      if (model) {
+        if (
+          mongoose.Types.ObjectId.isValid(
+            model
+          )
+        ) {
+          filter.model = model;
+        }
+      }
+
+      if (variant) {
+        if (
+          mongoose.Types.ObjectId.isValid(
+            variant
+          )
+        ) {
+          filter.variant = variant;
+        }
+      }
+
+      if (fuel) {
+        filter.fuel = fuel;
+      }
+
+      if (transmission) {
+        filter.transmission =
+          transmission;
+      }
+
+      if (district) {
+        filter.district = district;
+      }
+
+      if (city) {
+        filter.city = city;
+      }
+
+      if (registrationState) {
+        filter.registrationState =
+          String(
+            registrationState
+          ).toUpperCase();
+      }
+
+      if (registrationNumber) {
+        filter.registrationNumber =
+          String(
+            registrationNumber
+          ).trim();
+      }
+
+      if (
+        minPrice !== undefined ||
+        maxPrice !== undefined
+      ) {
+        filter.price = {};
+
+        if (minPrice !== undefined) {
+          filter.price.$gte =
+            Number(minPrice);
+        }
+
+        if (maxPrice !== undefined) {
+          filter.price.$lte =
+            Number(maxPrice);
+        }
+      }
+
+      if (
+        minYear !== undefined ||
+        maxYear !== undefined
+      ) {
+        filter.year = {};
+
+        if (minYear !== undefined) {
+          filter.year.$gte =
+            Number(minYear);
+        }
+
+        if (maxYear !== undefined) {
+          filter.year.$lte =
+            Number(maxYear);
+        }
+      }
+
+      if (status) {
+        filter.status = status;
+      } else {
+        filter.status = {
+          $ne: "delete_requested",
+        };
+      }
+
+      const cars = await Car.find(filter)
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const isAdminUser =
+        !!req.user &&
+        (
+          req.user.role === "admin" ||
+          req.user.isAdmin === true
+        );
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            isAdminUser
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   GET ALL CARS - ADMIN
+========================================================= */
+
+router.get(
+  "/admin/all",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const cars = await Car.find({})
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .populate(
+          "createdBy",
+          "_id name email phone"
+        )
+        .populate(
+          "sellerUser",
+          "_id name email phone"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "ADMIN GET ALL CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get all cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   GET MY CARS
+   Flutter: /cars/my-cars
+========================================================= */
+
+router.get(
+  "/my-cars",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const cars = await Car.find({
+        $or: [
+          {
+            createdBy: userId,
+          },
+          {
+            sellerUser: userId,
+          },
+        ],
+      })
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            false
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET MY CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get my cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   LEGACY GET MY CARS
+========================================================= */
+
+router.get(
+  "/my",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const cars = await Car.find({
+        $or: [
+          {
+            createdBy: userId,
+          },
+          {
+            sellerUser: userId,
+          },
+        ],
+      })
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            false
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET MY CARS LEGACY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get my cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   GET GROUPED MY CARS
+========================================================= */
+
+router.get(
+  "/my-cars/grouped",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const cars = await Car.find({
+        $or: [
+          {
+            createdBy: userId,
+          },
+          {
+            sellerUser: userId,
+          },
+        ],
+      })
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            false
+          )
+        );
+
+      const drafts =
+        preparedCars.filter(
+          (car) =>
+            car.status === "draft"
+        );
+
+      const listings =
+        preparedCars.filter(
+          (car) =>
+            car.status !== "draft"
+        );
+
+      return res.json({
+        success: true,
+
+        drafts,
+        listings,
+
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GROUPED MY CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get grouped cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   GET CAR BY ID
+========================================================= */
+
+router.get(
+  "/:id",
+  verifyTokenOptional,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        const numericId =
+          Number(id);
+
+        if (
+          !Number.isNaN(numericId)
+        ) {
+          const car =
+            await Car.findOne({
+              carId: numericId,
+            })
+              .populate(
+                "brand",
+                "_id name logoUrl"
+              )
+              .populate(
+                "model",
+                "_id title imageUrl brand"
+              )
+              .populate(
+                "variant",
+                "_id title imageUrl carModel"
+              )
+              .lean();
+
+          if (!car) {
+            return res.status(404).json({
+              success: false,
+              message: "Car not found",
+            });
+          }
+
+          const isAdminUser =
+            !!req.user &&
+            (
+              req.user.role === "admin" ||
+              req.user.isAdmin === true
+            );
+
+          prepareSellerForResponse(
+            car,
+            isAdminUser
+          );
+
+          return res.json({
+            success: true,
+            car,
+          });
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: "Invalid car id",
+        });
+      }
+
+      const car =
+        await Car.findById(id)
+          .populate(
+            "brand",
+            "_id name logoUrl"
+          )
+          .populate(
+            "model",
+            "_id title imageUrl brand"
+          )
+          .populate(
+            "variant",
+            "_id title imageUrl carModel"
+          )
+          .lean();
+
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
+      }
+
+      const isAdminUser =
+        !!req.user &&
+        (
+          req.user.role === "admin" ||
+          req.user.isAdmin === true
+        );
+
+      prepareSellerForResponse(
+        car,
+        isAdminUser
+      );
+
+      return res.json({
+        success: true,
+        car,
+      });
+    } catch (error) {
+      console.error(
+        "GET CAR BY ID ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get car",
+      });
+    }
+  }
+);
+
+
+/* =========================================================
    UPDATE CAR
+   Flutter: PUT /cars/:carId
 ========================================================= */
 
 router.put(
@@ -913,15 +1391,15 @@ router.put(
   verifyToken,
   uploadCar.fields([
     {
-      name: "bannerImage",
+      name: "banner",
       maxCount: 1,
     },
     {
-      name: "galleryImages",
+      name: "gallery",
       maxCount: 20,
     },
     {
-      name: "audioNote",
+      name: "audio",
       maxCount: 1,
     },
     {
@@ -933,15 +1411,17 @@ router.put(
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
+      let car = null;
+
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        car = await Car.findById(id);
       }
 
-      const car =
-        await Car.findById(id);
+      if (!car && !Number.isNaN(Number(id))) {
+        car = await Car.findOne({
+          carId: Number(id),
+        });
+      }
 
       if (!car) {
         return res.status(404).json({
@@ -951,7 +1431,8 @@ router.put(
       }
 
       const isAdminUser =
-        req.user.role === "admin";
+        req.user.role === "admin" ||
+        req.user.isAdmin === true;
 
       const isOwner =
         car.createdBy &&
@@ -974,6 +1455,32 @@ router.put(
             "You are not authorized to update this car",
         });
       }
+
+      const {
+        brand,
+        model,
+        variant,
+
+        existingGallery,
+        existingVideos,
+      } = req.body;
+
+      const nextBrand =
+        brand || car.brand;
+
+      const nextModel =
+        model || car.model;
+
+      const nextVariant =
+        variant !== undefined
+          ? variant || null
+          : car.variant;
+
+      await validateCarHierarchy(
+        nextBrand,
+        nextModel,
+        nextVariant || null
+      );
 
       const allowedFields = [
         "brand",
@@ -1000,7 +1507,6 @@ router.put(
 
         "status",
 
-        "seller",
         "sellerUser",
         "sellerinfo",
 
@@ -1011,50 +1517,72 @@ router.put(
         "videoLink",
       ];
 
-      for (
-        const field of allowedFields
-      ) {
+      for (const field of allowedFields) {
         if (
-          Object.prototype.hasOwnProperty.call(
-            req.body,
-            field
-          )
+          req.body[field] !== undefined
         ) {
-          car[field] =
-            req.body[field];
+          if (
+            field === "variant"
+          ) {
+            car[field] =
+              req.body[field] || null;
+          } else if (
+            field === "csrKm"
+          ) {
+            car[field] =
+              req.body[field] === ""
+                ? null
+                : req.body[field];
+          } else if (
+            field === "stig"
+          ) {
+            car[field] =
+              req.body[field] === ""
+                ? null
+                : req.body[field];
+          } else if (
+            field === "city"
+          ) {
+            car[field] =
+              req.body[field] === ""
+                ? null
+                : req.body[field];
+          } else if (
+            field === "description"
+          ) {
+            car[field] =
+              req.body[field] === ""
+                ? null
+                : req.body[field];
+          } else if (
+            field === "videoLink"
+          ) {
+            car[field] =
+              req.body[field] === ""
+                ? null
+                : req.body[field];
+          } else {
+            car[field] =
+              req.body[field];
+          }
         }
       }
 
-      /*
-       * BRAND → MODEL → VARIANT
-       * Always validate the final values
-       * before saving.
-       */
-      const finalBrand =
-        car.brand;
-
-      const finalModel =
-        car.model;
-
-      const finalVariant =
-        car.variant || null;
-
-      await validateCarHierarchy(
-        finalBrand,
-        finalModel,
-        finalVariant
-      );
+      /* -----------------------------------------------------
+         SELLER
+      ----------------------------------------------------- */
 
       if (
-        Object.prototype.hasOwnProperty.call(
-          req.body,
-          "seller"
-        )
+        req.body.seller !== undefined
       ) {
         if (
-          req.body.seller &&
-          typeof req.body.seller ===
-            "string"
+          req.body.seller === ""
+        ) {
+          car.seller = null;
+        } else if (
+          !String(
+            req.body.seller
+          ).includes(":")
         ) {
           car.seller =
             encryptSeller(
@@ -1066,64 +1594,167 @@ router.put(
         }
       }
 
+      /* -----------------------------------------------------
+         BANNER
+      ----------------------------------------------------- */
+
       if (
         req.files &&
-        req.files.bannerImage &&
-        req.files.bannerImage[0]
+        req.files.banner &&
+        req.files.banner[0]
       ) {
         car.bannerImage =
-          req.files.bannerImage[0].path;
+          req.files.banner[0].path;
       }
 
+      /* -----------------------------------------------------
+         EXISTING GALLERY
+         Flutter sends JSON string
+      ----------------------------------------------------- */
+
+      let galleryToKeep = [];
+
       if (
-        req.files &&
-        req.files.galleryImages
+        existingGallery !==
+        undefined
       ) {
-        car.galleryImages =
-          req.files.galleryImages.map(
-            (file) => file.path
-          );
+        try {
+          const parsed =
+            JSON.parse(
+              existingGallery
+            );
+
+          if (Array.isArray(parsed)) {
+            galleryToKeep =
+              parsed.filter(
+                (item) =>
+                  typeof item ===
+                  "string" &&
+                  item.trim() !== ""
+              );
+          }
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid existingGallery format",
+          });
+        }
+      } else if (
+        Array.isArray(
+          car.galleryImages
+        )
+      ) {
+        galleryToKeep = [
+          ...car.galleryImages,
+        ];
       }
 
       if (
         req.files &&
-        req.files.audioNote &&
-        req.files.audioNote[0]
+        req.files.gallery &&
+        req.files.gallery.length
+      ) {
+        galleryToKeep.push(
+          ...req.files.gallery.map(
+            (file) => file.path
+          )
+        );
+      }
+
+      car.galleryImages =
+        galleryToKeep;
+
+      /* -----------------------------------------------------
+         EXISTING VIDEOS
+         Flutter sends JSON string
+      ----------------------------------------------------- */
+
+      let videosToKeep = [];
+
+      if (
+        existingVideos !==
+        undefined
+      ) {
+        try {
+          const parsed =
+            JSON.parse(
+              existingVideos
+            );
+
+          if (Array.isArray(parsed)) {
+            videosToKeep =
+              parsed.filter(
+                (item) =>
+                  typeof item ===
+                  "string" &&
+                  item.trim() !== ""
+              );
+          }
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid existingVideos format",
+          });
+        }
+      } else if (
+        Array.isArray(car.videos)
+      ) {
+        videosToKeep = [
+          ...car.videos,
+        ];
+      }
+
+      if (
+        req.files &&
+        req.files.videos &&
+        req.files.videos.length
+      ) {
+        videosToKeep.push(
+          ...req.files.videos.map(
+            (file) => file.path
+          )
+        );
+      }
+
+      car.videos = videosToKeep;
+
+      /* -----------------------------------------------------
+         AUDIO
+      ----------------------------------------------------- */
+
+      if (
+        req.files &&
+        req.files.audio &&
+        req.files.audio[0]
       ) {
         car.audioNote =
-          req.files.audioNote[0].path;
-      }
-
-      if (
-        req.files &&
-        req.files.videos
-      ) {
-        car.videos =
-          req.files.videos.map(
-            (file) => file.path
-          );
+          req.files.audio[0].path;
       }
 
       await car.save();
 
-      const responseCar =
-        await Car.findById(id)
+      const updatedCar =
+        await Car.findById(
+          car._id
+        )
           .populate(
             "brand",
-            "name logoUrl"
+            "_id name logoUrl"
           )
           .populate(
             "model",
-            "title imageUrl brand"
+            "_id title imageUrl brand"
           )
           .populate(
             "variant",
-            "title imageUrl carModel"
+            "_id title imageUrl carModel"
           )
           .lean();
 
       prepareSellerForResponse(
-        responseCar,
+        updatedCar,
         isAdminUser
       );
 
@@ -1131,11 +1762,11 @@ router.put(
         success: true,
         message:
           "Car updated successfully",
-        car: responseCar,
+        car: updatedCar,
       });
     } catch (error) {
       console.error(
-        "Update car error:",
+        "UPDATE CAR ERROR:",
         error
       );
 
@@ -1150,25 +1781,35 @@ router.put(
 );
 
 /* =========================================================
-   DELETE / REQUEST DELETE
+   REQUEST DELETE
+   Flutter: PUT /cars/:carId/request-delete
 ========================================================= */
 
-router.delete(
-  "/:id",
+router.put(
+  "/:id/request-delete",
   verifyToken,
   async (req, res) => {
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
       }
 
-      const car =
-        await Car.findById(id);
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
 
       if (!car) {
         return res.status(404).json({
@@ -1178,7 +1819,8 @@ router.delete(
       }
 
       const isAdminUser =
-        req.user.role === "admin";
+        req.user.role === "admin" ||
+        req.user.isAdmin === true;
 
       const isOwner =
         car.createdBy &&
@@ -1203,12 +1845,15 @@ router.delete(
       }
 
       if (isAdminUser) {
-        await Car.findByIdAndDelete(id);
+        await Car.deleteOne({
+          _id: car._id,
+        });
 
         return res.json({
           success: true,
           message:
             "Car deleted successfully",
+          deleted: true,
         });
       }
 
@@ -1220,12 +1865,16 @@ router.delete(
       return res.json({
         success: true,
         message:
-          "Car delete request submitted",
-        car,
+          "Delete request submitted successfully",
+        car: {
+          _id: car._id,
+          carId: car.carId,
+          status: car.status,
+        },
       });
     } catch (error) {
       console.error(
-        "Delete car error:",
+        "REQUEST DELETE CAR ERROR:",
         error
       );
 
@@ -1233,473 +1882,41 @@ router.delete(
         success: false,
         message:
           error.message ||
-          "Failed to delete car",
+          "Failed to request car deletion",
       });
     }
   }
 );
 
 /* =========================================================
-   ADMIN - GET ALL CARS
-========================================================= */
-
-router.get(
-  "/admin/all",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const {
-        brand,
-        model,
-        variant,
-        status,
-        district,
-        city,
-        fuel,
-        transmission,
-        owner,
-        board,
-        insurance,
-        search,
-      } = req.query;
-
-      const filter = {};
-
-      if (brand) {
-        filter.brand = brand;
-      }
-
-      if (model) {
-        filter.model = model;
-      }
-
-      if (variant) {
-        filter.variant = variant;
-      }
-
-      if (status) {
-        filter.status = status;
-      }
-
-      if (district) {
-        filter.district = district;
-      }
-
-      if (city) {
-        filter.city = city;
-      }
-
-      if (fuel) {
-        filter.fuel = fuel;
-      }
-
-      if (transmission) {
-        filter.transmission =
-          transmission;
-      }
-
-      if (owner) {
-        filter.owner = owner;
-      }
-
-      if (board) {
-        filter.board = board;
-      }
-
-      if (insurance) {
-        filter.insurance = insurance;
-      }
-
-      if (search) {
-        filter.$or = [
-          {
-            description: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-          {
-            district: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-          {
-            city: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-          {
-            seller: {
-              $regex: search,
-              $options: "i",
-            },
-          },
-        ];
-      }
-
-      const cars =
-        await Car.find(filter)
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
-
-      const brandIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.brand
-                ? car.brand.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const modelIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.model
-                ? car.model.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const variantIds = [
-        ...new Set(
-          cars
-            .map((car) =>
-              car.variant
-                ? car.variant.toString()
-                : null
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      const [
-        brands,
-        models,
-        variants,
-      ] = await Promise.all([
-        CarBrand.find({
-          _id: {
-            $in: brandIds,
-          },
-        })
-          .select(
-            "_id name logoUrl"
-          )
-          .lean(),
-
-        CarModel.find({
-          _id: {
-            $in: modelIds,
-          },
-        })
-          .select(
-            "_id title imageUrl brand"
-          )
-          .lean(),
-
-        CarVariant.find({
-          _id: {
-            $in: variantIds,
-          },
-        })
-          .select(
-            "_id title imageUrl carModel"
-          )
-          .lean(),
-      ]);
-
-      const brandMap =
-        new Map(
-          brands.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const modelMap =
-        new Map(
-          models.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const variantMap =
-        new Map(
-          variants.map((item) => [
-            item._id.toString(),
-            item,
-          ])
-        );
-
-      const result =
-        cars.map((car) => {
-          if (car.brand) {
-            car.brand =
-              brandMap.get(
-                car.brand.toString()
-              ) || car.brand;
-          }
-
-          if (car.model) {
-            car.model =
-              modelMap.get(
-                car.model.toString()
-              ) || car.model;
-          }
-
-          if (car.variant) {
-            car.variant =
-              variantMap.get(
-                car.variant.toString()
-              ) || car.variant;
-          }
-
-          /*
-           * ADMIN ONLY
-           * Seller is decrypted and returned.
-           */
-          prepareSellerForResponse(
-            car,
-            true
-          );
-
-          return car;
-        });
-
-      return res.json({
-        success: true,
-        count: result.length,
-        cars: result,
-      });
-    } catch (error) {
-      console.error(
-        "Admin get all cars error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get all cars",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - GET SINGLE CAR
-========================================================= */
-
-router.get(
-  "/admin/:id",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      if (
-        !mongoose.Types.ObjectId.isValid(id)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      const car =
-        await Car.findById(id)
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .populate(
-            "createdBy",
-            "-password"
-          )
-          .populate(
-            "sellerUser",
-            "-password"
-          )
-          .lean();
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      /*
-       * ADMIN ONLY
-       * Seller is available here.
-       */
-      prepareSellerForResponse(
-        car,
-        true
-      );
-
-      return res.json({
-        success: true,
-        car,
-      });
-    } catch (error) {
-      console.error(
-        "Admin get car error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get car",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - UPDATE CAR STATUS
-========================================================= */
-
-router.patch(
-  "/admin/:id/status",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      const allowedStatuses = [
-        "available",
-        "booking",
-        "sold",
-        "draft",
-        "delete_requested",
-      ];
-
-      if (
-        !mongoose.Types.ObjectId.isValid(id)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      if (
-        !allowedStatuses.includes(status)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid car status",
-        });
-      }
-
-      const car =
-        await Car.findById(id);
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      car.status = status;
-
-      await car.save();
-
-      const responseCar =
-        await Car.findById(id)
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .lean();
-
-      prepareSellerForResponse(
-        responseCar,
-        true
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "Car status updated successfully",
-        car: responseCar,
-      });
-    } catch (error) {
-      console.error(
-        "Admin status update error:",
-        error
-      );
-
-      return res.status(400).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to update car status",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - DELETE CAR
+   DELETE CAR - ADMIN / OWNER
 ========================================================= */
 
 router.delete(
-  "/admin/:id",
+  "/:id",
   verifyToken,
-  isAdmin,
   async (req, res) => {
     try {
       const { id } = req.params;
 
+      let car = null;
+
       if (
-        !mongoose.Types.ObjectId.isValid(id)
+        mongoose.Types.ObjectId.isValid(id)
       ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
+        car =
+          await Car.findById(id);
       }
 
-      const car =
-        await Car.findById(id);
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
 
       if (!car) {
         return res.status(404).json({
@@ -1708,7 +1925,35 @@ router.delete(
         });
       }
 
-      await Car.findByIdAndDelete(id);
+      const isAdminUser =
+        req.user.role === "admin" ||
+        req.user.isAdmin === true;
+
+      const isOwner =
+        car.createdBy &&
+        car.createdBy.toString() ===
+          req.user.id.toString();
+
+      const isSeller =
+        car.sellerUser &&
+        car.sellerUser.toString() ===
+          req.user.id.toString();
+
+      if (
+        !isAdminUser &&
+        !isOwner &&
+        !isSeller
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You are not authorized to delete this car",
+        });
+      }
+
+      await Car.deleteOne({
+        _id: car._id,
+      });
 
       return res.json({
         success: true,
@@ -1717,7 +1962,7 @@ router.delete(
       });
     } catch (error) {
       console.error(
-        "Admin delete car error:",
+        "DELETE CAR ERROR:",
         error
       );
 
@@ -1732,503 +1977,7 @@ router.delete(
 );
 
 /* =========================================================
-   ADMIN - APPROVE CAR
-========================================================= */
-
-router.patch(
-  "/admin/:id/approve",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      if (
-        !mongoose.Types.ObjectId.isValid(id)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      const car =
-        await Car.findById(id);
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      car.status = "available";
-
-      await car.save();
-
-      const responseCar =
-        await Car.findById(id)
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .lean();
-
-      prepareSellerForResponse(
-        responseCar,
-        true
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "Car approved successfully",
-        car: responseCar,
-      });
-    } catch (error) {
-      console.error(
-        "Approve car error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to approve car",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - REJECT / DRAFT CAR
-========================================================= */
-
-router.patch(
-  "/admin/:id/reject",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      if (
-        !mongoose.Types.ObjectId.isValid(id)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      const car =
-        await Car.findById(id);
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      car.status = "draft";
-
-      await car.save();
-
-      const responseCar =
-        await Car.findById(id)
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .lean();
-
-      prepareSellerForResponse(
-        responseCar,
-        true
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "Car moved to draft successfully",
-        car: responseCar,
-      });
-    } catch (error) {
-      console.error(
-        "Reject car error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to reject car",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   BRAND LIST
-========================================================= */
-
-router.get(
-  "/meta/brands",
-  async (req, res) => {
-    try {
-      const brands =
-        await CarBrand.find({})
-          .select(
-            "_id name logoUrl"
-          )
-          .sort({
-            name: 1,
-          })
-          .lean();
-
-      return res.json({
-        success: true,
-        count: brands.length,
-        brands,
-      });
-    } catch (error) {
-      console.error(
-        "Get brands error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get brands",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   MODEL LIST BY BRAND
-========================================================= */
-
-router.get(
-  "/meta/models",
-  async (req, res) => {
-    try {
-      const { brand } =
-        req.query;
-
-      const filter = {};
-
-      if (brand) {
-        if (
-          !mongoose.Types.ObjectId.isValid(
-            brand
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Invalid brand id",
-          });
-        }
-
-        filter.brand = brand;
-      }
-
-      const models =
-        await CarModel.find(filter)
-          .select(
-            "_id title imageUrl brand"
-          )
-          .sort({
-            title: 1,
-          })
-          .lean();
-
-      return res.json({
-        success: true,
-        count: models.length,
-        models,
-      });
-    } catch (error) {
-      console.error(
-        "Get models error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get models",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   VARIANT LIST BY MODEL
-========================================================= */
-
-router.get(
-  "/meta/variants",
-  async (req, res) => {
-    try {
-      const { model } =
-        req.query;
-
-      const filter = {};
-
-      if (model) {
-        if (
-          !mongoose.Types.ObjectId.isValid(
-            model
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Invalid model id",
-          });
-        }
-
-        filter.carModel = model;
-      }
-
-      const variants =
-        await CarVariant.find(filter)
-          .select(
-            "_id title imageUrl carModel"
-          )
-          .sort({
-            title: 1,
-          })
-          .lean();
-
-      return res.json({
-        success: true,
-        count: variants.length,
-        variants,
-      });
-    } catch (error) {
-      console.error(
-        "Get variants error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get variants",
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   PART 4/4
-   COMMON ROUTES + EXPORT
-========================================================= */
-
-/* =========================================================
-   ADMIN - UPDATE SELLER
-========================================================= */
-
-router.patch(
-  "/admin/:id/seller",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { seller, sellerUser, sellerinfo } = req.body;
-
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
-      }
-
-      const car = await Car.findById(id);
-
-      if (!car) {
-        return res.status(404).json({
-          success: false,
-          message: "Car not found",
-        });
-      }
-
-      if (seller !== undefined) {
-        car.seller =
-          seller === null || seller === ""
-            ? null
-            : encryptSeller(String(seller));
-      }
-
-      if (sellerUser !== undefined) {
-        if (
-          sellerUser !== null &&
-          sellerUser !== "" &&
-          !mongoose.Types.ObjectId.isValid(
-            sellerUser
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid seller user id",
-          });
-        }
-
-        car.sellerUser =
-          sellerUser || null;
-      }
-
-      if (sellerinfo !== undefined) {
-        car.sellerinfo =
-          sellerinfo;
-      }
-
-      await car.save();
-
-      const responseCar =
-        await Car.findById(id)
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .populate(
-            "sellerUser",
-            "-password"
-          )
-          .lean();
-
-      prepareSellerForResponse(
-        responseCar,
-        true
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "Seller updated successfully",
-        car: responseCar,
-      });
-    } catch (error) {
-      console.error(
-        "Admin seller update error:",
-        error
-      );
-
-      return res.status(400).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to update seller",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - GET PENDING / DRAFT CARS
-========================================================= */
-
-router.get(
-  "/admin/pending",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const cars =
-        await Car.find({
-          status: "draft",
-        })
-          .populate(
-            "brand",
-            "name logoUrl"
-          )
-          .populate(
-            "model",
-            "title imageUrl brand"
-          )
-          .populate(
-            "variant",
-            "title imageUrl carModel"
-          )
-          .populate(
-            "createdBy",
-            "-password"
-          )
-          .populate(
-            "sellerUser",
-            "-password"
-          )
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
-
-      cars.forEach((car) => {
-        prepareSellerForResponse(
-          car,
-          true
-        );
-      });
-
-      return res.json({
-        success: true,
-        count: cars.length,
-        cars,
-      });
-    } catch (error) {
-      console.error(
-        "Admin pending cars error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          error.message ||
-          "Failed to get pending cars",
-      });
-    }
-  }
-);
-
-/* =========================================================
-   ADMIN - GET DELETE REQUESTS
+   ADMIN - DELETE REQUESTS
 ========================================================= */
 
 router.get(
@@ -2239,48 +1988,50 @@ router.get(
     try {
       const cars =
         await Car.find({
-          status: "delete_requested",
+          status:
+            "delete_requested",
         })
           .populate(
             "brand",
-            "name logoUrl"
+            "_id name logoUrl"
           )
           .populate(
             "model",
-            "title imageUrl brand"
+            "_id title imageUrl brand"
           )
           .populate(
             "variant",
-            "title imageUrl carModel"
+            "_id title imageUrl carModel"
           )
           .populate(
             "createdBy",
-            "-password"
+            "_id name email phone"
           )
           .populate(
             "sellerUser",
-            "-password"
+            "_id name email phone"
           )
           .sort({
-            createdAt: -1,
+            updatedAt: -1,
           })
           .lean();
 
-      cars.forEach((car) => {
-        prepareSellerForResponse(
-          car,
-          true
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
         );
-      });
 
       return res.json({
         success: true,
-        count: cars.length,
-        cars,
+        count: preparedCars.length,
+        cars: preparedCars,
       });
     } catch (error) {
       console.error(
-        "Admin delete requests error:",
+        "GET DELETE REQUESTS ERROR:",
         error
       );
 
@@ -2298,7 +2049,7 @@ router.get(
    ADMIN - APPROVE DELETE REQUEST
 ========================================================= */
 
-router.patch(
+router.put(
   "/admin/:id/approve-delete",
   verifyToken,
   isAdmin,
@@ -2306,15 +2057,24 @@ router.patch(
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
       }
 
-      const car =
-        await Car.findById(id);
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
 
       if (!car) {
         return res.status(404).json({
@@ -2323,7 +2083,9 @@ router.patch(
         });
       }
 
-      await Car.findByIdAndDelete(id);
+      await Car.deleteOne({
+        _id: car._id,
+      });
 
       return res.json({
         success: true,
@@ -2332,7 +2094,7 @@ router.patch(
       });
     } catch (error) {
       console.error(
-        "Approve delete error:",
+        "APPROVE DELETE ERROR:",
         error
       );
 
@@ -2347,26 +2109,35 @@ router.patch(
 );
 
 /* =========================================================
-   ADMIN - CANCEL DELETE REQUEST
+   ADMIN - REJECT DELETE REQUEST
 ========================================================= */
 
-router.patch(
-  "/admin/:id/cancel-delete",
+router.put(
+  "/admin/:id/reject-delete",
   verifyToken,
   isAdmin,
   async (req, res) => {
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid car id",
-        });
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
       }
 
-      const car =
-        await Car.findById(id);
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
 
       if (!car) {
         return res.status(404).json({
@@ -2375,40 +2146,180 @@ router.patch(
         });
       }
 
-      car.status = "available";
+      car.status =
+        "available";
 
       await car.save();
 
-      const responseCar =
-        await Car.findById(id)
+      return res.json({
+        success: true,
+        message:
+          "Delete request rejected",
+        car: {
+          _id: car._id,
+          carId: car.carId,
+          status: car.status,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "REJECT DELETE ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to reject delete request",
+      });
+    }
+  }
+);
+
+
+/* =========================================================
+   ADMIN - PENDING CARS
+========================================================= */
+
+router.get(
+  "/admin/pending",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const cars = await Car.find({
+        status: "draft",
+      })
+        .populate(
+          "brand",
+          "_id name logoUrl"
+        )
+        .populate(
+          "model",
+          "_id title imageUrl brand"
+        )
+        .populate(
+          "variant",
+          "_id title imageUrl carModel"
+        )
+        .populate(
+          "createdBy",
+          "_id name email phone"
+        )
+        .populate(
+          "sellerUser",
+          "_id name email phone"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET PENDING CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get pending cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - APPROVE CAR
+========================================================= */
+
+router.put(
+  "/admin/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
+      }
+
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
+
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
+      }
+
+      car.status =
+        "available";
+
+      await car.save();
+
+      const updatedCar =
+        await Car.findById(
+          car._id
+        )
           .populate(
             "brand",
-            "name logoUrl"
+            "_id name logoUrl"
           )
           .populate(
             "model",
-            "title imageUrl brand"
+            "_id title imageUrl brand"
           )
           .populate(
             "variant",
-            "title imageUrl carModel"
+            "_id title imageUrl carModel"
           )
           .lean();
 
       prepareSellerForResponse(
-        responseCar,
+        updatedCar,
         true
       );
 
       return res.json({
         success: true,
         message:
-          "Delete request cancelled",
-        car: responseCar,
+          "Car approved successfully",
+        car: updatedCar,
       });
     } catch (error) {
       console.error(
-        "Cancel delete error:",
+        "APPROVE CAR ERROR:",
         error
       );
 
@@ -2416,67 +2327,68 @@ router.patch(
         success: false,
         message:
           error.message ||
-          "Failed to cancel delete request",
+          "Failed to approve car",
       });
     }
   }
 );
 
 /* =========================================================
-   ADMIN - GET CAR COUNTS
+   ADMIN - REJECT CAR
 ========================================================= */
 
-router.get(
-  "/admin/stats/counts",
+router.put(
+  "/admin/:id/reject",
   verifyToken,
   isAdmin,
   async (req, res) => {
     try {
-      const [
-        total,
-        available,
-        booking,
-        sold,
-        draft,
-        deleteRequested,
-      ] = await Promise.all([
-        Car.countDocuments({}),
+      const { id } = req.params;
 
-        Car.countDocuments({
-          status: "available",
-        }),
+      let car = null;
 
-        Car.countDocuments({
-          status: "booking",
-        }),
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
+      }
 
-        Car.countDocuments({
-          status: "sold",
-        }),
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
 
-        Car.countDocuments({
-          status: "draft",
-        }),
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
+      }
 
-        Car.countDocuments({
-          status: "delete_requested",
-        }),
-      ]);
+      car.status =
+        "draft";
+
+      await car.save();
 
       return res.json({
         success: true,
-        counts: {
-          total,
-          available,
-          booking,
-          sold,
-          draft,
-          deleteRequested,
+        message:
+          "Car rejected successfully",
+        car: {
+          _id: car._id,
+          carId: car.carId,
+          status: car.status,
         },
       });
     } catch (error) {
       console.error(
-        "Car stats error:",
+        "REJECT CAR ERROR:",
         error
       );
 
@@ -2484,14 +2396,14 @@ router.get(
         success: false,
         message:
           error.message ||
-          "Failed to get car counts",
+          "Failed to reject car",
       });
     }
   }
 );
 
 /* =========================================================
-   ADMIN - SEARCH SELLER
+   ADMIN - SELLER SEARCH
 ========================================================= */
 
 router.get(
@@ -2500,50 +2412,56 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const { q } = req.query;
+      const q =
+        String(
+          req.query.q || ""
+        ).trim();
 
-      if (!q || !String(q).trim()) {
+      if (!q) {
         return res.json({
           success: true,
+          count: 0,
           sellers: [],
         });
       }
 
-      const users =
+      const regex =
+        new RegExp(
+          q.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+          ),
+          "i"
+        );
+
+      const sellers =
         await User.find({
           $or: [
             {
-              name: {
-                $regex: q,
-                $options: "i",
-              },
+              name: regex,
             },
             {
-              email: {
-                $regex: q,
-                $options: "i",
-              },
+              email: regex,
             },
             {
-              phone: {
-                $regex: q,
-                $options: "i",
-              },
+              phone: regex,
             },
           ],
         })
-          .select("-password")
+          .select(
+            "_id name email phone role"
+          )
           .limit(20)
           .lean();
 
       return res.json({
         success: true,
-        count: users.length,
-        sellers: users,
+        count: sellers.length,
+        sellers,
       });
     } catch (error) {
       console.error(
-        "Seller search error:",
+        "SELLER SEARCH ERROR:",
         error
       );
 
@@ -2558,67 +2476,77 @@ router.get(
 );
 
 /* =========================================================
-   ADMIN - GET CARS BY SELLER USER
+   ADMIN - SELLER CARS
 ========================================================= */
 
 router.get(
-  "/admin/seller/:sellerUserId",
+  "/admin/sellers/:sellerId/cars",
   verifyToken,
   isAdmin,
   async (req, res) => {
     try {
       const {
-        sellerUserId,
+        sellerId,
       } = req.params;
 
       if (
         !mongoose.Types.ObjectId.isValid(
-          sellerUserId
+          sellerId
         )
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "Invalid seller user id",
+            "Invalid seller id",
         });
       }
 
       const cars =
         await Car.find({
-          sellerUser: sellerUserId,
+          $or: [
+            {
+              sellerUser:
+                sellerId,
+            },
+            {
+              createdBy:
+                sellerId,
+            },
+          ],
         })
           .populate(
             "brand",
-            "name logoUrl"
+            "_id name logoUrl"
           )
           .populate(
             "model",
-            "title imageUrl brand"
+            "_id title imageUrl brand"
           )
           .populate(
             "variant",
-            "title imageUrl carModel"
+            "_id title imageUrl carModel"
           )
           .sort({
             createdAt: -1,
           })
           .lean();
 
-      cars.forEach((car) => {
-        prepareSellerForResponse(
-          car,
-          true
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
         );
-      });
 
       return res.json({
         success: true,
-        count: cars.length,
-        cars,
+        count: preparedCars.length,
+        cars: preparedCars,
       });
     } catch (error) {
       console.error(
-        "Cars by seller error:",
+        "SELLER CARS ERROR:",
         error
       );
 
@@ -2633,48 +2561,425 @@ router.get(
 );
 
 /* =========================================================
-   BRAND → MODEL VALIDATION
+   ADMIN - CHANGE STATUS
 ========================================================= */
 
-router.get(
-  "/meta/validate-hierarchy",
+router.put(
+  "/admin/:id/status",
+  verifyToken,
+  isAdmin,
   async (req, res) => {
     try {
-      const {
-        brand,
-        model,
-        variant,
-      } = req.query;
+      const { id } = req.params;
 
-      if (!brand || !model) {
+      const {
+        status,
+      } = req.body;
+
+      const allowedStatuses = [
+        "available",
+        "booking",
+        "sold",
+        "draft",
+        "delete_requested",
+      ];
+
+      if (
+        !allowedStatuses.includes(
+          status
+        )
+      ) {
         return res.status(400).json({
           success: false,
           message:
-            "Brand and model are required",
+            "Invalid car status",
         });
       }
 
-      await validateCarHierarchy(
-        brand,
-        model,
-        variant || null
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
+      }
+
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
+
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
+      }
+
+      car.status = status;
+
+      await car.save();
+
+      return res.json({
+        success: true,
+        message:
+          "Car status updated successfully",
+        car: {
+          _id: car._id,
+          carId: car.carId,
+          status: car.status,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "CHANGE CAR STATUS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to change car status",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - UPDATE SELLER
+========================================================= */
+
+router.put(
+  "/admin/:id/seller",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const {
+        seller,
+        sellerUser,
+        sellerinfo,
+      } = req.body;
+
+      let car = null;
+
+      if (
+        mongoose.Types.ObjectId.isValid(id)
+      ) {
+        car =
+          await Car.findById(id);
+      }
+
+      if (
+        !car &&
+        !Number.isNaN(Number(id))
+      ) {
+        car =
+          await Car.findOne({
+            carId: Number(id),
+          });
+      }
+
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: "Car not found",
+        });
+      }
+
+      if (
+        seller !== undefined
+      ) {
+        if (
+          seller === null ||
+          seller === ""
+        ) {
+          car.seller = null;
+        } else if (
+          !String(
+            seller
+          ).includes(":")
+        ) {
+          car.seller =
+            encryptSeller(
+              String(seller)
+            );
+        } else {
+          car.seller =
+            seller;
+        }
+      }
+
+      if (
+        sellerUser !== undefined
+      ) {
+        car.sellerUser =
+          sellerUser || null;
+      }
+
+      if (
+        sellerinfo !== undefined
+      ) {
+        car.sellerinfo =
+          sellerinfo;
+      }
+
+      await car.save();
+
+      const updatedCar =
+        await Car.findById(
+          car._id
+        )
+          .populate(
+            "brand",
+            "_id name logoUrl"
+          )
+          .populate(
+            "model",
+            "_id title imageUrl brand"
+          )
+          .populate(
+            "variant",
+            "_id title imageUrl carModel"
+          )
+          .populate(
+            "sellerUser",
+            "_id name email phone"
+          )
+          .lean();
+
+      prepareSellerForResponse(
+        updatedCar,
+        true
       );
 
       return res.json({
         success: true,
-        valid: true,
         message:
-          "Brand, model and variant hierarchy is valid",
+          "Seller updated successfully",
+        car: updatedCar,
       });
     } catch (error) {
-      return res.status(400).json({
+      console.error(
+        "UPDATE SELLER ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        valid: false,
         message:
           error.message ||
-          "Invalid hierarchy",
+          "Failed to update seller",
       });
     }
+  }
+);
+
+/* =========================================================
+   ADMIN - DRAFT CARS
+========================================================= */
+
+router.get(
+  "/admin/drafts",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const cars =
+        await Car.find({
+          status: "draft",
+        })
+          .populate(
+            "brand",
+            "_id name logoUrl"
+          )
+          .populate(
+            "model",
+            "_id title imageUrl brand"
+          )
+          .populate(
+            "variant",
+            "_id title imageUrl carModel"
+          )
+          .populate(
+            "createdBy",
+            "_id name email phone"
+          )
+          .sort({
+            createdAt: -1,
+          })
+          .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET DRAFT CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get draft cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - BOOKING CARS
+========================================================= */
+
+router.get(
+  "/admin/booking",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const cars =
+        await Car.find({
+          status: "booking",
+        })
+          .populate(
+            "brand",
+            "_id name logoUrl"
+          )
+          .populate(
+            "model",
+            "_id title imageUrl brand"
+          )
+          .populate(
+            "variant",
+            "_id title imageUrl carModel"
+          )
+          .sort({
+            updatedAt: -1,
+          })
+          .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET BOOKING CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get booking cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - SOLD CARS
+========================================================= */
+
+router.get(
+  "/admin/sold",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const cars =
+        await Car.find({
+          status: "sold",
+        })
+          .populate(
+            "brand",
+            "_id name logoUrl"
+          )
+          .populate(
+            "model",
+            "_id title imageUrl brand"
+          )
+          .populate(
+            "variant",
+            "_id title imageUrl carModel"
+          )
+          .sort({
+            updatedAt: -1,
+          })
+          .lean();
+
+      const preparedCars =
+        cars.map((car) =>
+          prepareSellerForResponse(
+            car,
+            true
+          )
+        );
+
+      return res.json({
+        success: true,
+        count: preparedCars.length,
+        cars: preparedCars,
+      });
+    } catch (error) {
+      console.error(
+        "GET SOLD CARS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get sold cars",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   HEALTH / ROUTE CHECK
+========================================================= */
+
+router.get(
+  "/health",
+  async (req, res) => {
+    return res.json({
+      success: true,
+      message:
+        "Car routes working",
+    });
   }
 );
 

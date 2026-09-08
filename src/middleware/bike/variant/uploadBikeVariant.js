@@ -1,43 +1,29 @@
-// ======================= uploadBikeVariant.js =======================
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import multer from "multer";
-
-// ============================================================
-// MULTER MEMORY STORAGE
-// ============================================================
-
 const storage = multer.memoryStorage();
-
-// ============================================================
-// FILE FILTER
-// ============================================================
-
-const fileFilter = (req, file, cb) => {
+const fileFilter = (
+  req,
+  file,
+  cb
+) => {
   if (
-    file.mimetype?.startsWith("image/") ||
+    file.mimetype.startsWith("image/") ||
     file.mimetype === "application/octet-stream"
   ) {
     cb(null, true);
   } else {
     cb(
-      new Error("Only image files are allowed"),
+      new Error("Only image files allowed"),
       false
     );
   }
 };
-
-// ============================================================
-// UPLOAD CONFIGURATION
-// ============================================================
-
 const uploadBikeVariant = multer({
   storage,
-
-  fileFilter,
-
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
+    fileSize: 10 * 1024 * 1024,
   },
+  fileFilter,
 });
-
 export default uploadBikeVariant;

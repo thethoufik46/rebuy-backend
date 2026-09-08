@@ -1,470 +1,366 @@
-// ======================= bike.variant.controller.js =======================
-
-import mongoose from "mongoose";
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import BikeVariant from "../../../models/bike/variant/bike_variant_model.js";
-
 import BikeModel from "../../../models/bike/model/bike_model_model.js";
-
 import {
   uploadBikeVariantImage,
   deleteBikeVariantImage,
 } from "../../../utils/bike/variant/bikeVariant.js";
-
-// =====================================================
-// ADD BIKE VARIANT
-// =====================================================
-
-export const addBikeVariant = async (req, res) => {
+export const addBikeVariant = async (
+  req,
+  res
+) => {
   try {
-    const { modelId, title } = req.body;
-
-    // -------------------------------------------------
-    // VALIDATION
-    // -------------------------------------------------
-
-    if (!modelId || !title?.trim() || !req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Bike model, variant title and image required",
-      });
-    }
-
-    // -------------------------------------------------
-    // VALIDATE MODEL ID
-    // -------------------------------------------------
-
-    if (!mongoose.Types.ObjectId.isValid(modelId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid bike model ID",
-      });
-    }
-
-    // -------------------------------------------------
-    // CHECK BIKE MODEL
-    // -------------------------------------------------
-
-    const bikeModel = await BikeModel.findById(modelId);
-
-    if (!bikeModel) {
-      return res.status(404).json({
-        success: false,
-        message: "Bike model not found",
-      });
-    }
-
-    // -------------------------------------------------
-    // CHECK DUPLICATE VARIANT
-    // Same variant title under same model
-    // -------------------------------------------------
-
-    const escapedTitle = title
-      .trim()
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    const existing = await BikeVariant.findOne({
-      bikeModel: modelId,
-      title: new RegExp(`^${escapedTitle}$`, "i"),
-    });
-
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: "Variant already exists",
-      });
-    }
-
-    // -------------------------------------------------
-    // UPLOAD IMAGE
-    // -------------------------------------------------
-
-    const imageUrl = await uploadBikeVariantImage(req.file);
-
-    // -------------------------------------------------
-    // CREATE VARIANT
-    // -------------------------------------------------
-
-    const variant = await BikeVariant.create({
-      bikeModel: modelId,
-      title: title.trim(),
-      imageUrl,
-    });
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    return res.status(201).json({
-      success: true,
-      variant,
-    });
-  } catch (err) {
-    console.error("Add bike variant error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// GET ALL BIKE VARIANTS
-// =====================================================
-
-export const getBikeVariants = async (req, res) => {
-  try {
-    const variants = await BikeVariant.find()
-      .sort({ createdAt: -1 })
-      .populate({
-        path: "bikeModel",
-        select: "title imageUrl brand",
-        populate: {
-          path: "brand",
-          select: "name logoUrl",
-        },
-      });
-
-    const data = variants.map((v) => ({
-      _id: v._id.toString(),
-
-      modelId: v.bikeModel?._id?.toString() || "",
-
-      modelName: v.bikeModel?.title || "",
-
-      modelImage: v.bikeModel?.imageUrl || "",
-
-      brandId:
-        v.bikeModel?.brand?._id?.toString() || "",
-
-      brandName:
-        v.bikeModel?.brand?.name || "",
-
-      brandLogo:
-        v.bikeModel?.brand?.logoUrl || "",
-
-      variantName: v.title || "",
-
-      variantImage: v.imageUrl || "",
-    }));
-
-    return res.status(200).json({
-      success: true,
-      variants: data,
-    });
-  } catch (err) {
-    console.error("Get bike variants error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// GET BIKE VARIANTS BY MODEL
-// =====================================================
-
-export const getBikeVariantsByModel = async (req, res) => {
-  try {
-    const { modelId } = req.params;
-
-    // -------------------------------------------------
-    // VALIDATE MODEL ID
-    // -------------------------------------------------
-
-    if (!mongoose.Types.ObjectId.isValid(modelId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid bike model ID",
-      });
-    }
-
-    // -------------------------------------------------
-    // CHECK BIKE MODEL
-    // -------------------------------------------------
-
-    const bikeModel = await BikeModel.findById(modelId).populate(
-      "brand",
-      "name logoUrl"
-    );
-
-    if (!bikeModel) {
-      return res.status(404).json({
-        success: false,
-        message: "Bike model not found",
-      });
-    }
-
-    // -------------------------------------------------
-    // GET VARIANTS
-    // -------------------------------------------------
-
-    const variants = await BikeVariant.find({
-      bikeModel: modelId,
-    }).sort({
-      title: 1,
-    });
-
-    // -------------------------------------------------
-    // FORMAT RESPONSE
-    // -------------------------------------------------
-
-    const data = variants.map((v) => ({
-      _id: v._id.toString(),
-
-      modelId: bikeModel._id.toString(),
-
-      modelName: bikeModel.title || "",
-
-      modelImage: bikeModel.imageUrl || "",
-
-      brandId:
-        bikeModel.brand?._id?.toString() || "",
-
-      brandName:
-        bikeModel.brand?.name || "",
-
-      brandLogo:
-        bikeModel.brand?.logoUrl || "",
-
-      variantName: v.title || "",
-
-      variantImage: v.imageUrl || "",
-    }));
-
-    return res.status(200).json({
-      success: true,
-      variants: data,
-    });
-  } catch (err) {
-    console.error(
-      "Get bike variants by model error:",
-      err
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// UPDATE BIKE VARIANT
-// =====================================================
-
-export const updateBikeVariant = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { title, modelId } = req.body;
-
-    // -------------------------------------------------
-    // VALIDATE VARIANT ID
-    // -------------------------------------------------
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid bike variant ID",
-      });
-    }
-
-    // -------------------------------------------------
-    // FIND VARIANT
-    // -------------------------------------------------
-
-    const variant = await BikeVariant.findById(id);
-
-    if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: "Bike variant not found",
-      });
-    }
-
-    // -------------------------------------------------
-    // DETERMINE FINAL MODEL
-    // -------------------------------------------------
-
-    const finalModelId =
-      modelId || variant.bikeModel?.toString();
-
-    // -------------------------------------------------
-    // VALIDATE MODEL IF CHANGED
-    // -------------------------------------------------
-
+    const {
+      modelId,
+      title,
+    } = req.body;
     if (
-      finalModelId &&
-      !mongoose.Types.ObjectId.isValid(finalModelId)
+      !modelId ||
+      !title ||
+      !req.file
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid bike model ID",
+        message:
+          "Model, bike variant title and image are required",
       });
     }
-
-    if (modelId) {
-      const bikeModel = await BikeModel.findById(modelId);
-
-      if (!bikeModel) {
-        return res.status(404).json({
-          success: false,
-          message: "Bike model not found",
-        });
-      }
+    const model =
+      await BikeModel.findById(
+        modelId
+      );
+    if (!model) {
+      return res.status(404).json({
+        success: false,
+        message: "Model not found",
+      });
     }
-
-    // -------------------------------------------------
-    // CHECK DUPLICATE WHEN TITLE / MODEL CHANGES
-    // -------------------------------------------------
-
-    const finalTitle =
-      title?.trim() || variant.title;
-
-    const escapedTitle = finalTitle
-      .trim()
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    const duplicate = await BikeVariant.findOne({
-      _id: { $ne: id },
-      bikeModel: finalModelId,
-      title: new RegExp(`^${escapedTitle}$`, "i"),
-    });
-
-    if (duplicate) {
+    const cleanTitle =
+      title.trim();
+    const existing =
+      await BikeVariant.findOne({
+        model: modelId,
+        title: new RegExp(
+          `^${cleanTitle.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+          )}$`,
+          "i"
+        ),
+      });
+    if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Variant already exists",
+        message:
+          "Bike variant already exists",
       });
     }
-
-    // -------------------------------------------------
-    // UPDATE TITLE
-    // -------------------------------------------------
-
-    if (title?.trim()) {
-      variant.title = title.trim();
-    }
-
-    // -------------------------------------------------
-    // UPDATE MODEL
-    // -------------------------------------------------
-
-    if (modelId) {
-      variant.bikeModel = modelId;
-    }
-
-    // -------------------------------------------------
-    // UPDATE IMAGE
-    // -------------------------------------------------
-
-    if (req.file) {
-      // Delete old image
-      await deleteBikeVariantImage(
-        variant.imageUrl
+    const imageUrl =
+      await uploadBikeVariantImage(
+        req.file
       );
-
-      // Upload new image
-      const newImageUrl =
-        await uploadBikeVariantImage(req.file);
-
-      variant.imageUrl = newImageUrl;
-    }
-
-    // -------------------------------------------------
-    // SAVE
-    // -------------------------------------------------
-
-    await variant.save();
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    return res.status(200).json({
+    const bikeVariant =
+      await BikeVariant.create({
+        model: modelId,
+        title: cleanTitle,
+        imageUrl,
+      });
+    return res.status(201).json({
       success: true,
-      variant,
+      bikeVariant,
     });
   } catch (err) {
     console.error(
-      "Update bike variant error:",
+      "ADD BIKE VARIANT ERROR 👉",
       err
     );
-
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        err.message ||
+        "Failed to add bike variant",
     });
   }
 };
-
-// =====================================================
-// DELETE BIKE VARIANT
-// =====================================================
-
-export const deleteBikeVariant = async (req, res) => {
+export const getBikeVariants = async (
+  req,
+  res
+) => {
   try {
-    const { id } = req.params;
-
-    // -------------------------------------------------
-    // VALIDATE ID
-    // -------------------------------------------------
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid bike variant ID",
-      });
-    }
-
-    // -------------------------------------------------
-    // FIND VARIANT
-    // -------------------------------------------------
-
-    const variant = await BikeVariant.findById(id);
-
-    if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: "Bike variant not found",
-      });
-    }
-
-    // -------------------------------------------------
-    // DELETE IMAGE FROM R2
-    // -------------------------------------------------
-
-    await deleteBikeVariantImage(
-      variant.imageUrl
-    );
-
-    // -------------------------------------------------
-    // DELETE DATABASE DOCUMENT
-    // -------------------------------------------------
-
-    await variant.deleteOne();
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
+    const variants =
+      await BikeVariant.find()
+        .sort({
+          createdAt: -1,
+        })
+        .populate({
+          path: "model",
+          select: "title imageUrl brand",
+          populate: {
+            path: "brand",
+            select: "name logoUrl",
+          },
+        });
+    const data =
+      variants.map(
+        (variant) => ({
+          _id:
+            variant._id.toString(),
+          modelId:
+            variant.model?._id
+              ?.toString() || "",
+          modelName:
+            variant.model?.title ||
+            "",
+          modelImage:
+            variant.model?.imageUrl ||
+            "",
+          brandId:
+            variant.model?.brand?._id
+              ?.toString() || "",
+          brandName:
+            variant.model?.brand?.name ||
+            "",
+          brandLogo:
+            variant.model?.brand?.logoUrl ||
+            "",
+          variantName:
+            variant.title || "",
+          variantImage:
+            variant.imageUrl || "",
+        })
+      );
     return res.status(200).json({
       success: true,
-      message: "Bike variant deleted successfully",
+      bikeVariants: data,
     });
   } catch (err) {
     console.error(
-      "Delete bike variant error:",
+      "GET BIKE VARIANTS ERROR 👉",
       err
     );
-
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message:
+        err.message ||
+        "Failed to get bike variants",
     });
   }
+};
+export const getBikeVariantsByModel =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        modelId,
+      } = req.params;
+      const model =
+        await BikeModel.findById(
+          modelId
+        ).populate(
+          "brand",
+          "name logoUrl"
+        );
+      if (!model) {
+        return res.status(404).json({
+          success: false,
+          message: "Model not found",
+        });
+      }
+      const variants =
+        await BikeVariant.find({
+          model: modelId,
+        }).sort({
+          createdAt: -1,
+        });
+      const data =
+        variants.map(
+          (variant) => ({
+            _id:
+              variant._id.toString(),
+            modelId:
+              model._id.toString(),
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl ||
+              "",
+            variantName:
+              variant.title || "",
+            variantImage:
+              variant.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeVariants: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET BIKE VARIANTS BY MODEL ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message:
+          err.message ||
+          "Failed to get bike variants",
+      });
+    }
+  };
+export const updateBikeVariant =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        id,
+      } = req.params;
+      const {
+        title,
+        modelId,
+      } = req.body;
+      const bikeVariant =
+        await BikeVariant.findById(
+          id
+        );
+      if (!bikeVariant) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Bike variant not found",
+        });
+      }
+      if (
+        title &&
+        title.trim()
+      ) {
+        const cleanTitle =
+          title.trim();
+        const duplicate =
+          await BikeVariant.findOne({
+            _id: {
+              $ne: id,
+            },
+            model:
+              modelId ||
+              bikeVariant.model,
+            title: new RegExp(
+              `^${cleanTitle.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              )}$`,
+              "i"
+            ),
+          });
+        if (duplicate) {
+          return res.status(409).json({
+            success: false,
+            message:
+              "Bike variant already exists",
+          });
+        }
+        bikeVariant.title =
+          cleanTitle;
+      }
+      if (modelId) {
+        const model =
+          await BikeModel.findById(
+            modelId
+          );
+        if (!model) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Model not found",
+          });
+        }
+        bikeVariant.model =
+          modelId;
+      }
+      if (req.file) {
+        await deleteBikeVariantImage(
+          bikeVariant.imageUrl
+        );
+        bikeVariant.imageUrl =
+          await uploadBikeVariantImage(
+            req.file
+          );
+      }
+      await bikeVariant.save();
+      return res.status(200).json({
+        success: true,
+        bikeVariant,
+      });
+    } catch (err) {
+      console.error(
+        "UPDATE BIKE VARIANT ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message:
+          err.message ||
+          "Failed to update bike variant",
+      });
+    }
+  };
+export const deleteBikeVariant =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        id,
+      } = req.params;
+      const bikeVariant =
+        await BikeVariant.findById(
+          id
+        );
+      if (!bikeVariant) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Bike variant not found",
+        });
+      }
+      await deleteBikeVariantImage(
+        bikeVariant.imageUrl
+      );
+      await bikeVariant.deleteOne();
+      return res.status(200).json({
+        success: true,
+        message:
+          "Bike variant deleted",
+      });
+    } catch (err) {
+      console.error(
+        "DELETE BIKE VARIANT ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message:
+          err.message ||
+          "Failed to delete bike variant",
+      });
+    }
+  };
+export default {
+  addBikeVariant,
+  getBikeVariants,
+  getBikeVariantsByModel,
+  updateBikeVariant,
+  deleteBikeVariant,
 };

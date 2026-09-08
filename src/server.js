@@ -307,7 +307,7 @@ app.use(
 // BIKE VARIANTS
 // ============================================================
 app.use(
-  "/api/bike-variants",
+  "/api/bikevariants",
   bikeVariantRoutes
 );
 // ============================================================
@@ -684,7 +684,7 @@ server.listen(
       "📍 Bike Models API: /api/bikemodels"
     );
     console.log(
-      "📍 Bike Variants API: /api/bike-variants"
+      "📍 Bike Variants API: /api/bikevariants"
     );
     console.log(
       "📍 Orders API: /api/orders"

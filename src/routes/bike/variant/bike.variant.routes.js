@@ -1,11 +1,8 @@
-// ======================= bike.variant.routes.js =======================
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import express from "express";
-
 import { verifyToken } from "../../../middleware/auth.js";
-
 import uploadBikeVariant from "../../../middleware/bike/variant/uploadBikeVariant.js";
-
 import {
   addBikeVariant,
   getBikeVariants,
@@ -13,57 +10,34 @@ import {
   updateBikeVariant,
   deleteBikeVariant,
 } from "../../../controllers/bike/variant/bike.variant.controller.js";
-
 const router = express.Router();
-
-// ============================================================
-// GET ALL BIKE VARIANTS
-// ============================================================
-
 router.get(
   "/",
   getBikeVariants
 );
-
-// ============================================================
-// GET BIKE VARIANTS BY BIKE MODEL
-// ============================================================
-
 router.get(
   "/model/:modelId",
   getBikeVariantsByModel
 );
-
-// ============================================================
-// ADD BIKE VARIANT
-// ============================================================
-
 router.post(
   "/add",
   verifyToken,
-  uploadBikeVariant.single("image"),
+  uploadBikeVariant.single(
+    "image"
+  ),
   addBikeVariant
 );
-
-// ============================================================
-// UPDATE BIKE VARIANT
-// ============================================================
-
 router.put(
   "/:id",
   verifyToken,
-  uploadBikeVariant.single("image"),
+  uploadBikeVariant.single(
+    "image"
+  ),
   updateBikeVariant
 );
-
-// ============================================================
-// DELETE BIKE VARIANT
-// ============================================================
-
 router.delete(
   "/:id",
   verifyToken,
   deleteBikeVariant
 );
-
 export default router;

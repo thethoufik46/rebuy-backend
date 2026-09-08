@@ -1,334 +1,549 @@
-// ======================= bike.model.controller.js =======================
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import BikeModel from "../../../models/bike/model/bike_model_model.js";
-
 import BikeBrand from "../../../models/bike/brand/bike_brand_model.js";
-
 import {
   uploadBikeModelImage,
   deleteBikeModelImage,
 } from "../../../utils/bike/model/bikeModel.js";
-
-// =====================================================
-// ADD BIKE MODEL
-// =====================================================
-
-export const addBikeModel = async (req, res) => {
+export const addBikeModel = async (
+  req,
+  res
+) => {
   try {
-    const { brandId, title } = req.body;
-
-    // -------------------------------------------------
-    // VALIDATION
-    // -------------------------------------------------
-
-    if (!brandId || !title?.trim() || !req.file) {
+    const {
+      brandId,
+      title,
+    } = req.body;
+    if (
+      !brandId ||
+      !title ||
+      !title.trim() ||
+      !req.file
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Brand, model title and image required",
+        message:
+          "Brand, bike model title and image are required",
       });
     }
-
-    // -------------------------------------------------
-    // CHECK BRAND
-    // -------------------------------------------------
-
-    const brand = await BikeBrand.findById(brandId);
-
+    const brand =
+      await BikeBrand.findById(
+        brandId
+      );
     if (!brand) {
       return res.status(404).json({
         success: false,
         message: "Brand not found",
       });
     }
-
-    // -------------------------------------------------
-    // CHECK DUPLICATE MODEL
-    // Same model title under same brand
-    // -------------------------------------------------
-
-    const existing = await BikeModel.findOne({
-      brand: brandId,
-      title: new RegExp(
-        `^${title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
-        "i"
-      ),
-    });
-
+    const cleanTitle = title.trim();
+    const existing =
+      await BikeModel.findOne({
+        brand: brandId,
+        title: new RegExp(
+          `^${cleanTitle.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+          )}$`,
+          "i"
+        ),
+      });
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Model already exists",
+        message:
+          "Bike model already exists",
       });
     }
-
-    // -------------------------------------------------
-    // UPLOAD IMAGE
-    // -------------------------------------------------
-
-    const imageUrl = await uploadBikeModelImage(req.file);
-
-    // -------------------------------------------------
-    // CREATE MODEL
-    // -------------------------------------------------
-
-    const model = await BikeModel.create({
-      brand: brandId,
-      title: title.trim(),
-      imageUrl,
-    });
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
+    const imageUrl =
+      await uploadBikeModelImage(
+        req.file
+      );
+    const bikeModel =
+      await BikeModel.create({
+        brand: brandId,
+        title: cleanTitle,
+        imageUrl,
+      });
     return res.status(201).json({
       success: true,
-      model,
+      bikeModel,
     });
   } catch (err) {
-    console.error("Add bike model error:", err);
-
+    console.error(
+      "ADD BIKE MODEL ERROR 👉",
+      err
+    );
     return res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 };
-
-// =====================================================
-// GET ALL BIKE MODELS
-// =====================================================
-
-export const getBikeModels = async (req, res) => {
-  try {
-    const models = await BikeModel.find()
-      .sort({ createdAt: -1 })
-      .populate("brand", "name logoUrl");
-
-    const data = models.map((m) => ({
-      _id: m._id.toString(),
-
-      brandId: m.brand?._id?.toString() || "",
-
-      brandName: m.brand?.name || "",
-
-      brandLogo: m.brand?.logoUrl || "",
-
-      modelName: m.title || "",
-
-      modelImage: m.imageUrl || "",
-    }));
-
-    return res.status(200).json({
-      success: true,
-      models: data,
-    });
-  } catch (err) {
-    console.error("Get bike models error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// GET BIKE MODELS BY BRAND
-// =====================================================
-
-export const getBikeModelsByBrand = async (req, res) => {
-  try {
-    const { brandId } = req.params;
-
-    // -------------------------------------------------
-    // CHECK BRAND
-    // -------------------------------------------------
-
-    const brand = await BikeBrand.findById(brandId);
-
-    if (!brand) {
-      return res.status(404).json({
+export const getAllBikeModels =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const bikeModels =
+        await BikeModel.find()
+          .sort({
+            createdAt: -1,
+          })
+          .populate(
+            "brand",
+            "name logoUrl"
+          );
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET ALL BIKE MODELS ERROR 👉",
+        err
+      );
+      return res.status(500).json({
         success: false,
-        message: "Brand not found",
+        message: err.message,
       });
     }
-
-    // -------------------------------------------------
-    // GET MODELS
-    // -------------------------------------------------
-
-    const models = await BikeModel.find({
-      brand: brandId,
-    })
-      .sort({ title: 1 })
-      .populate("brand", "name logoUrl");
-
-    // -------------------------------------------------
-    // FORMAT RESPONSE
-    // -------------------------------------------------
-
-    const data = models.map((m) => ({
-      _id: m._id.toString(),
-
-      brandId: m.brand?._id?.toString() || "",
-
-      brandName: m.brand?.name || "",
-
-      brandLogo: m.brand?.logoUrl || "",
-
-      modelName: m.title || "",
-
-      modelImage: m.imageUrl || "",
-    }));
-
-    return res.status(200).json({
-      success: true,
-      models: data,
-    });
-  } catch (err) {
-    console.error("Get bike models by brand error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// UPDATE BIKE MODEL
-// =====================================================
-
-export const updateBikeModel = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { title, brandId } = req.body;
-
-    // -------------------------------------------------
-    // FIND MODEL
-    // -------------------------------------------------
-
-    const model = await BikeModel.findById(id);
-
-    if (!model) {
-      return res.status(404).json({
-        success: false,
-        message: "Model not found",
-      });
-    }
-
-    // -------------------------------------------------
-    // UPDATE TITLE
-    // -------------------------------------------------
-
-    if (title?.trim()) {
-      model.title = title.trim();
-    }
-
-    // -------------------------------------------------
-    // UPDATE BRAND
-    // -------------------------------------------------
-
-    if (brandId) {
-      const brand = await BikeBrand.findById(brandId);
-
+  };
+export const getBikeModelsByBrand =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        brandId,
+      } = req.params;
+      const brand =
+        await BikeBrand.findById(
+          brandId
+        );
       if (!brand) {
         return res.status(404).json({
           success: false,
-          message: "Brand not found",
+          message:
+            "Brand not found",
         });
       }
-
-      model.brand = brandId;
-    }
-
-    // -------------------------------------------------
-    // UPDATE IMAGE
-    // -------------------------------------------------
-
-    if (req.file) {
-      // Delete old image
-      await deleteBikeModelImage(model.imageUrl);
-
-      // Upload new image
-      const newImageUrl = await uploadBikeModelImage(req.file);
-
-      model.imageUrl = newImageUrl;
-    }
-
-    // -------------------------------------------------
-    // SAVE
-    // -------------------------------------------------
-
-    await model.save();
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    return res.status(200).json({
-      success: true,
-      model,
-    });
-  } catch (err) {
-    console.error("Update bike model error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// =====================================================
-// DELETE BIKE MODEL
-// =====================================================
-
-export const deleteBikeModel = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // -------------------------------------------------
-    // FIND MODEL
-    // -------------------------------------------------
-
-    const model = await BikeModel.findById(id);
-
-    if (!model) {
-      return res.status(404).json({
+      const bikeModels =
+        await BikeModel.find({
+          brand: brandId,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .populate(
+            "brand",
+            "name logoUrl"
+          );
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET BIKE MODELS BY BRAND ERROR 👉",
+        err
+      );
+      return res.status(500).json({
         success: false,
-        message: "Model not found",
+        message: err.message,
       });
     }
-
-    // -------------------------------------------------
-    // DELETE IMAGE FROM R2
-    // -------------------------------------------------
-
-    await deleteBikeModelImage(model.imageUrl);
-
-    // -------------------------------------------------
-    // DELETE DATABASE DOCUMENT
-    // -------------------------------------------------
-
-    await model.deleteOne();
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    return res.status(200).json({
-      success: true,
-      message: "Model deleted",
-    });
-  } catch (err) {
-    console.error("Delete bike model error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
+  };
+export const getONEBrandhideBikeModels =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const hiddenNames = [
+        "Load vehicles",
+        "Other State",
+      ];
+      const hiddenBrands =
+        await BikeBrand.find({
+          name: {
+            $in: hiddenNames,
+          },
+        });
+      const hiddenBrandIds =
+        hiddenBrands.map(
+          (brand) => brand._id
+        );
+      const query =
+        hiddenBrandIds.length > 0
+          ? {
+              brand: {
+                $nin:
+                  hiddenBrandIds,
+              },
+            }
+          : {};
+      const bikeModels =
+        await BikeModel.find(query)
+          .sort({
+            createdAt: -1,
+          })
+          .populate(
+            "brand",
+            "name logoUrl"
+          );
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET VISIBLE BIKE MODELS ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
+export const getLoadVehiclesBikeModels =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const brand =
+        await BikeBrand.findOne({
+          name: /load vehicles/i,
+        });
+      if (!brand) {
+        return res.status(200).json({
+          success: true,
+          bikeModels: [],
+        });
+      }
+      const bikeModels =
+        await BikeModel.find({
+          brand: brand._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .populate(
+            "brand",
+            "name logoUrl"
+          );
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET LOAD VEHICLES BIKE MODELS ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
+export const getOtherStateBikeModels =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const brand =
+        await BikeBrand.findOne({
+          name: /other state/i,
+        });
+      if (!brand) {
+        return res.status(200).json({
+          success: true,
+          bikeModels: [],
+        });
+      }
+      const bikeModels =
+        await BikeModel.find({
+          brand: brand._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .populate(
+            "brand",
+            "name logoUrl"
+          );
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET OTHER STATE BIKE MODELS ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
+export const getSelectedBikeModels =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const bikeModels =
+        await BikeModel.find({
+          title: {
+            $in: [],
+          },
+        })
+          .populate(
+            "brand",
+            "name logoUrl"
+          )
+          .sort({
+            createdAt: -1,
+          });
+      const data =
+        bikeModels.map(
+          (model) => ({
+            _id:
+              model._id.toString(),
+            brandId:
+              model.brand?._id
+                ?.toString() || "",
+            brandName:
+              model.brand?.name || "",
+            brandLogo:
+              model.brand?.logoUrl || "",
+            modelName:
+              model.title || "",
+            modelImage:
+              model.imageUrl || "",
+          })
+        );
+      return res.status(200).json({
+        success: true,
+        bikeModels: data,
+      });
+    } catch (err) {
+      console.error(
+        "GET SELECTED BIKE MODELS ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
+export const updateBikeModel =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        id,
+      } = req.params;
+      const {
+        title,
+        brandId,
+      } = req.body;
+      const bikeModel =
+        await BikeModel.findById(
+          id
+        );
+      if (!bikeModel) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Bike model not found",
+        });
+      }
+      if (
+        title &&
+        title.trim()
+      ) {
+        bikeModel.title =
+          title.trim();
+      }
+      if (brandId) {
+        const brand =
+          await BikeBrand.findById(
+            brandId
+          );
+        if (!brand) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Brand not found",
+          });
+        }
+        bikeModel.brand =
+          brandId;
+      }
+      if (req.file) {
+        await deleteBikeModelImage(
+          bikeModel.imageUrl
+        );
+        bikeModel.imageUrl =
+          await uploadBikeModelImage(
+            req.file
+          );
+      }
+      await bikeModel.save();
+      return res.status(200).json({
+        success: true,
+        bikeModel,
+      });
+    } catch (err) {
+      console.error(
+        "UPDATE BIKE MODEL ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
+export const deleteBikeModel =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        id,
+      } = req.params;
+      const bikeModel =
+        await BikeModel.findById(
+          id
+        );
+      if (!bikeModel) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Bike model not found",
+        });
+      }
+      await deleteBikeModelImage(
+        bikeModel.imageUrl
+      );
+      await bikeModel.deleteOne();
+      return res.status(200).json({
+        success: true,
+        message:
+          "Bike model deleted",
+      });
+    } catch (err) {
+      console.error(
+        "DELETE BIKE MODEL ERROR 👉",
+        err
+      );
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };

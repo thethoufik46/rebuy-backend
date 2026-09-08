@@ -1,7 +1,6 @@
-// ======================= bike_model_model.js =======================
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import mongoose from "mongoose";
-
 const bikeModelSchema = new mongoose.Schema(
   {
     brand: {
@@ -9,13 +8,11 @@ const bikeModelSchema = new mongoose.Schema(
       ref: "BikeBrand",
       required: true,
     },
-
     title: {
       type: String,
       required: true,
       trim: true,
     },
-
     imageUrl: {
       type: String,
       required: true,
@@ -25,11 +22,9 @@ const bikeModelSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
 const BikeModel = mongoose.model(
   "BikeModel",
   bikeModelSchema,
   "bikemodels"
 );
-
 export default BikeModel;

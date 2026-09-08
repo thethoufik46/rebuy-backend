@@ -2,8 +2,6 @@
 
 import mongoose from "mongoose";
 import Counter from "../counter_model.js";
-
-
 import { encryptSeller } from "../../utils/sellerCrypto.js";
 
 import fs from "fs";
@@ -60,11 +58,7 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        BRAND
-       Brand
-         ↓
-       Model
-         ↓
-       Variant
+       REQUIRED
     ===================================================== */
 
     brand: {
@@ -76,28 +70,20 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        MODEL
-
-       IMPORTANT:
-       Model is linked to CarModel collection.
-
-       Brand
-         ↓
-       CarModel
-         ↓
-       CarVariant
+       OPTIONAL
     ===================================================== */
 
     model: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CarModel",
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
 
     /* =====================================================
        VARIANT
-
-       Variant belongs to selected CarModel.
+       OPTIONAL
     ===================================================== */
 
     variant: {
@@ -109,10 +95,6 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        REGISTRATION STATE
-
-       TN = Tamil Nadu
-       TN 38
-       PY 01
     ===================================================== */
 
     registrationState: {
@@ -163,13 +145,7 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        REGISTRATION NUMBER
-
-       Exactly 2 digits
-
-       01
-       10
-       38
-       99
+       EXACTLY 2 DIGITS
     ===================================================== */
 
     registrationNumber: {
@@ -210,6 +186,7 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        SERVICE RECORD
+       OPTIONAL
     ===================================================== */
 
     serviceRecord: {
@@ -223,6 +200,7 @@ const carSchema = new mongoose.Schema(
 
     /* =====================================================
        CSR KM
+       OPTIONAL
     ===================================================== */
 
     csrKm: {
@@ -332,12 +310,14 @@ const carSchema = new mongoose.Schema(
     },
 
     /* =====================================================
-       DISPLAY CONTACT
+       SELLER
+       OPTIONAL
     ===================================================== */
 
     seller: {
       type: String,
-      required: true,
+      required: false,
+      default: null,
       trim: true,
     },
 
@@ -532,8 +512,7 @@ carSchema.pre("save", async function (next) {
 
     /* =====================================================
        REGISTRATION NUMBER VALIDATION
-
-       Exactly 2 digits
+       EXACTLY 2 DIGITS
     ===================================================== */
 
     if (this.registrationNumber) {

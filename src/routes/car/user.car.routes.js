@@ -29,8 +29,11 @@ import {
   decryptSeller,
 } from "../../utils/sellerCrypto.js";
 
-
 const router = express.Router();
+
+/* ============================================================
+   SELLER RESPONSE
+============================================================ */
 
 const prepareSellerForResponse = (car, isAdminUser) => {
   if (!car) return car;
@@ -52,16 +55,58 @@ const prepareSellerForResponse = (car, isAdminUser) => {
   return car;
 };
 
+/* ============================================================
+   REGISTRATION STATES
+============================================================ */
+
 const REGISTRATION_STATES = [
-  "TN","AP","AR","AS","BR","CG","GA","GJ","HR","HP",
-  "JH","KA","KL","MP","MH","MN","ML","MZ","NL","OD",
-  "PB","RJ","SK","TS","TR","UP","UK","WB","AN","CH",
-  "DN","DL","JK","LA","LD","PY",
+  "TN",
+  "AP",
+  "AR",
+  "AS",
+  "BR",
+  "CG",
+  "GA",
+  "GJ",
+  "HR",
+  "HP",
+  "JH",
+  "KA",
+  "KL",
+  "MP",
+  "MH",
+  "MN",
+  "ML",
+  "MZ",
+  "NL",
+  "OD",
+  "PB",
+  "RJ",
+  "SK",
+  "TS",
+  "TR",
+  "UP",
+  "UK",
+  "WB",
+  "AN",
+  "CH",
+  "DN",
+  "DL",
+  "JK",
+  "LA",
+  "LD",
+  "PY",
 ];
+
+/* ============================================================
+   REGISTRATION VALIDATION
+============================================================ */
 
 const validateRegistration = (state, number) => {
   const registrationState =
-    String(state || "TN").trim().toUpperCase();
+    String(state || "TN")
+      .trim()
+      .toUpperCase();
 
   const registrationNumber =
     String(number || "").trim();
@@ -82,32 +127,54 @@ const validateRegistration = (state, number) => {
   };
 };
 
+/* ============================================================
+   BRAND / MODEL / VARIANT VALIDATION
+
+   BRAND  = REQUIRED
+   MODEL  = OPTIONAL
+   VARIANT = OPTIONAL
+
+   Variant can be selected only when Model is selected.
+============================================================ */
+
 const validateCarHierarchy = async (
   brand,
   model,
   variant = null
 ) => {
+  /* ---------------- BRAND REQUIRED ---------------- */
+
   if (!mongoose.Types.ObjectId.isValid(brand)) {
     throw new Error("Invalid brand id");
+  }
+
+  const brandDoc = await CarBrand.findById(brand)
+    .select("_id")
+    .lean();
+
+  if (!brandDoc) {
+    throw new Error("Brand not found");
+  }
+
+  /* ---------------- MODEL OPTIONAL ---------------- */
+
+  if (!model) {
+    if (variant) {
+      throw new Error(
+        "Variant cannot be selected without a model"
+      );
+    }
+
+    return;
   }
 
   if (!mongoose.Types.ObjectId.isValid(model)) {
     throw new Error("Invalid model id");
   }
 
-  const [brandDoc, modelDoc] = await Promise.all([
-    CarBrand.findById(brand)
-      .select("_id")
-      .lean(),
-
-    CarModel.findById(model)
-      .select("_id brand brandId carBrand")
-      .lean(),
-  ]);
-
-  if (!brandDoc) {
-    throw new Error("Brand not found");
-  }
+  const modelDoc = await CarModel.findById(model)
+    .select("_id brand brandId carBrand")
+    .lean();
 
   if (!modelDoc) {
     throw new Error("Model not found");
@@ -127,6 +194,8 @@ const validateCarHierarchy = async (
     );
   }
 
+  /* ---------------- VARIANT OPTIONAL ---------------- */
+
   if (variant) {
     if (!mongoose.Types.ObjectId.isValid(variant)) {
       throw new Error("Invalid variant id");
@@ -134,7 +203,9 @@ const validateCarHierarchy = async (
 
     const variantDoc =
       await CarVariant.findById(variant)
-        .select("_id carModel model modelId")
+        .select(
+          "_id carModel model modelId"
+        )
         .lean();
 
     if (!variantDoc) {
@@ -156,6 +227,10 @@ const validateCarHierarchy = async (
     }
   }
 };
+
+/* ============================================================
+   MEDIA UPLOAD
+============================================================ */
 
 const uploadCarMedia = async (files) => {
   const bannerImage =
@@ -211,6 +286,10 @@ const uploadCarMedia = async (files) => {
   };
 };
 
+/* ============================================================
+   SAFE MEDIA DELETE
+============================================================ */
+
 const safeDeleteMedia = async (media) => {
   if (
     typeof media !== "string" ||
@@ -230,72 +309,93 @@ const safeDeleteMedia = async (media) => {
 };
 
 /* ============================================================
-   MASTER DATA
+   MASTER DATA - BRANDS
 ============================================================ */
 
-router.get("/brands", async (req, res) => {
-  try {
-    const brands =
-      await CarBrand.find({})
-        .select("_id name logoUrl")
-        .sort({ name: 1 })
-        .lean();
+router.get(
+  "/brands",
+  async (req, res) => {
+    try {
+      const brands =
+        await CarBrand.find({})
+          .select(
+            "_id name logoUrl"
+          )
+          .sort({
+            name: 1,
+          })
+          .lean();
 
-    return res.json({
-      success: true,
-      count: brands.length,
-      brands,
-    });
-  } catch (error) {
-    console.error(
-      "GET BRANDS ERROR:",
-      error
-    );
+      return res.json({
+        success: true,
+        count: brands.length,
+        brands,
+      });
+    } catch (error) {
+      console.error(
+        "GET BRANDS ERROR:",
+        error
+      );
 
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to get brands",
-    });
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get brands",
+      });
+    }
   }
-});
+);
 
-router.get("/carmodels", async (req, res) => {
-  try {
-    const models =
-      await CarModel.find({})
-        .select(
-          "_id brand title imageUrl"
-        )
-        .sort({ title: 1 })
-        .lean();
+/* ============================================================
+   MASTER DATA - ALL MODELS
+============================================================ */
 
-    return res.json({
-      success: true,
-      count: models.length,
-      models,
-    });
-  } catch (error) {
-    console.error(
-      "GET MODELS ERROR:",
-      error
-    );
+router.get(
+  "/carmodels",
+  async (req, res) => {
+    try {
+      const models =
+        await CarModel.find({})
+          .select(
+            "_id brand title imageUrl"
+          )
+          .sort({
+            title: 1,
+          })
+          .lean();
 
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to get models",
-    });
+      return res.json({
+        success: true,
+        count: models.length,
+        models,
+      });
+    } catch (error) {
+      console.error(
+        "GET MODELS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get models",
+      });
+    }
   }
-});
+);
+
+/* ============================================================
+   MODELS BY BRAND
+============================================================ */
 
 router.get(
   "/carmodels/brand/:brandId",
   async (req, res) => {
     try {
-      const { brandId } = req.params;
+      const { brandId } =
+        req.params;
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -315,7 +415,9 @@ router.get(
           .select(
             "_id brand title imageUrl"
           )
-          .sort({ title: 1 })
+          .sort({
+            title: 1,
+          })
           .lean();
 
       return res.json({
@@ -339,6 +441,10 @@ router.get(
   }
 );
 
+/* ============================================================
+   ALL VARIANTS
+============================================================ */
+
 router.get(
   "/carvariants",
   async (req, res) => {
@@ -348,7 +454,9 @@ router.get(
           .select(
             "_id carModel title imageUrl"
           )
-          .sort({ title: 1 })
+          .sort({
+            title: 1,
+          })
           .lean();
 
       return res.json({
@@ -372,11 +480,16 @@ router.get(
   }
 );
 
+/* ============================================================
+   VARIANTS BY MODEL
+============================================================ */
+
 router.get(
   "/carvariants/model/:modelId",
   async (req, res) => {
     try {
-      const { modelId } = req.params;
+      const { modelId } =
+        req.params;
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -396,7 +509,9 @@ router.get(
           .select(
             "_id carModel title imageUrl"
           )
-          .sort({ title: 1 })
+          .sort({
+            title: 1,
+          })
           .lean();
 
       return res.json({
@@ -420,11 +535,16 @@ router.get(
   }
 );
 
+/* ============================================================
+   VARIANTS BY BRAND
+============================================================ */
+
 router.get(
   "/carvariants/brand/:brandId",
   async (req, res) => {
     try {
-      const { brandId } = req.params;
+      const { brandId } =
+        req.params;
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -459,7 +579,9 @@ router.get(
               .select(
                 "_id carModel title imageUrl"
               )
-              .sort({ title: 1 })
+              .sort({
+                title: 1,
+              })
               .lean()
           : [];
 
@@ -974,6 +1096,7 @@ router.get(
 /* ============================================================
    USER ADD CAR
    POST /api/cars/user-add
+   POST /api/cars/
 ============================================================ */
 
 router.post(
@@ -1037,11 +1160,21 @@ router.post(
         description,
       } = req.body;
 
+      /* ======================================================
+         BRAND REQUIRED
+         MODEL OPTIONAL
+         VARIANT OPTIONAL
+      ====================================================== */
+
       await validateCarHierarchy(
         brand,
-        model,
+        model || null,
         variant || null
       );
+
+      /* ======================================================
+         REGISTRATION
+      ====================================================== */
 
       const registration =
         validateRegistration(
@@ -1049,11 +1182,17 @@ router.post(
           registrationNumber
         );
 
+      /* ======================================================
+         CAR DATA
+      ====================================================== */
+
       const carData = {
         ...req.body,
 
         brand,
-        model,
+
+        model:
+          model || null,
 
         variant:
           variant || null,
@@ -1099,10 +1238,14 @@ router.post(
         status:
           status || "draft",
 
+        /* SELLER OPTIONAL */
         seller:
-          seller
-            ? encryptSeller(seller)
-            : undefined,
+          seller &&
+          String(seller).trim()
+            ? encryptSeller(
+                String(seller).trim()
+              )
+            : null,
 
         sellerUser:
           sellerUser ||
@@ -1122,6 +1265,10 @@ router.post(
         createdBy:
           req.user.id,
       };
+
+      /* ======================================================
+         MEDIA
+      ====================================================== */
 
       const {
         bannerImage,
@@ -1144,6 +1291,10 @@ router.post(
 
       carData.videos =
         videos;
+
+      /* ======================================================
+         CREATE
+      ====================================================== */
 
       const car =
         await Car.create(
@@ -1356,16 +1507,25 @@ router.put(
         variant,
       } = req.body;
 
+      /* ======================================================
+         OPTIONAL MODEL / VARIANT
+      ====================================================== */
+
       const nextBrand =
         brand || car.brand;
 
       const nextModel =
-        model || car.model;
+        model === undefined
+          ? car.model
+          : model || null;
 
       const nextVariant =
-        variant === undefined
-          ? car.variant
-          : variant || null;
+        model !== undefined &&
+        !model
+          ? null
+          : variant === undefined
+            ? car.variant
+            : variant || null;
 
       await validateCarHierarchy(
         nextBrand,
@@ -1375,22 +1535,41 @@ router.put(
 
       const updateData = {
         ...req.body,
-        brand: nextBrand,
-        model: nextModel,
-        variant: nextVariant,
+
+        brand:
+          nextBrand,
+
+        model:
+          nextModel,
+
+        variant:
+          nextVariant,
       };
+
+      /* ======================================================
+         SELLER OPTIONAL
+      ====================================================== */
 
       if (
         updateData.seller !==
         undefined
       ) {
         updateData.seller =
-          updateData.seller
+          updateData.seller &&
+          String(
+            updateData.seller
+          ).trim()
             ? encryptSeller(
-                updateData.seller
+                String(
+                  updateData.seller
+                ).trim()
               )
             : null;
       }
+
+      /* ======================================================
+         NULLABLE FIELDS
+      ====================================================== */
 
       if (
         req.body.csrKm === ""
@@ -1445,12 +1624,14 @@ router.put(
         validateRegistration(
           req.body.registrationState !==
             undefined
-            ? req.body.registrationState
+            ? req.body
+                .registrationState
             : car.registrationState,
 
           req.body.registrationNumber !==
             undefined
-            ? req.body.registrationNumber
+            ? req.body
+                .registrationNumber
             : car.registrationNumber
         );
 
@@ -1484,8 +1665,7 @@ router.put(
          GALLERY
       ====================================================== */
 
-      let existingGallery =
-        [];
+      let existingGallery = [];
 
       if (
         req.body.existingGallery
@@ -1501,12 +1681,10 @@ router.put(
               existingGallery
             )
           ) {
-            existingGallery =
-              [];
+            existingGallery = [];
           }
         } catch (_) {
-          existingGallery =
-            [];
+          existingGallery = [];
         }
       } else {
         existingGallery =
@@ -1545,7 +1723,7 @@ router.put(
 
         for (
           const oldImage of
-            oldGallery
+          oldGallery
         ) {
           if (
             typeof oldImage ===
@@ -1561,11 +1739,10 @@ router.put(
           }
         }
 
-        updateData.galleryImages =
-          [
-            ...existingGallery,
-            ...newGallery,
-          ];
+        updateData.galleryImages = [
+          ...existingGallery,
+          ...newGallery,
+        ];
       } else {
         const oldGallery =
           Array.isArray(
@@ -1576,7 +1753,7 @@ router.put(
 
         for (
           const oldImage of
-            oldGallery
+          oldGallery
         ) {
           if (
             typeof oldImage ===
@@ -1627,8 +1804,7 @@ router.put(
           []),
       ];
 
-      let existingVideos =
-        [];
+      let existingVideos = [];
 
       if (
         req.body.existingVideos
@@ -1644,12 +1820,10 @@ router.put(
               existingVideos
             )
           ) {
-            existingVideos =
-              [];
+            existingVideos = [];
           }
         } catch (_) {
-          existingVideos =
-            [];
+          existingVideos = [];
         }
       } else {
         existingVideos =
@@ -1688,7 +1862,7 @@ router.put(
 
         for (
           const oldVideo of
-            oldVideos
+          oldVideos
         ) {
           if (
             typeof oldVideo ===
@@ -1704,11 +1878,10 @@ router.put(
           }
         }
 
-        updateData.videos =
-          [
-            ...existingVideos,
-            ...newVideos,
-          ];
+        updateData.videos = [
+          ...existingVideos,
+          ...newVideos,
+        ];
       } else {
         const oldVideos =
           Array.isArray(
@@ -1719,7 +1892,7 @@ router.put(
 
         for (
           const oldVideo of
-            oldVideos
+          oldVideos
         ) {
           if (
             typeof oldVideo ===
@@ -1738,6 +1911,10 @@ router.put(
         updateData.videos =
           existingVideos;
       }
+
+      /* ======================================================
+         UPDATE DATABASE
+      ====================================================== */
 
       const updatedCar =
         await Car.findByIdAndUpdate(

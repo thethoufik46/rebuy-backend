@@ -1,12 +1,4 @@
-// ============================================================
-// 1. MUST FOLLOW RULES
-// PAGE: 1
-// DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
-// ANY CODE CHANGE MUST KEEP THIS COMMENT AT THE TOP.
-// KEEP CODE COMPACT.
-// DO NOT ADD EMPTY LINES.
-// CODE MAY BE WRITTEN AS COMPACT PARAGRAPHS.
-// ============================================================
+
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";

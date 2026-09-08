@@ -1,70 +1,44 @@
-// ======================= bikeBrand.js =======================
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES.
+// KEEP CODE LINES SHORT. KEEP CODE COMPACT. DO NOT ADD EMPTY LINES. BREAK LONG CODE INTO SHORT, READABLE LINES.
 import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
-
 import r2 from "../../../config/r2.js";
-
-// ============================================================
-// UPLOAD BIKE BRAND LOGO
-// ============================================================
-
+const BUCKET = process.env.R2_BUCKET;
+const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 export const uploadBikeBrandLogo = async (file) => {
-  if (!file) {
-    throw new Error("Bike brand logo file is required");
+  if (!file || !file.buffer) {
+    throw new Error("File buffer missing");
   }
-
-  const extension =
-    file.originalname?.split(".").pop()?.toLowerCase() || "jpg";
-
-  const key = `bikebrands/${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 10)}.${extension}`;
-
+  const ext =
+    file.mimetype.split("/")[1] || "jpg";
+  const key =
+    `bike-brands/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
   await r2.send(
     new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
+      Bucket: BUCKET,
       Key: key,
       Body: file.buffer,
       ContentType: file.mimetype,
     })
   );
-
-  const publicUrl =
-    `${process.env.R2_PUBLIC_URL}/${key}`;
-
-  return publicUrl;
+  return `${PUBLIC_URL}/${key}`;
 };
-
-// ============================================================
-// DELETE BIKE BRAND LOGO
-// ============================================================
-
 export const deleteBikeBrandLogo = async (url) => {
   if (!url) return;
-
-  try {
-    const publicUrl =
-      process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-
-    let key = url;
-
-    if (publicUrl && url.startsWith(publicUrl)) {
-      key = url.substring(publicUrl.length + 1);
-    }
-
-    await r2.send(
-      new DeleteObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: key,
-      })
-    );
-  } catch (error) {
-    console.error(
-      "Bike brand logo delete error:",
-      error
-    );
-  }
+  const publicPrefix = `${PUBLIC_URL}/`;
+  const key = url.replace(
+    publicPrefix,
+    ""
+  );
+  if (!key) return;
+  await r2.send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  );
 };

@@ -293,7 +293,7 @@ app.use(
 // BIKE BRANDS
 // ============================================================
 app.use(
-  "/api/bike-brands",
+  "/api/bikebrands",
   bikeBrandRoutes
 );
 // ============================================================
@@ -678,7 +678,7 @@ server.listen(
       "📍 User Cars: /api/cars"
     );
     console.log(
-      "📍 Bike Brands API: /api/bike-brands"
+      "📍 Bike Brands API: /api/bikebrands"
     );
     console.log(
       "📍 Bike Models API: /api/bike-models"

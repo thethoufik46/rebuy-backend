@@ -6,11 +6,13 @@ import uploadBikeBrand from "../../../middleware/bike/brand/uploadBikeBrand.js";
 import {
   addBikeBrand,
   getBikeBrands,
+  getBikeBrandById,
   updateBikeBrand,
   deleteBikeBrand,
 } from "../../../controllers/bike/brand/bike.brand.controller.js";
 const router = express.Router();
 router.get("/", getBikeBrands);
+router.get("/:id", getBikeBrandById);
 router.post(
   "/add",
   verifyToken,

@@ -8,78 +8,109 @@ import r2 from "../../config/r2.js";
 import { addWatermarkBuffer } from "../watermark.js";
 const BUCKET = process.env.R2_BUCKET;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
-/* =====================================================
-   BIKE MEDIA UPLOAD
-   Gallery → Watermark
-   Banner → Watermark
-   Audio → Clean
-   Video → Clean
-===================================================== */
-export const uploadBikeImage = async (file, folder) => {
+export const uploadBikeImage = async (
+  file,
+  folder
+) => {
   try {
     if (!file || !file.buffer) {
-      throw new Error("Invalid file upload");
+      throw new Error(
+        "Invalid file upload"
+      );
+    }
+    if (!BUCKET) {
+      throw new Error(
+        "R2_BUCKET is missing"
+      );
+    }
+    if (!PUBLIC_URL) {
+      throw new Error(
+        "R2_PUBLIC_URL is missing"
+      );
     }
     let ext = "jpg";
     if (file.mimetype) {
-      const parts = file.mimetype.split("/");
-      ext = parts[1] || "jpg";
+      const parts =
+        file.mimetype.split("/");
+      ext =
+        parts[1] || "jpg";
+      if (ext === "jpeg") {
+        ext = "jpg";
+      }
     }
     const key =
-      `${folder}/${Date.now()}-${Math.random()`
-      + `.toString(36).slice(2)}.${ext}`;
-    let bufferToUpload = file.buffer;
+      `${folder}/${Date.now()}-` +
+      `${Math.random()
+        .toString(36)
+        .slice(2)}.${ext}`;
+    let bufferToUpload =
+      file.buffer;
+    let contentType =
+      file.mimetype ||
+      "application/octet-stream";
     if (
       folder.includes("gallery") ||
       folder.includes("banner")
     ) {
       bufferToUpload =
-        await addWatermarkBuffer(file.buffer);
+        await addWatermarkBuffer(
+          file.buffer
+        );
+      contentType =
+        "image/jpeg";
     }
     await r2.send(
       new PutObjectCommand({
         Bucket: BUCKET,
         Key: key,
         Body: bufferToUpload,
-        ContentType:
-          file.mimetype || "image/jpeg",
+        ContentType: contentType,
       })
     );
     return `${PUBLIC_URL}/${key}`;
   } catch (err) {
     console.error(
       "BIKE UPLOAD ERROR:",
-      err.message
+      err
     );
-    throw new Error("File upload failed");
-  }
-};
-/* =====================================================
-   DELETE BIKE MEDIA FROM R2
-===================================================== */
-export const deleteBikeImage = async (url) => {
-  try {
-    if (
-      !url ||
-      !url.startsWith(PUBLIC_URL)
-    ) {
-      return;
-    }
-    const key = url.replace(
-      `${PUBLIC_URL}/`,
-      ""
-    );
-    if (!key) return;
-    await r2.send(
-      new DeleteObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-      })
-    );
-  } catch (err) {
     console.error(
-      "BIKE DELETE ERROR:",
-      err.message
+      "BIKE UPLOAD MESSAGE:",
+      err?.message
+    );
+    throw new Error(
+      err?.message ||
+      "File upload failed"
     );
   }
 };
+export const deleteBikeImage =
+  async (url) => {
+    try {
+      if (
+        !url ||
+        !PUBLIC_URL ||
+        !url.startsWith(
+          PUBLIC_URL
+        )
+      ) {
+        return;
+      }
+      const key =
+        url.replace(
+          `${PUBLIC_URL}/`,
+          ""
+        );
+      if (!key) return;
+      await r2.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET,
+          Key: key,
+        })
+      );
+    } catch (err) {
+      console.error(
+        "BIKE DELETE ERROR:",
+        err?.message
+      );
+    }
+  };

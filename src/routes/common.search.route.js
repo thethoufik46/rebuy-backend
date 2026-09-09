@@ -1,5 +1,5 @@
 import express from "express";
-import { commonSearch } from "../controllers/common.searc.controller.js";
+import { commonSearch } from "../controllers/common.search.controller.js";
 
 const router = express.Router();
 

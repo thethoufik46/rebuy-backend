@@ -29,7 +29,7 @@ import electronicsRoutes from "./routes/electronics.routes.js";
 // ---------------- VEHICLES ----------------
 import userCarRoutes from "./routes/car/user.car.routes.js";
 import adminCarRoutes from "./routes/car/admin.car.routes.js";
-import bikeRoutes from "./routes/bike.routes.js";
+import bikeRoutes from "./routes/bike/user.bike.routes.js";
 import bikeModelRoutes from "./routes/bike/model/bike.model.routes.js";
 import bikeVariantRoutes from "./routes/bike/variant/bike.variant.routes.js";
 import oldSpareRoutes from "./routes/oldspare.routes.js";

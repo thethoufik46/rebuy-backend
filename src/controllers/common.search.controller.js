@@ -4,7 +4,7 @@
 // ============================================================
 
 import Car from "../models/car/car_model.js";
-import Bike from "../models/bike_model.js";
+import Bike from "../models/bike/bike_model.js";
 import Electronics from "../models/electronics_model.js";
 import Property from "../models/property_model.js";
 
@@ -21,7 +21,7 @@ import CarVariant from "../models/car/variant/car_variant_model.js";
 // ============================================================
 
 import BikeBrand from "../models/bike/brand/bike_brand_model.js";
-import BikeModel from "../models/bike_model.js";
+import BikeModel from "../models/bike/bike_model.js";
 
 // ============================================================
 // COMMON SEARCH

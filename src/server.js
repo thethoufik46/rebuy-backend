@@ -22,7 +22,7 @@ import bikeBrandRoutes from "./routes/bike/brand/bike.brand.routes.js";
 import mobileBrandRoutes from "./routes/electronics/mobile/mobile_brand.routes.js";
 import pcBrandRoutes from "./routes/electronics/pc/pc_brand.routes.js";
 import laptopBrandRoutes from "./routes/electronics/laptop/laptop_brand.routes.js";
-import electronicsRoutes from "./routes/electronics/electronics.routes.js";
+import electronicsRoutes from "./routes/electronics/user.electronics.routes.js";
 import userCarRoutes from "./routes/car/user.car.routes.js";
 import adminCarRoutes from "./routes/car/admin.car.routes.js";
 import bikeRoutes from "./routes/bike/user.bike.routes.js";

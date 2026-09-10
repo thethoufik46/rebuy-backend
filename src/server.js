@@ -1,56 +1,42 @@
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
+// ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
+// REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
-import { fileURLToPath } from "url";
+import {fileURLToPath} from "url";
 import http from "http";
-import { Server } from "socket.io";
-// ================= DATABASE & ADMIN =================
-import { connectDB } from "./config/db.js";
-import { createAdminUser } from "./config/createAdmin.js";
-// ================= ROUTES =================
-// ---------------- COMMON ----------------
+import {Server} from "socket.io";
+import {connectDB} from "./config/db.js";
+import {createAdminUser} from "./config/createAdmin.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import adminUserRoutes from "./routes/admin.user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
-// ---------------- CAR ----------------
 import carBrandRoutes from "./routes/car/brand/car.brand.routes.js";
 import carModelRoutes from "./routes/car/model/car.model.routes.js";
 import carVariantRoutes from "./routes/car/variant/car.variant.routes.js";
-// ---------------- OTHER BRANDS ----------------
 import bikeBrandRoutes from "./routes/bike/brand/bike.brand.routes.js";
-import mobileBrandRoutes from "./routes/mobile_brand.routes.js";
-import pcBrandRoutes from "./routes/pc_brand.routes.js";
-import laptopBrandRoutes from "./routes/laptop_brand.routes.js";
-import electronicsRoutes from "./routes/electronics.routes.js";
-// ---------------- VEHICLES ----------------
+import mobileBrandRoutes from "./routes/electronics/mobile/mobile_brand.routes.js";
+import pcBrandRoutes from "./routes/electronics/pc/pc_brand.routes.js";
+import laptopBrandRoutes from "./routes/electronics/laptop/laptop_brand.routes.js";
+import electronicsRoutes from "./routes/electronics/electronics.routes.js";
 import userCarRoutes from "./routes/car/user.car.routes.js";
 import adminCarRoutes from "./routes/car/admin.car.routes.js";
-import bikeRoutes
-  from "./routes/bike/user.bike.routes.js";
-import adminBikeRoutes
-  from "./routes/bike/admin.bike.routes.js";
+import bikeRoutes from "./routes/bike/user.bike.routes.js";
+import adminBikeRoutes from "./routes/bike/admin.bike.routes.js";
 import bikeModelRoutes from "./routes/bike/model/bike.model.routes.js";
 import bikeVariantRoutes from "./routes/bike/variant/bike.variant.routes.js";
 import oldSpareRoutes from "./routes/oldspare.routes.js";
-// ---------------- USER FEATURES ----------------
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import buyRequestRoutes from "./routes/userbuyrequest/buyrequest.routes.js";
-// ============================================================
-// COMMON ORDER ROUTE
-// CAR + BIKE + PROPERTY + ELECTRONICS
-// ============================================================
 import orderRoutes from "./routes/order.routes.js";
-// ---------------- SELL / PROPERTY ----------------
 import sellPropertyRoutes from "./routes/sellproperty.routes.js";
 import propertyRoutes from "./routes/property.routes.js";
-// ---------------- LOCATION ----------------
 import locationRoutes from "./routes/location.routes.js";
-// ---------------- OTHER ----------------
 import linkRoutes from "./routes/link.routes.js";
 import notificationRoutes from "./routes/notification.route.js";
 import testimonialRoutes from "./routes/testimonial.route.js";
@@ -59,671 +45,87 @@ import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 import leadRoutes from "./routes/leads/lead.routes.js";
 import commonSearchRoute from "./routes/common.search.route.js";
-// ============================================================
-// SURVEY ROUTES
-// ============================================================
 import surveyRoutes from "./routes/survey.routes.js";
-// ============================================================
-// ENV
-// ============================================================
 dotenv.config();
-const app = express();
-// ============================================================
-// HTTP SERVER
-// ============================================================
-const server = http.createServer(app);
-// ============================================================
-// SOCKET.IO
-// ============================================================
-export const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-    ],
-  },
+const app=express(),server=http.createServer(app);
+export const io=new Server(server,{cors:{origin:"*",methods:["GET","POST","PUT","DELETE"]}});
+const __filename=fileURLToPath(import.meta.url),__dirname=path.dirname(__filename);
+app.use(cors({origin:"*",methods:["GET","POST","PUT","DELETE","OPTIONS"],allowedHeaders:["Content-Type","Authorization"]}));
+app.options("*",cors());
+app.use(express.json({limit:"30mb"}));
+app.use(express.urlencoded({extended:true}));
+app.use(express.static(path.join(__dirname,"../public")));
+app.get("/privacy-policy",(req,res)=>res.sendFile(path.join(__dirname,"../public/privacy-policy.html")));
+app.get("/terms",(req,res)=>res.sendFile(path.join(__dirname,"../public/terms-and-conditions.html")));
+app.get("/refund-policy",(req,res)=>res.sendFile(path.join(__dirname,"../public/refund-cancellation-policy.html")));
+app.use("/",youtubeAuthRoutes);
+connectDB().then(()=>{console.log("✅ MongoDB Connected");createAdminUser();}).catch(err=>{console.error("❌ MongoDB Error:",err);process.exit(1);});
+app.use("/api/auth",authRoutes);
+app.use("/api/users",userRoutes);
+app.use("/api/admin",adminUserRoutes);
+app.use("/api/reports",reportRoutes);
+app.use("/api/chat",chatRoutes);
+app.use("/api/carbrands",carBrandRoutes);
+app.use("/api/carmodels",carModelRoutes);
+app.use("/api/carvariants",carVariantRoutes);
+app.use("/api/oldspare",oldSpareRoutes);
+app.use("/api/mobile-brands",mobileBrandRoutes);
+app.use("/api/laptop-brands",laptopBrandRoutes);
+app.use("/api/pc-brands",pcBrandRoutes);
+app.use("/api/electronics",electronicsRoutes);
+app.use("/api/bikebrands",bikeBrandRoutes);
+app.use("/api/bikemodels",bikeModelRoutes);
+app.use("/api/bikevariants",bikeVariantRoutes);
+app.use("/api/cars/admin",adminCarRoutes);
+app.use("/api/cars",(req,res,next)=>req.method==="POST"&&req.path==="/add"?adminCarRoutes(req,res,next):next());
+app.use("/api/cars",userCarRoutes);
+app.use("/api/bikes/admin",adminBikeRoutes);
+app.use("/api/bikes",(req,res,next)=>req.method==="POST"&&req.path==="/add"?adminBikeRoutes(req,res,next):next());
+app.use("/api/bikes",bikeRoutes);
+app.use("/api/search",searchRoutes);
+app.use("/api/buyrequest",buyRequestRoutes);
+app.use("/api/wishlist",wishlistRoutes);
+app.use("/api/orders",orderRoutes);
+app.use("/api/sellproperty",sellPropertyRoutes);
+app.use("/api/properties",propertyRoutes);
+app.use("/api/locations",locationRoutes);
+app.use("/api/links",linkRoutes);
+app.use("/api/notifications",notificationRoutes);
+app.use("/api/testimonials",testimonialRoutes);
+app.use("/api/stories",storyRoutes);
+app.use("/api/leads",leadRoutes);
+app.use("/api",commonSearchRoute);
+app.use("/api",recentlyViewedRoutes);
+app.use("/api/survey",surveyRoutes);
+app.get("/api/app/version",(req,res)=>res.json({latest_version:"1.0.1",force_update:false,update_url:"https://play.google.com/store/apps/details?id=com.re2buy.app"}));
+app.get("/",(req,res)=>res.status(200).json({success:true,message:"🚀 REBUY Backend API running successfully"}));
+app.use((req,res)=>res.status(404).json({success:false,message:"API route not found"}));
+app.use((err,req,res,next)=>{console.error("❌ Server Error:",err);res.status(500).json({success:false,message:err?.message||"Internal server error"});});
+io.on("connection",socket=>{
+  console.log("🟢 Socket Connected:",socket.id);
+  socket.on("join",userId=>{socket.join(userId);console.log(`User Joined: ${userId}`);});
+  socket.on("join-admin",()=>{socket.join("admin");console.log("👨‍💼 Admin Joined");});
+  socket.on("disconnect",()=>console.log("🔴 Socket Disconnected"));
 });
-// ============================================================
-// FIX __dirname
-// ============================================================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// ============================================================
-// CORS
-// ============================================================
-app.use(
-  cors({
-    origin: "*",
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-      "OPTIONS",
-    ],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-  })
-);
-app.options(
-  "*",
-  cors()
-);
-// ============================================================
-// BODY PARSER
-// ============================================================
-app.use(
-  express.json({
-    limit: "30mb",
-  })
-);
-app.use(
-  express.urlencoded({
-    extended: true,
-  })
-);
-// ============================================================
-// STATIC FILES
-// ============================================================
-app.use(
-  express.static(
-    path.join(
-      __dirname,
-      "../public"
-    )
-  )
-);
-// ============================================================
-// LEGAL PAGES
-// ============================================================
-app.get(
-  "/privacy-policy",
-  (req, res) => {
-    res.sendFile(
-      path.join(
-        __dirname,
-        "../public/privacy-policy.html"
-      )
-    );
-  }
-);
-app.get(
-  "/terms",
-  (req, res) => {
-    res.sendFile(
-      path.join(
-        __dirname,
-        "../public/terms-and-conditions.html"
-      )
-    );
-  }
-);
-app.get(
-  "/refund-policy",
-  (req, res) => {
-    res.sendFile(
-      path.join(
-        __dirname,
-        "../public/refund-cancellation-policy.html"
-      )
-    );
-  }
-);
-// ============================================================
-// YOUTUBE AUTH
-// ============================================================
-app.use(
-  "/",
-  youtubeAuthRoutes
-);
-// ============================================================
-// DATABASE
-// ============================================================
-connectDB()
-  .then(() => {
-    console.log(
-      "✅ MongoDB Connected"
-    );
-    createAdminUser();
-  })
-  .catch((err) => {
-    console.error(
-      "❌ MongoDB Error:",
-      err
-    );
-    process.exit(1);
-  });
-// ============================================================
-// API ROUTES
-// ============================================================
-// ============================================================
-// AUTH
-// ============================================================
-app.use(
-  "/api/auth",
-  authRoutes
-);
-// ============================================================
-// USERS
-// ============================================================
-app.use(
-  "/api/users",
-  userRoutes
-);
-// ============================================================
-// ADMIN USERS
-// ============================================================
-app.use(
-  "/api/admin",
-  adminUserRoutes
-);
-// ============================================================
-// REPORTS
-// ============================================================
-app.use(
-  "/api/reports",
-  reportRoutes
-);
-// ============================================================
-// CHAT
-// ============================================================
-app.use(
-  "/api/chat",
-  chatRoutes
-);
-// ============================================================
-// CAR BRANDS
-// ============================================================
-app.use(
-  "/api/carbrands",
-  carBrandRoutes
-);
-// ============================================================
-// CAR MODELS
-// ============================================================
-app.use(
-  "/api/carmodels",
-  carModelRoutes
-);
-// ============================================================
-// CAR VARIANTS
-// ============================================================
-app.use(
-  "/api/carvariants",
-  carVariantRoutes
-);
-// ============================================================
-// OLD SPARE
-// ============================================================
-app.use(
-  "/api/oldspare",
-  oldSpareRoutes
-);
-// ============================================================
-// MOBILE BRANDS
-// ============================================================
-app.use(
-  "/api/mobile-brands",
-  mobileBrandRoutes
-);
-// ============================================================
-// LAPTOP BRANDS
-// ============================================================
-app.use(
-  "/api/laptop-brands",
-  laptopBrandRoutes
-);
-// ============================================================
-// PC BRANDS
-// ============================================================
-app.use(
-  "/api/pc-brands",
-  pcBrandRoutes
-);
-// ============================================================
-// ELECTRONICS
-// ============================================================
-app.use(
-  "/api/electronics",
-  electronicsRoutes
-);
-// ============================================================
-// BIKE BRANDS
-// ============================================================
-app.use(
-  "/api/bikebrands",
-  bikeBrandRoutes
-);
-// ============================================================
-// BIKE MODELS
-// ============================================================
-app.use(
-  "/api/bikemodels",
-  bikeModelRoutes
-);
-// ============================================================
-// BIKE VARIANTS
-// ============================================================
-app.use(
-  "/api/bikevariants",
-  bikeVariantRoutes
-);
-// ============================================================
-// CARS
-// ============================================================
-//
-// ADMIN CAR ROUTES
-//
-// Main admin namespace:
-//
-// GET    /api/cars/admin/all
-// GET    /api/cars/admin/:id
-// PATCH  /api/cars/admin/:id/status
-// PUT    /api/cars/admin/:id
-// DELETE /api/cars/admin/:id
-//
-// ADMIN ADD:
-//
-// POST   /api/cars/add
-//
-// USER CAR ROUTES:
-//
-// GET    /api/cars
-// GET    /api/cars/my
-// GET    /api/cars/my-cars
-// POST   /api/cars/user-add
-// POST   /api/cars
-// GET    /api/cars/:id
-// PUT    /api/cars/:id
-// PUT    /api/cars/:id/request-delete
-//
-// ============================================================
-// ------------------------------------------------------------
-// ADMIN CAR ROUTES
-// ------------------------------------------------------------
-//
-// Admin router internally has:
-//
-// router.post("/add")
-//
-// Therefore mounting it here:
-//
-// /api/cars/admin
-//
-// creates:
-//
-// POST /api/cars/admin/add
-//
-// But Flutter Admin Add Car currently calls:
-//
-// POST /api/cars/add
-//
-// So we keep the normal admin namespace AND create a
-// compatibility route for ONLY POST /api/cars/add.
-//
-app.use(
-  "/api/cars/admin",
-  adminCarRoutes
-);
-// ------------------------------------------------------------
-// ADMIN ADD CAR COMPATIBILITY ROUTE
-// ------------------------------------------------------------
-//
-// IMPORTANT:
-//
-// Only:
-//
-// POST /api/cars/add
-//
-// goes to adminCarRoutes.
-//
-// Other /api/cars/* requests continue to userCarRoutes.
-//
-// This prevents conflicts with:
-//
-// GET /api/cars
-// GET /api/cars/my
-// GET /api/cars/my-cars
-// POST /api/cars/user-add
-// POST /api/cars
-// GET /api/cars/:id
-// PUT /api/cars/:id
-//
-// ------------------------------------------------------------
-app.use(
-  "/api/cars",
-  (req, res, next) => {
-    if (
-      req.method === "POST" &&
-      req.path === "/add"
-    ) {
-      return adminCarRoutes(
-        req,
-        res,
-        next
-      );
-    }
-    return next();
-  }
-);
-// ------------------------------------------------------------
-// USER CAR ROUTES
-// ------------------------------------------------------------
-app.use(
-  "/api/cars",
-  userCarRoutes
-);
-// ============================================================
-// BIKES
-// ============================================================
-app.use(
-  "/api/bikes/admin",
-  adminBikeRoutes
-);
-app.use(
-  "/api/bikes",
-  (req, res, next) => {
-    if (
-      req.method === "POST" &&
-      req.path === "/add"
-    ) {
-      return adminBikeRoutes(
-        req,
-        res,
-        next
-      );
-    }
-    return next();
-  }
-);
-app.use(
-  "/api/bikes",
-  bikeRoutes
-);
-
-// ============================================================
-// SEARCH
-// ============================================================
-app.use(
-  "/api/search",
-  searchRoutes
-);
-// ============================================================
-// BUY REQUEST
-// CAR + BIKE + PROPERTY + ELECTRONICS
-// ============================================================
-app.use(
-  "/api/buyrequest",
-  buyRequestRoutes
-);
-// ============================================================
-// WISHLIST
-// ============================================================
-app.use(
-  "/api/wishlist",
-  wishlistRoutes
-);
-// ============================================================
-// COMMON ORDERS
-// CAR + BIKE + PROPERTY + ELECTRONICS
-// ============================================================
-app.use(
-  "/api/orders",
-  orderRoutes
-);
-// ============================================================
-// SELL CAR
-// ============================================================
-// ============================================================
-// SELL PROPERTY
-// ============================================================
-app.use(
-  "/api/sellproperty",
-  sellPropertyRoutes
-);
-// ============================================================
-// BUY PROPERTY
-// ============================================================
-// ============================================================
-// PROPERTIES
-// ============================================================
-app.use(
-  "/api/properties",
-  propertyRoutes
-);
-// ============================================================
-// LOCATIONS
-// ============================================================
-app.use(
-  "/api/locations",
-  locationRoutes
-);
-// ============================================================
-// LINKS
-// ============================================================
-app.use(
-  "/api/links",
-  linkRoutes
-);
-// ============================================================
-// NOTIFICATIONS
-// ============================================================
-app.use(
-  "/api/notifications",
-  notificationRoutes
-);
-// ============================================================
-// TESTIMONIALS
-// ============================================================
-app.use(
-  "/api/testimonials",
-  testimonialRoutes
-);
-// ============================================================
-// STORIES
-// ============================================================
-app.use(
-  "/api/stories",
-  storyRoutes
-);
-// ============================================================
-// LEADS
-// ============================================================
-app.use(
-  "/api/leads",
-  leadRoutes
-);
-// ============================================================
-// COMMON SEARCH
-// ============================================================
-app.use(
-  "/api",
-  commonSearchRoute
-);
-// ============================================================
-// RECENTLY VIEWED
-// ============================================================
-app.use(
-  "/api",
-  recentlyViewedRoutes
-);
-// ============================================================
-// PROPERTY SURVEY
-// ============================================================
-app.use(
-  "/api/survey",
-  surveyRoutes
-);
-// ============================================================
-// APP VERSION
-// ============================================================
-app.get(
-  "/api/app/version",
-  (req, res) => {
-    res.json({
-      latest_version: "1.0.1",
-      force_update: false,
-      update_url:
-        "https://play.google.com/store/apps/details?id=com.re2buy.app",
-    });
-  }
-);
-// ============================================================
-// HEALTH CHECK
-// ============================================================
-app.get(
-  "/",
-  (req, res) => {
-    res.status(200).json({
-      success: true,
-      message:
-        "🚀 REBUY Backend API running successfully",
-    });
-  }
-);
-// ============================================================
-// 404
-// ============================================================
-app.use(
-  (req, res) => {
-    res.status(404).json({
-      success: false,
-      message:
-        "API route not found",
-    });
-  }
-);
-// ============================================================
-// ERROR HANDLER
-// ============================================================
-app.use(
-  (
-    err,
-    req,
-    res,
-    next
-  ) => {
-    console.error(
-      "❌ Server Error:",
-      err
-    );
-    res.status(500).json({
-      success: false,
-      message:
-        err?.message ||
-        "Internal server error",
-    });
-  }
-);
-// ============================================================
-// SOCKET.IO
-// ============================================================
-io.on(
-  "connection",
-  (socket) => {
-    console.log(
-      "🟢 Socket Connected:",
-      socket.id
-    );
-    // --------------------------------------------------------
-    // USER ROOM
-    // --------------------------------------------------------
-    socket.on(
-      "join",
-      (userId) => {
-        socket.join(
-          userId
-        );
-        console.log(
-          `User Joined: ${userId}`
-        );
-      }
-    );
-    // --------------------------------------------------------
-    // ADMIN ROOM
-    // --------------------------------------------------------
-    socket.on(
-      "join-admin",
-      () => {
-        socket.join(
-          "admin"
-        );
-        console.log(
-          "👨‍💼 Admin Joined"
-        );
-      }
-    );
-    // --------------------------------------------------------
-    // DISCONNECT
-    // --------------------------------------------------------
-    socket.on(
-      "disconnect",
-      () => {
-        console.log(
-          "🔴 Socket Disconnected"
-        );
-      }
-    );
-  }
-);
-// ============================================================
-// START SERVER
-// ============================================================
-const PORT =
-  process.env.PORT ||
-  5000;
-server.listen(
-  PORT,
-  () => {
-    console.log(
-      `✅ Server running on port ${PORT}`
-    );
-    console.log(
-      "📍 Car Brands API: /api/carbrands"
-    );
-    console.log(
-      "📍 Car Models API: /api/carmodels"
-    );
-    console.log(
-      "📍 Car Variants API: /api/carvariants"
-    );
-    console.log(
-      "📍 Admin Add Car: POST /api/cars/add"
-    );
-    console.log(
-      "📍 Admin Cars: /api/cars/admin"
-    );
-    console.log(
-      "📍 User Cars: /api/cars"
-    );
-    console.log(
-      "📍 Bike Brands API: /api/bikebrands"
-    );
-    console.log(
-      "📍 Bike Models API: /api/bikemodels"
-    );
-    console.log(
-      "📍 Bike Variants API: /api/bikevariants"
-    );
-    console.log(
-      "📍 Orders API: /api/orders"
-    );
-    console.log(
-      "📍 My Orders: GET /api/orders/my"
-    );
-    console.log(
-      "📍 Create Order: POST /api/orders"
-    );
-    console.log(
-      "📍 Survey API: /api/survey"
-    );
-    console.log(
-      "📍 Add Survey: POST /api/survey/add"
-    );
-  }
-);
+const PORT=process.env.PORT||5000;
+server.listen(PORT,()=>{
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log("📍 Car Brands API: /api/carbrands");
+  console.log("📍 Car Models API: /api/carmodels");
+  console.log("📍 Car Variants API: /api/carvariants");
+  console.log("📍 Admin Add Car: POST /api/cars/add");
+  console.log("📍 Admin Cars: /api/cars/admin");
+  console.log("📍 User Cars: /api/cars");
+  console.log("📍 Bike Brands API: /api/bikebrands");
+  console.log("📍 Bike Models API: /api/bikemodels");
+  console.log("📍 Bike Variants API: /api/bikevariants");
+  console.log("📍 Mobile Brands API: /api/mobile-brands");
+  console.log("📍 Laptop Brands API: /api/laptop-brands");
+  console.log("📍 PC Brands API: /api/pc-brands");
+  console.log("📍 Electronics API: /api/electronics");
+  console.log("📍 Orders API: /api/orders");
+  console.log("📍 My Orders: GET /api/orders/my");
+  console.log("📍 Create Order: POST /api/orders");
+  console.log("📍 Survey API: /api/survey");
+  console.log("📍 Add Survey: POST /api/survey/add");
+});

@@ -9,11 +9,12 @@ const PUBLIC_URL=process.env.R2_PUBLIC_URL;
 export const uploadElectronicsMedia=async(file,folder)=>{
   try{
     if(!file?.buffer)throw new Error("Invalid file upload");
-    let ext=file.mimetype?.split("/")[1]||"jpg";
+    const mime=file.mimetype||"image/jpeg";
+    const ext=mime==="image/png"?"png":mime==="image/webp"?"webp":mime==="image/gif"?"gif":"jpg";
     const key=`${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     let bufferToUpload=file.buffer;
     if(folder.includes("gallery")||folder.includes("banner"))bufferToUpload=await addWatermarkBuffer(file.buffer);
-    await r2.send(new PutObjectCommand({Bucket:BUCKET,Key:key,Body:bufferToUpload,ContentType:file.mimetype||"image/jpeg"}));
+    await r2.send(new PutObjectCommand({Bucket:BUCKET,Key:key,Body:bufferToUpload,ContentType:mime}));
     return `${PUBLIC_URL}/${key}`;
   }catch(err){
     console.error("UPLOAD ERROR:",err.message);

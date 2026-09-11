@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import Order from "../models/order_model.js";
 import Car from "../models/car/car_model.js";
 import Bike from "../models/bike/bike_model.js";
-import Property from "../models/property_model.js";
+import Property from "../models/property/property_model.js";
 import Electronics from "../models/electronics/electronics_model.js";
 import {verifyToken,isAdmin} from "../middleware/auth.js";
 const router=express.Router();
@@ -23,7 +23,7 @@ const populateItem=(query,type)=>{
 };
 router.post("/",verifyToken,async(req,res)=>{
   try{
-    const{itemId,itemType}=req.body;
+    const {itemId,itemType}=req.body;
     if(!itemType||!ALLOWED_ITEM_TYPES.includes(itemType))return res.status(400).json({success:false,message:"Invalid itemType. Use car, bike, property or electronics"});
     if(!itemId||!validId(itemId))return res.status(400).json({success:false,message:"Valid itemId is required"});
     const ItemModel=getItemModel(itemType);
@@ -113,7 +113,7 @@ router.put("/:id/cancel",verifyToken,async(req,res)=>{
 });
 router.put("/:id/status",verifyToken,isAdmin,async(req,res)=>{
   try{
-    const{status}=req.body;
+    const {status}=req.body;
     if(!ALLOWED_STATUS.includes(status))return res.status(400).json({success:false,message:"Invalid status",allowedStatus:ALLOWED_STATUS});
     if(!validId(req.params.id))return res.status(400).json({success:false,message:"Invalid order id"});
     const order=await Order.findById(req.params.id);

@@ -1,8 +1,7 @@
 // ======================= src/models/property_model.js =======================
 
 import mongoose from "mongoose";
-import Counter from "./counter_model.js";
-import fs from "fs";
+import Counter from "../counter_model.js";import fs from "fs";
 import path from "path";
 
 /* =====================================================

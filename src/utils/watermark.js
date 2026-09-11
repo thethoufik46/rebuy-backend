@@ -1,30 +1,16 @@
 import sharp from "sharp";
 import path from "path";
-
-export const addWatermarkBuffer = async (imageBuffer) => {
-
-  const logoPath = path.join(process.cwd(), "assets/logo.png");
-
-  // get image size
-  const metadata = await sharp(imageBuffer).metadata();
-
-  const imageWidth = metadata.width || 1200;
-
-  // logo width = 25% of image width
-  const logoWidth = Math.round(imageWidth * 0.25);
-
-  const logoBuffer = await sharp(logoPath)
-    .resize(logoWidth)
-    .png()
-    .toBuffer();
-
-  return await sharp(imageBuffer)
-    .composite([
-      {
-        input: logoBuffer,
-        gravity: "south",   // bottom center
-      },
-    ])
-    .jpeg({ quality: 95 })
-    .toBuffer();
+export const addWatermarkBuffer=async(imageBuffer,maxKB=80)=>{
+  const logoPath=path.join(process.cwd(),"assets/logo.png");
+  const metadata=await sharp(imageBuffer).metadata();
+  const width=metadata.width||1200;
+  const logoWidth=Math.round(width*0.20);
+  const logoBuffer=await sharp(logoPath).resize({width:logoWidth}).png().toBuffer();
+  let quality=85;
+  let result=await sharp(imageBuffer).composite([{input:logoBuffer,gravity:"south"}]).jpeg({quality,mozjpeg:true}).toBuffer();
+  while(result.length>maxKB*1024&&quality>30){
+    quality-=5;
+    result=await sharp(imageBuffer).composite([{input:logoBuffer,gravity:"south"}]).jpeg({quality,mozjpeg:true}).toBuffer();
+  }
+  return result;
 };

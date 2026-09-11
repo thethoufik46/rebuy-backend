@@ -942,6 +942,30 @@ router.get(
   }
 );
 
+
+
+
+router.put("/:id/request-delete", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id))
+      return res.status(400).json({ success:false, message:"Invalid car id" });
+    const car = await Car.findById(id);
+    if (!car)
+      return res.status(404).json({ success:false, message:"Car not found" });
+    const isOwner = car.createdBy && car.createdBy.toString() === req.user.id.toString();
+    const isSeller = car.sellerUser && car.sellerUser.toString() === req.user.id.toString();
+    if (!isOwner && !isSeller)
+      return res.status(403).json({ success:false, message:"You are not allowed to delete this car" });
+    car.status = "delete_requested";
+    await car.save();
+    return res.json({ success:true, message:"Car delete request submitted", carId:car._id, status:car.status });
+  } catch (error) {
+    console.error("REQUEST DELETE CAR ERROR:", error);
+    return res.status(400).json({ success:false, message:error.message || "Failed to request car deletion" });
+  }
+});
+
 /* ============================================================
    GET MY CARS
 ============================================================ */

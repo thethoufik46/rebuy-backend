@@ -1,42 +1,31 @@
-
 import multer from "multer";
 
-/* ============================================================
-   MEMORY STORAGE
-   Audio file is kept in memory as req.file.buffer.
-   It will later be uploaded to Cloudflare R2.
-============================================================ */
-
+// ============================================================
+// MEMORY STORAGE
+// ============================================================
 const storage = multer.memoryStorage();
 
-/* ============================================================
-   LEAD AUDIO UPLOAD
-   Maximum file size: 10 MB
-============================================================ */
-
+// ============================================================
+// LEAD AUDIO UPLOAD
+// Max: 10 MB
+// AAC + M4A + MP3 + WAV + OGG + common audio formats
+// ============================================================
 const uploadLead = multer({
   storage,
-
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
+    fileSize: 10 * 1024 * 1024,
   },
-
   fileFilter: (req, file, cb) => {
-    /*
-      Lead audio only.
-      Accept common audio MIME types.
-    */
+    const mime = (file.mimetype || "").toLowerCase();
+    const name = (file.originalname || "").toLowerCase();
+    const audioExt = /\.(aac|m4a|mp3|wav|ogg|oga|webm|opus|flac)$/i.test(name);
 
-    if (!file.mimetype || !file.mimetype.startsWith("audio/")) {
-      return cb(new Error("Only audio files are allowed"));
+    if (mime.startsWith("audio/") || audioExt) {
+      return cb(null, true);
     }
 
-    cb(null, true);
+    return cb(new Error("Only audio files are allowed"));
   },
 });
-
-/* ============================================================
-   EXPORT
-============================================================ */
 
 export default uploadLead;

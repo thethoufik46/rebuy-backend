@@ -11,22 +11,31 @@ export const uploadPropertyImage=async(file,folder)=>{
     if(!file?.buffer)throw new Error("Invalid file upload");
     if(!BUCKET||!PUBLIC_URL)throw new Error("R2 config missing");
     const mime=file.mimetype||"image/jpeg";
-    const ext=mime==="image/png"?"png":mime==="image/webp"?"webp":mime==="image/gif"?"gif":"jpg";
+    const isGallery=folder.includes("gallery"),isBanner=folder.includes("banner");
+    let bufferToUpload=file.buffer,ext=mime.split("/")[1]||"bin",contentType=mime;
+    if(isGallery||isBanner){
+      bufferToUpload=await addWatermarkBuffer(file.buffer,isBanner?100:80);
+      ext="jpg";
+      contentType="image/jpeg";
+    }else if(mime.startsWith("image/")){
+      ext="jpg";
+      contentType="image/jpeg";
+    }
     const key=`${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    let bufferToUpload=file.buffer;
-    if(folder.includes("gallery")||folder.includes("banner"))bufferToUpload=await addWatermarkBuffer(file.buffer);
-    await r2.send(new PutObjectCommand({Bucket:BUCKET,Key:key,Body:bufferToUpload,ContentType:mime}));
+    await r2.send(new PutObjectCommand({Bucket:BUCKET,Key:key,Body:bufferToUpload,ContentType:contentType}));
+    console.log(`PROPERTY R2 UPLOAD: ${key} | ${(bufferToUpload.length/1024).toFixed(2)} KB | ${contentType}`);
     return `${PUBLIC_URL}/${key}`;
   }catch(err){
-    console.error("PROPERTY UPLOAD ERROR:",err.message);
-    throw new Error("Property file upload failed");
+    console.error("PROPERTY UPLOAD ERROR:",err);
+    console.error("PROPERTY UPLOAD MESSAGE:",err?.message);
+    throw new Error(err?.message||"Property file upload failed");
   }
 };
 export const deletePropertyImage=async(url)=>{
   try{
-    if(!url||!url.startsWith(PUBLIC_URL))return;
+    if(!url||!PUBLIC_URL||!url.startsWith(PUBLIC_URL))return;
     const key=url.replace(`${PUBLIC_URL}/`,"");
     if(!key)return;
     await r2.send(new DeleteObjectCommand({Bucket:BUCKET,Key:key}));
-  }catch(err){console.error("PROPERTY DELETE ERROR:",err.message);}
+  }catch(err){console.error("PROPERTY DELETE ERROR:",err?.message);}
 };

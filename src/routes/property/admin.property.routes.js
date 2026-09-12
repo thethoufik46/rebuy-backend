@@ -2,13 +2,30 @@
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
 // REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import express from "express";
+import mongoose from "mongoose";
 import Property from "../../models/property/property_model.js";
+import User from "../../models/user_model.js";
 import {verifyToken,isAdmin} from "../../middleware/auth.js";
 import uploadProperty from "../../middleware/property/uploadProperty.js";
 import {uploadPropertyImage,deletePropertyImage} from "../../utils/property/propertyUpload.js";
 const router=express.Router();
 const fields=[{name:"banner",maxCount:1},{name:"gallery",maxCount:10},{name:"audio",maxCount:1},{name:"video",maxCount:5}];
-const parseDocuments=v=>{if(v==null||v==="")return[];if(Array.isArray(v))return v;if(typeof v==="string"){try{const x=JSON.parse(v);if(Array.isArray(x))return x;}catch{}return[v];}return[];};
+const USER_FIELDS="name googleName email phone alternatePhone role category userType status highlightText district address profileImage galleryImages forgotRequest forgotRequestAt createdAt updatedAt";
+const parseDocuments=v=>{if(v==null||v==="")return[];if(Array.isArray(v))return v;if(typeof v==="string"){try{const x=JSON.parse(v);if(Array.isArray(x))return x}catch{}return[v]}return[]};
+const getId=x=>x?._id||x;
+const attachAdminUsers=async items=>{
+  const list=Array.isArray(items)?items:[items];
+  const ids=[...new Set(list.flatMap(x=>[getId(x?.createdBy),getId(x?.sellerUser)]).filter(x=>x&&mongoose.Types.ObjectId.isValid(x.toString())).map(x=>x.toString()))];
+  if(!ids.length)return items;
+  const users=await User.find({_id:{$in:ids}}).select(USER_FIELDS).lean();
+  const map=new Map(users.map(x=>[x._id.toString(),x]));
+  list.forEach(x=>{
+    const a=getId(x?.createdBy),b=getId(x?.sellerUser);
+    if(a){const u=map.get(a.toString());if(u)x.createdBy=u}
+    if(b){const u=map.get(b.toString());if(u)x.sellerUser=u}
+  });
+  return items;
+};
 router.post("/add",verifyToken,isAdmin,uploadProperty.fields(fields),async(req,res)=>{
   try{
     if(!req.files?.banner?.length)return res.status(400).json({success:false,message:"Banner image required"});
@@ -16,48 +33,73 @@ router.post("/add",verifyToken,isAdmin,uploadProperty.fields(fields),async(req,r
     const galleryImages=req.files?.gallery?.length?await Promise.all(req.files.gallery.map(x=>uploadPropertyImage(x,"property/gallery"))):[];
     const audioNote=req.files?.audio?.length?await uploadPropertyImage(req.files.audio[0],"property/audio"):null;
     const videos=req.files?.video?.length?await Promise.all(req.files.video.map(x=>uploadPropertyImage(x,"property/videos"))):[];
-    const property=await Property.create({...req.body,documents:parseDocuments(req.body.documents),bannerImage,galleryImages,audioNote,videos,videoLink:req.body.videoLink||null,createdBy:req.user.id,status:"available"});
-    res.status(201).json({success:true,message:"Property added successfully",property});
-  }catch(err){console.error("ADD PROPERTY ERROR:",err);res.status(500).json({success:false,message:err.message});}
+    const property=await Property.create({...req.body,documents:parseDocuments(req.body.documents),bannerImage,galleryImages,audioNote,videos,videoLink:req.body.videoLink||null,createdBy:req.user?._id||req.user?.id,status:"available"});
+    const result=property.toObject();
+    await attachAdminUsers([result]);
+    res.status(201).json({success:true,message:"Property added successfully",property:result});
+  }catch(err){
+    console.error("ADD PROPERTY ERROR:",err);
+    res.status(500).json({success:false,message:err.message});
+  }
 });
 router.get("/all",verifyToken,isAdmin,async(req,res)=>{
   try{
     const properties=await Property.find({}).sort({status:1,createdAt:-1}).lean();
+    await attachAdminUsers(properties);
     res.json({success:true,count:properties.length,properties});
-  }catch(err){console.error("GET ADMIN PROPERTY ERROR:",err);res.status(500).json({success:false,message:"Failed to fetch properties"});}
+  }catch(err){
+    console.error("GET ADMIN PROPERTY ERROR:",err);
+    res.status(500).json({success:false,message:"Failed to fetch properties"});
+  }
 });
 router.get("/:id",verifyToken,isAdmin,async(req,res)=>{
   try{
-    const property=await Property.findById(req.params.id);
+    const property=await Property.findById(req.params.id).lean();
     if(!property)return res.status(404).json({success:false,message:"Property not found"});
+    await attachAdminUsers([property]);
     res.json({success:true,property});
-  }catch(err){res.status(500).json({success:false,message:"Failed to fetch property"});}
+  }catch(err){
+    res.status(500).json({success:false,message:"Failed to fetch property"});
+  }
 });
 router.put("/:id",verifyToken,isAdmin,uploadProperty.fields(fields),async(req,res)=>{
   try{
     const property=await Property.findById(req.params.id);
     if(!property)return res.status(404).json({success:false,message:"Property not found"});
-    if(req.files?.banner?.length){if(property.bannerImage)await deletePropertyImage(property.bannerImage);property.bannerImage=await uploadPropertyImage(req.files.banner[0],"property/banner");}
+    if(req.files?.banner?.length){
+      if(property.bannerImage)await deletePropertyImage(property.bannerImage);
+      property.bannerImage=await uploadPropertyImage(req.files.banner[0],"property/banner");
+    }
     if(req.body.existingGallery!==undefined){
-      let existing=[];try{existing=Array.isArray(req.body.existingGallery)?req.body.existingGallery:JSON.parse(req.body.existingGallery);}catch{existing=property.galleryImages||[];}
+      let existing=[];
+      try{existing=Array.isArray(req.body.existingGallery)?req.body.existingGallery:JSON.parse(req.body.existingGallery)}catch{existing=property.galleryImages||[]}
       for(const img of(property.galleryImages||[]).filter(x=>!existing.includes(x)))await deletePropertyImage(img);
       property.galleryImages=existing;
     }
     if(req.files?.gallery?.length)property.galleryImages=[...(property.galleryImages||[]),...(await Promise.all(req.files.gallery.map(x=>uploadPropertyImage(x,"property/gallery"))))];
-    if(req.files?.audio?.length){if(property.audioNote)await deletePropertyImage(property.audioNote);property.audioNote=await uploadPropertyImage(req.files.audio[0],"property/audio");}
+    if(req.files?.audio?.length){
+      if(property.audioNote)await deletePropertyImage(property.audioNote);
+      property.audioNote=await uploadPropertyImage(req.files.audio[0],"property/audio");
+    }
     if(req.body.existingVideos!==undefined){
-      let existing=[];try{existing=Array.isArray(req.body.existingVideos)?req.body.existingVideos:JSON.parse(req.body.existingVideos);}catch{existing=property.videos||[];}
+      let existing=[];
+      try{existing=Array.isArray(req.body.existingVideos)?req.body.existingVideos:JSON.parse(req.body.existingVideos)}catch{existing=property.videos||[]}
       for(const vid of(property.videos||[]).filter(x=>!existing.includes(x)))await deletePropertyImage(vid);
       property.videos=existing;
     }
     if(req.files?.video?.length)property.videos=[...(property.videos||[]),...(await Promise.all(req.files.video.map(x=>uploadPropertyImage(x,"property/videos"))))];
     if(req.body.videoLink!==undefined)property.videoLink=req.body.videoLink||null;
-    const allowed=["mainType","category","price","yearBuilt","bedrooms","landArea","homeArea","roadAccess","direction","district","city","status","sellerInfo","description"];
-    allowed.forEach(k=>{if(req.body[k]!==undefined)property[k]=req.body[k];});
+    const allowed=["mainType","category","price","yearBuilt","bedrooms","landArea","homeArea","roadAccess","direction","district","city","status","sellerInfo","description","seller","sellerUser"];
+    allowed.forEach(k=>{if(req.body[k]!==undefined)property[k]=req.body[k]});
     if(req.body.documents!==undefined)property.documents=parseDocuments(req.body.documents);
     await property.save();
-    res.json({success:true,message:"Property updated successfully",property});
-  }catch(err){console.error("UPDATE PROPERTY ERROR:",err);res.status(500).json({success:false,message:"Property update failed"});}
+    const result=await Property.findById(property._id).lean();
+    await attachAdminUsers([result]);
+    res.json({success:true,message:"Property updated successfully",property:result});
+  }catch(err){
+    console.error("UPDATE PROPERTY ERROR:",err);
+    res.status(500).json({success:false,message:"Property update failed"});
+  }
 });
 router.delete("/:id",verifyToken,isAdmin,async(req,res)=>{
   try{
@@ -69,6 +111,9 @@ router.delete("/:id",verifyToken,isAdmin,async(req,res)=>{
     for(const vid of property.videos||[])await deletePropertyImage(vid);
     await property.deleteOne();
     res.json({success:true,message:"Property deleted successfully"});
-  }catch(err){console.error("DELETE PROPERTY ERROR:",err);res.status(500).json({success:false,message:"Delete failed"});}
+  }catch(err){
+    console.error("DELETE PROPERTY ERROR:",err);
+    res.status(500).json({success:false,message:"Delete failed"});
+  }
 });
 export default router;

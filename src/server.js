@@ -47,7 +47,7 @@ import youtubeAuthRoutes from "./routes/youtubeAuth.routes.js";
 import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 import leadRoutes from "./routes/leads/lead.routes.js";
 import commonSearchRoute from "./routes/common.search.route.js";
-import surveyRoutes from "./routes/survey.routes.js";
+import surveyRoutes from "./routes/property/survey/survey.routes.js";
 dotenv.config();
 const app=express(),server=http.createServer(app);
 export const io=new Server(server,{cors:{origin:"*",methods:["GET","POST","PUT","DELETE"]}});

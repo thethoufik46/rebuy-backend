@@ -26,11 +26,14 @@ const carModelSchema = new mongoose.Schema(
 
     // ============================================================
     // CAR MODEL IMAGE
+    // IMAGE IS OPTIONAL
     // ============================================================
 
     imageUrl: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
+      trim: true,
     },
   },
   {

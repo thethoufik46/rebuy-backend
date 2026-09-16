@@ -10,31 +10,21 @@ import {
 
 // ============================================================
 // ADD CAR VARIANT
+// IMAGE IS OPTIONAL
 // ============================================================
 
-export const addCarVariant = async (
-  req,
-  res
-) => {
+export const addCarVariant = async (req, res) => {
   try {
-    const {
-      carModelId,
-      title,
-    } = req.body;
+    const { carModelId, title } = req.body;
 
     // ----------------------------------------------------------
     // VALIDATION
     // ----------------------------------------------------------
 
-    if (
-      !carModelId ||
-      !title ||
-      !req.file
-    ) {
+    if (!carModelId || !title || !title.trim()) {
       return res.status(400).json({
         success: false,
-        message:
-          "Car model, variant title and image are required",
+        message: "Car model and variant title are required",
       });
     }
 
@@ -42,16 +32,12 @@ export const addCarVariant = async (
     // CHECK CAR MODEL
     // ----------------------------------------------------------
 
-    const carModel =
-      await CarModel.findById(
-        carModelId
-      );
+    const carModel = await CarModel.findById(carModelId);
 
     if (!carModel) {
       return res.status(404).json({
         success: false,
-        message:
-          "Car model not found",
+        message: "Car model not found",
       });
     }
 
@@ -59,48 +45,38 @@ export const addCarVariant = async (
     // CHECK DUPLICATE VARIANT
     // ----------------------------------------------------------
 
-    const existing =
-      await CarVariant.findOne({
-        carModel:
-          carModelId,
-
-        title: new RegExp(
-          `^${title.trim()}$`,
-          "i"
-        ),
-      });
+    const existing = await CarVariant.findOne({
+      carModel: carModelId,
+      title: new RegExp(`^${escapeRegex(title.trim())}$`, "i"),
+    });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message:
-          "Car variant already exists",
+        message: "Car variant already exists",
       });
     }
 
     // ----------------------------------------------------------
     // UPLOAD IMAGE
+    // IMAGE IS OPTIONAL
     // ----------------------------------------------------------
 
-    const imageUrl =
-      await uploadCarVariantImage(
-        req.file
-      );
+    let imageUrl = "";
+
+    if (req.file) {
+      imageUrl = await uploadCarVariantImage(req.file);
+    }
 
     // ----------------------------------------------------------
     // CREATE CAR VARIANT
     // ----------------------------------------------------------
 
-    const carVariant =
-      await CarVariant.create({
-        carModel:
-          carModelId,
-
-        title:
-          title.trim(),
-
-        imageUrl,
-      });
+    const carVariant = await CarVariant.create({
+      carModel: carModelId,
+      title: title.trim(),
+      imageUrl,
+    });
 
     // ----------------------------------------------------------
     // RESPONSE
@@ -108,13 +84,11 @@ export const addCarVariant = async (
 
     return res.status(201).json({
       success: true,
+      message: "Car variant added successfully",
       carVariant,
     });
   } catch (err) {
-    console.error(
-      "ADD CAR VARIANT ERROR 👉",
-      err
-    );
+    console.error("ADD CAR VARIANT ERROR 👉", err);
 
     return res.status(500).json({
       success: false,
@@ -127,501 +101,367 @@ export const addCarVariant = async (
 // GET ALL CAR VARIANTS
 // ============================================================
 
-export const getAllCarVariants =
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const variants =
-        await CarVariant.find()
-          .sort({
-            createdAt: -1,
-          })
-          .populate(
-            {
-              path: "carModel",
-              select:
-                "title imageUrl brand",
-              populate: {
-                path: "brand",
-                select:
-                  "name logoUrl",
-              },
-            }
-          );
-
-      const data =
-        variants.map(
-          (variant) => ({
-            _id:
-              variant._id.toString(),
-
-            carModelId:
-              variant.carModel?._id
-                ?.toString() ||
-              "",
-
-            carModelName:
-              variant
-                .carModel
-                ?.title ||
-              "",
-
-            carModelImage:
-              variant
-                .carModel
-                ?.imageUrl ||
-              "",
-
-            brandId:
-              variant
-                .carModel
-                ?.brand
-                ?._id
-                ?.toString() ||
-              "",
-
-            brandName:
-              variant
-                .carModel
-                ?.brand
-                ?.name ||
-              "",
-
-            brandLogo:
-              variant
-                .carModel
-                ?.brand
-                ?.logoUrl ||
-              "",
-
-            variantName:
-              variant.title ||
-              "",
-
-            variantImage:
-              variant.imageUrl ||
-              "",
-          })
-        );
-
-      return res.status(200).json({
-        success: true,
-        carVariants: data,
+export const getAllCarVariants = async (req, res) => {
+  try {
+    const variants = await CarVariant.find()
+      .sort({
+        createdAt: -1,
+      })
+      .populate({
+        path: "carModel",
+        select: "title imageUrl brand",
+        populate: {
+          path: "brand",
+          select: "name logoUrl",
+        },
       });
-    } catch (err) {
-      console.error(
-        "GET ALL CAR VARIANTS ERROR 👉",
-        err
-      );
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
+    const data = variants.map((variant) => ({
+      _id: variant._id.toString(),
+
+      carModelId:
+        variant.carModel?._id?.toString() || "",
+
+      carModelName:
+        variant.carModel?.title || "",
+
+      carModelImage:
+        variant.carModel?.imageUrl || "",
+
+      brandId:
+        variant.carModel?.brand?._id?.toString() || "",
+
+      brandName:
+        variant.carModel?.brand?.name || "",
+
+      brandLogo:
+        variant.carModel?.brand?.logoUrl || "",
+
+      variantName:
+        variant.title || "",
+
+      variantImage:
+        variant.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      carVariants: data,
+    });
+  } catch (err) {
+    console.error("GET ALL CAR VARIANTS ERROR 👉", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 // ============================================================
 // GET CAR VARIANTS BY CAR MODEL
 // ============================================================
 
-export const getCarVariantsByModel =
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const {
-        carModelId,
-      } = req.params;
+export const getCarVariantsByModel = async (req, res) => {
+  try {
+    const { carModelId } = req.params;
 
-      const variants =
-        await CarVariant.find({
-          carModel:
-            carModelId,
-        })
-          .sort({
-            createdAt: -1,
-          })
-          .populate(
-            {
-              path: "carModel",
-              select:
-                "title imageUrl brand",
-              populate: {
-                path: "brand",
-                select:
-                  "name logoUrl",
-              },
-            }
-          );
+    // --------------------------------------------------------
+    // CHECK CAR MODEL
+    // --------------------------------------------------------
 
-      const data =
-        variants.map(
-          (variant) => ({
-            _id:
-              variant._id.toString(),
+    const carModel = await CarModel.findById(carModelId);
 
-            carModelId:
-              variant
-                .carModel
-                ?._id
-                ?.toString() ||
-              "",
-
-            carModelName:
-              variant
-                .carModel
-                ?.title ||
-              "",
-
-            carModelImage:
-              variant
-                .carModel
-                ?.imageUrl ||
-              "",
-
-            brandId:
-              variant
-                .carModel
-                ?.brand
-                ?._id
-                ?.toString() ||
-              "",
-
-            brandName:
-              variant
-                .carModel
-                ?.brand
-                ?.name ||
-              "",
-
-            brandLogo:
-              variant
-                .carModel
-                ?.brand
-                ?.logoUrl ||
-              "",
-
-            variantName:
-              variant.title ||
-              "",
-
-            variantImage:
-              variant.imageUrl ||
-              "",
-          })
-        );
-
-      return res.status(200).json({
-        success: true,
-        carVariants: data,
-      });
-    } catch (err) {
-      console.error(
-        "GET CAR VARIANTS BY MODEL ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
+    if (!carModel) {
+      return res.status(404).json({
         success: false,
-        message: err.message,
+        message: "Car model not found",
       });
     }
-  };
+
+    // --------------------------------------------------------
+    // GET VARIANTS
+    // --------------------------------------------------------
+
+    const variants = await CarVariant.find({
+      carModel: carModelId,
+    })
+      .sort({
+        createdAt: -1,
+      })
+      .populate({
+        path: "carModel",
+        select: "title imageUrl brand",
+        populate: {
+          path: "brand",
+          select: "name logoUrl",
+        },
+      });
+
+    const data = variants.map((variant) => ({
+      _id: variant._id.toString(),
+
+      carModelId:
+        variant.carModel?._id?.toString() || "",
+
+      carModelName:
+        variant.carModel?.title || "",
+
+      carModelImage:
+        variant.carModel?.imageUrl || "",
+
+      brandId:
+        variant.carModel?.brand?._id?.toString() || "",
+
+      brandName:
+        variant.carModel?.brand?.name || "",
+
+      brandLogo:
+        variant.carModel?.brand?.logoUrl || "",
+
+      variantName:
+        variant.title || "",
+
+      variantImage:
+        variant.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      carVariants: data,
+    });
+  } catch (err) {
+    console.error("GET CAR VARIANTS BY MODEL ERROR 👉", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 // ============================================================
 // GET SELECTED CAR VARIANTS
 // ============================================================
 
-export const getSelectedCarVariants =
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const variants =
-        await CarVariant.find({
-          title: {
-            $in: [
-              "Base",
-              "LXI",
-              "VXI",
-              "ZXI",
-              "V",
-              "VX",
-              "ZX",
-            ],
-          },
-        })
-          .populate(
-            {
-              path: "carModel",
-              select:
-                "title imageUrl brand",
-              populate: {
-                path: "brand",
-                select:
-                  "name logoUrl",
-              },
-            }
-          )
-          .sort({
-            createdAt: -1,
-          });
-
-      const data =
-        variants.map(
-          (variant) => ({
-            _id:
-              variant._id.toString(),
-
-            carModelId:
-              variant
-                .carModel
-                ?._id
-                ?.toString() ||
-              "",
-
-            carModelName:
-              variant
-                .carModel
-                ?.title ||
-              "",
-
-            carModelImage:
-              variant
-                .carModel
-                ?.imageUrl ||
-              "",
-
-            brandId:
-              variant
-                .carModel
-                ?.brand
-                ?._id
-                ?.toString() ||
-              "",
-
-            brandName:
-              variant
-                .carModel
-                ?.brand
-                ?.name ||
-              "",
-
-            brandLogo:
-              variant
-                .carModel
-                ?.brand
-                ?.logoUrl ||
-              "",
-
-            variantName:
-              variant.title ||
-              "",
-
-            variantImage:
-              variant.imageUrl ||
-              "",
-          })
-        );
-
-      return res.status(200).json({
-        success: true,
-        carVariants: data,
+export const getSelectedCarVariants = async (req, res) => {
+  try {
+    const variants = await CarVariant.find({
+      title: {
+        $in: [
+          "Base",
+          "LXI",
+          "VXI",
+          "ZXI",
+          "V",
+          "VX",
+          "ZX",
+        ],
+      },
+    })
+      .populate({
+        path: "carModel",
+        select: "title imageUrl brand",
+        populate: {
+          path: "brand",
+          select: "name logoUrl",
+        },
+      })
+      .sort({
+        createdAt: -1,
       });
-    } catch (err) {
-      console.error(
-        "GET SELECTED CAR VARIANTS ERROR 👉",
-        err
-      );
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
+    const data = variants.map((variant) => ({
+      _id: variant._id.toString(),
+
+      carModelId:
+        variant.carModel?._id?.toString() || "",
+
+      carModelName:
+        variant.carModel?.title || "",
+
+      carModelImage:
+        variant.carModel?.imageUrl || "",
+
+      brandId:
+        variant.carModel?.brand?._id?.toString() || "",
+
+      brandName:
+        variant.carModel?.brand?.name || "",
+
+      brandLogo:
+        variant.carModel?.brand?.logoUrl || "",
+
+      variantName:
+        variant.title || "",
+
+      variantImage:
+        variant.imageUrl || "",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      carVariants: data,
+    });
+  } catch (err) {
+    console.error("GET SELECTED CAR VARIANTS ERROR 👉", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 // ============================================================
 // UPDATE CAR VARIANT
+// IMAGE IS OPTIONAL
 // ============================================================
 
-export const updateCarVariant =
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const {
-        id,
-      } = req.params;
+export const updateCarVariant = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-      const {
-        title,
-        carModelId,
-      } = req.body;
+    const { title, carModelId } = req.body;
 
-      // --------------------------------------------------------
-      // FIND VARIANT
-      // --------------------------------------------------------
+    // --------------------------------------------------------
+    // FIND VARIANT
+    // --------------------------------------------------------
 
-      const variant =
-        await CarVariant.findById(
-          id
-        );
+    const variant = await CarVariant.findById(id);
 
-      if (!variant) {
+    if (!variant) {
+      return res.status(404).json({
+        success: false,
+        message: "Car variant not found",
+      });
+    }
+
+    // --------------------------------------------------------
+    // UPDATE TITLE
+    // --------------------------------------------------------
+
+    if (title && title.trim()) {
+      variant.title = title.trim();
+    }
+
+    // --------------------------------------------------------
+    // UPDATE CAR MODEL
+    // --------------------------------------------------------
+
+    if (carModelId) {
+      const carModel = await CarModel.findById(carModelId);
+
+      if (!carModel) {
         return res.status(404).json({
           success: false,
-          message:
-            "Car variant not found",
+          message: "Car model not found",
         });
       }
 
-      // --------------------------------------------------------
-      // UPDATE TITLE
-      // --------------------------------------------------------
-
-      if (
-        title &&
-        title.trim()
-      ) {
-        variant.title =
-          title.trim();
-      }
-
-      // --------------------------------------------------------
-      // UPDATE CAR MODEL
-      // --------------------------------------------------------
-
-      if (carModelId) {
-        const carModel =
-          await CarModel.findById(
-            carModelId
-          );
-
-        if (!carModel) {
-          return res.status(404).json({
-            success: false,
-            message:
-              "Car model not found",
-          });
-        }
-
-        variant.carModel =
-          carModelId;
-      }
-
-      // --------------------------------------------------------
-      // UPDATE IMAGE
-      // --------------------------------------------------------
-
-      if (req.file) {
-        await deleteCarVariantImage(
-          variant.imageUrl
-        );
-
-        variant.imageUrl =
-          await uploadCarVariantImage(
-            req.file
-          );
-      }
-
-      // --------------------------------------------------------
-      // SAVE
-      // --------------------------------------------------------
-
-      await variant.save();
-
-      // --------------------------------------------------------
-      // RESPONSE
-      // --------------------------------------------------------
-
-      return res.status(200).json({
-        success: true,
-        carVariant:
-          variant,
-      });
-    } catch (err) {
-      console.error(
-        "UPDATE CAR VARIANT ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      variant.carModel = carModelId;
     }
-  };
+
+    // --------------------------------------------------------
+    // UPDATE IMAGE
+    // ONLY IF NEW IMAGE IS PROVIDED
+    // --------------------------------------------------------
+
+    if (req.file) {
+      if (variant.imageUrl) {
+        await deleteCarVariantImage(variant.imageUrl);
+      }
+
+      variant.imageUrl = await uploadCarVariantImage(
+        req.file
+      );
+    }
+
+    // --------------------------------------------------------
+    // SAVE
+    // --------------------------------------------------------
+
+    await variant.save();
+
+    // --------------------------------------------------------
+    // RESPONSE
+    // --------------------------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      message: "Car variant updated successfully",
+      carVariant: variant,
+    });
+  } catch (err) {
+    console.error("UPDATE CAR VARIANT ERROR 👉", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 // ============================================================
 // DELETE CAR VARIANT
 // ============================================================
 
-export const deleteCarVariant =
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const {
-        id,
-      } = req.params;
+export const deleteCarVariant = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-      // --------------------------------------------------------
-      // FIND VARIANT
-      // --------------------------------------------------------
+    // --------------------------------------------------------
+    // FIND VARIANT
+    // --------------------------------------------------------
 
-      const variant =
-        await CarVariant.findById(
-          id
-        );
+    const variant = await CarVariant.findById(id);
 
-      if (!variant) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Car variant not found",
-        });
-      }
-
-      // --------------------------------------------------------
-      // DELETE R2 IMAGE
-      // --------------------------------------------------------
-
-      await deleteCarVariantImage(
-        variant.imageUrl
-      );
-
-      // --------------------------------------------------------
-      // DELETE DATABASE DOCUMENT
-      // --------------------------------------------------------
-
-      await variant.deleteOne();
-
-      // --------------------------------------------------------
-      // RESPONSE
-      // --------------------------------------------------------
-
-      return res.status(200).json({
-        success: true,
-        message:
-          "Car variant deleted",
-      });
-    } catch (err) {
-      console.error(
-        "DELETE CAR VARIANT ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
+    if (!variant) {
+      return res.status(404).json({
         success: false,
-        message: err.message,
+        message: "Car variant not found",
       });
     }
-  };
+
+    // --------------------------------------------------------
+    // DELETE R2 IMAGE
+    // ONLY IF IMAGE EXISTS
+    // --------------------------------------------------------
+
+    if (variant.imageUrl) {
+      await deleteCarVariantImage(variant.imageUrl);
+    }
+
+    // --------------------------------------------------------
+    // DELETE DATABASE DOCUMENT
+    // --------------------------------------------------------
+
+    await variant.deleteOne();
+
+    // --------------------------------------------------------
+    // RESPONSE
+    // --------------------------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      message: "Car variant deleted",
+    });
+  } catch (err) {
+    console.error("DELETE CAR VARIANT ERROR 👉", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ============================================================
+// ESCAPE REGEX
+// Prevent special characters in variant title from breaking
+// duplicate checking regex.
+// ============================================================
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

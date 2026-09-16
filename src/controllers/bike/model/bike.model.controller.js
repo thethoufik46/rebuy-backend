@@ -18,13 +18,12 @@ export const addBikeModel = async (
     if (
       !brandId ||
       !title ||
-      !title.trim() ||
-      !req.file
+      !title.trim()
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "Brand, bike model title and image are required",
+          "Brand and bike model title are required",
       });
     }
     const brand =
@@ -56,10 +55,13 @@ export const addBikeModel = async (
           "Bike model already exists",
       });
     }
-    const imageUrl =
-      await uploadBikeModelImage(
-        req.file
-      );
+    let imageUrl = "";
+    if (req.file) {
+      imageUrl =
+        await uploadBikeModelImage(
+          req.file
+        );
+    }
     const bikeModel =
       await BikeModel.create({
         brand: brandId,
@@ -483,9 +485,11 @@ export const updateBikeModel =
           brandId;
       }
       if (req.file) {
-        await deleteBikeModelImage(
-          bikeModel.imageUrl
-        );
+        if (bikeModel.imageUrl) {
+          await deleteBikeModelImage(
+            bikeModel.imageUrl
+          );
+        }
         bikeModel.imageUrl =
           await uploadBikeModelImage(
             req.file
@@ -527,9 +531,11 @@ export const deleteBikeModel =
             "Bike model not found",
         });
       }
-      await deleteBikeModelImage(
-        bikeModel.imageUrl
-      );
+      if (bikeModel.imageUrl) {
+        await deleteBikeModelImage(
+          bikeModel.imageUrl
+        );
+      }
       await bikeModel.deleteOne();
       return res.status(200).json({
         success: true,

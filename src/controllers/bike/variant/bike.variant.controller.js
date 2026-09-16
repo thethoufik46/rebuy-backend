@@ -18,12 +18,12 @@ export const addBikeVariant = async (
     if (
       !modelId ||
       !title ||
-      !req.file
+      !title.trim()
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "Model, bike variant title and image are required",
+          "Model and bike variant title are required",
       });
     }
     const model =
@@ -36,8 +36,7 @@ export const addBikeVariant = async (
         message: "Model not found",
       });
     }
-    const cleanTitle =
-      title.trim();
+    const cleanTitle = title.trim();
     const existing =
       await BikeVariant.findOne({
         model: modelId,
@@ -56,10 +55,13 @@ export const addBikeVariant = async (
           "Bike variant already exists",
       });
     }
-    const imageUrl =
-      await uploadBikeVariantImage(
-        req.file
-      );
+    let imageUrl = "";
+    if (req.file) {
+      imageUrl =
+        await uploadBikeVariantImage(
+          req.file
+        );
+    }
     const bikeVariant =
       await BikeVariant.create({
         model: modelId,
@@ -110,11 +112,9 @@ export const getBikeVariants = async (
             variant.model?._id
               ?.toString() || "",
           modelName:
-            variant.model?.title ||
-            "",
+            variant.model?.title || "",
           modelImage:
-            variant.model?.imageUrl ||
-            "",
+            variant.model?.imageUrl || "",
           brandId:
             variant.model?.brand?._id
               ?.toString() || "",
@@ -281,17 +281,18 @@ export const updateBikeVariant =
         if (!model) {
           return res.status(404).json({
             success: false,
-            message:
-              "Model not found",
+            message: "Model not found",
           });
         }
         bikeVariant.model =
           modelId;
       }
       if (req.file) {
-        await deleteBikeVariantImage(
-          bikeVariant.imageUrl
-        );
+        if (bikeVariant.imageUrl) {
+          await deleteBikeVariantImage(
+            bikeVariant.imageUrl
+          );
+        }
         bikeVariant.imageUrl =
           await uploadBikeVariantImage(
             req.file
@@ -335,9 +336,11 @@ export const deleteBikeVariant =
             "Bike variant not found",
         });
       }
-      await deleteBikeVariantImage(
-        bikeVariant.imageUrl
-      );
+      if (bikeVariant.imageUrl) {
+        await deleteBikeVariantImage(
+          bikeVariant.imageUrl
+        );
+      }
       await bikeVariant.deleteOne();
       return res.status(200).json({
         success: true,

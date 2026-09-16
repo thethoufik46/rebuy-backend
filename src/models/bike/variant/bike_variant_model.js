@@ -15,7 +15,7 @@ const bikeVariantSchema = new mongoose.Schema(
     },
     imageUrl: {
       type: String,
-      required: true,
+      default: "",
     },
   },
   { timestamps: true }

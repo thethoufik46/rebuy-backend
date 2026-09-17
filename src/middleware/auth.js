@@ -1,62 +1,193 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user_model.js";
 
-/* ================= VERIFY TOKEN ================= */
+// ============================================================
+// VERIFY TOKEN
+// ============================================================
+
 export const verifyToken = async (req, res, next) => {
   try {
+    // ----------------------------------------------------------
+    // AUTH HEADER
+    // ----------------------------------------------------------
+
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ")
+    ) {
       return res.status(401).json({
         success: false,
-        message: "Token missing",
+        message: "Authentication required",
+        authError: true,
+        logout: true,
       });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // ----------------------------------------------------------
+    // TOKEN
+    // ----------------------------------------------------------
 
-    const user = await User.findById(decoded.id).select("-password");
+    const token = authHeader
+      .substring(7)
+      .trim();
 
-    // ✅ User deleted
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication token missing",
+        authError: true,
+        logout: true,
+      });
+    }
+
+    // ----------------------------------------------------------
+    // VERIFY JWT
+    // ----------------------------------------------------------
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    // ----------------------------------------------------------
+    // USER ID
+    // ----------------------------------------------------------
+
+    if (!decoded?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token",
+        authError: true,
+        logout: true,
+      });
+    }
+
+    // ----------------------------------------------------------
+    // FIND USER
+    // ----------------------------------------------------------
+
+    const user = await User.findById(
+      decoded.id
+    ).select("-password");
+
+    // ----------------------------------------------------------
+    // USER DELETED
+    // ----------------------------------------------------------
+
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "User account not found",
+        authError: true,
         logout: true,
       });
     }
 
-    // ✅ User blocked
-    if (user.verification === "black") {
+    // ----------------------------------------------------------
+    // BLOCKED USER
+    //
+    // IMPORTANT:
+    // Your project uses userType === "black"
+    // NOT verification === "black"
+    // ----------------------------------------------------------
+
+    if (user.userType === "black") {
       return res.status(403).json({
         success: false,
-        message: "You are blocked.",
+        message:
+          "Your account has been blocked. Please contact support.",
         blocked: true,
+        authError: true,
         logout: true,
       });
     }
+
+    // ----------------------------------------------------------
+    // ATTACH USER TO REQUEST
+    // ----------------------------------------------------------
 
     req.user = user;
     req.userId = user._id;
+
+    // ----------------------------------------------------------
+    // CONTINUE
+    // ----------------------------------------------------------
+
     next();
-  } catch (err) {
-    console.error("AUTH ERROR 👉", err.message);
+  } catch (error) {
+    console.error(
+      "AUTH ERROR 👉",
+      error?.name,
+      error?.message
+    );
+
+    // ----------------------------------------------------------
+    // TOKEN EXPIRED
+    // ----------------------------------------------------------
+
+    if (error?.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication session expired",
+        authError: true,
+        tokenExpired: true,
+        logout: true,
+      });
+    }
+
+    // ----------------------------------------------------------
+    // INVALID TOKEN
+    // ----------------------------------------------------------
+
+    if (error?.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token",
+        authError: true,
+        logout: true,
+      });
+    }
+
+    // ----------------------------------------------------------
+    // OTHER AUTH ERROR
+    // ----------------------------------------------------------
+
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message: "Authentication failed",
+      authError: true,
       logout: true,
     });
   }
 };
 
-/* ================= ADMIN ONLY ================= */
-export const isAdmin = (req, res, next) => {
-  if (req.user?.role !== "admin") {
+// ============================================================
+// ADMIN ONLY
+// ============================================================
+
+export const isAdmin = (
+  req,
+  res,
+  next
+) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+      authError: true,
+      logout: true,
+    });
+  }
+
+  if (req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Admins only",
+      adminRequired: true,
     });
   }
+
   next();
 };

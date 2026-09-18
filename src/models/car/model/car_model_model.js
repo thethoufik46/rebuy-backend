@@ -1,22 +1,15 @@
 // ======================= car_model_model.js =======================
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
+// ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
+// REDUCE LINE COUNT AGGRESSIVELY: KEEP 100% LOGIC & FUNCTIONALITY.
 import mongoose from "mongoose";
-// ============================================================
-// CAR MODEL SCHEMA
-// ============================================================
 const carModelSchema=new mongoose.Schema({
-  // CAR BRAND — REQUIRED
   brand:{type:mongoose.Schema.Types.ObjectId,ref:"CarBrand",required:true},
-  // CAR MODEL NAME — REQUIRED
   title:{type:String,required:true,trim:true},
-  // CAR MODEL IMAGE — OPTIONAL
   imageUrl:{type:String,required:false,default:"",trim:true},
-  // SEATER — OPTIONAL
+  taxiImageUrl:{type:String,required:false,default:"",trim:true},
   seater:{type:String,enum:["","5 seater","7 seater"],required:false,default:"",trim:true},
-  // ORDER — OPTIONAL, NUMBER ONLY
   order:{type:Number,default:null},
 },{timestamps:true});
-// ============================================================
-// MONGODB COLLECTION = carmodels
-// ============================================================
 const CarModel=mongoose.model("CarModel",carModelSchema,"carmodels");
 export default CarModel;

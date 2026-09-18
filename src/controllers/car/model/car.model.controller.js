@@ -1,8 +1,6 @@
 // ======================= car.model.controller.js =======================
-
 import CarModel from "../../../models/car/model/car_model_model.js";
 import CarBrand from "../../../models/car/brand/car_brand_model.js";
-
 import {
   uploadCarModelImage,
   deleteCarModelImage,
@@ -10,16 +8,10 @@ import {
 
 // ============================================================
 // ADD CAR MODEL
-// IMAGE IS OPTIONAL
 // ============================================================
-
 export const addCarModel = async (req, res) => {
   try {
-    const { brandId, title } = req.body;
-
-    // ----------------------------------------------------------
-    // VALIDATION
-    // ----------------------------------------------------------
+    const { brandId, title, seater, order } = req.body;
 
     if (!brandId || !title || !title.trim()) {
       return res.status(400).json({
@@ -28,9 +20,22 @@ export const addCarModel = async (req, res) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // CHECK BRAND
-    // ----------------------------------------------------------
+    if (seater && !["5 seater", "7 seater"].includes(seater)) {
+      return res.status(400).json({
+        success: false,
+        message: "Seater must be 5 seater or 7 seater",
+      });
+    }
+
+    if (order !== undefined && order !== null && order !== "") {
+      const orderNumber = Number(order);
+      if (!Number.isInteger(orderNumber) || orderNumber < 1 || orderNumber > 99) {
+        return res.status(400).json({
+          success: false,
+          message: "Order must be an integer between 1 and 99",
+        });
+      }
+    }
 
     const brand = await CarBrand.findById(brandId);
 
@@ -40,10 +45,6 @@ export const addCarModel = async (req, res) => {
         message: "Brand not found",
       });
     }
-
-    // ----------------------------------------------------------
-    // CHECK DUPLICATE
-    // ----------------------------------------------------------
 
     const existing = await CarModel.findOne({
       brand: brandId,
@@ -57,30 +58,22 @@ export const addCarModel = async (req, res) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // UPLOAD IMAGE
-    // IMAGE IS OPTIONAL
-    // ----------------------------------------------------------
-
     let imageUrl = "";
 
     if (req.file) {
       imageUrl = await uploadCarModelImage(req.file);
     }
 
-    // ----------------------------------------------------------
-    // CREATE CAR MODEL
-    // ----------------------------------------------------------
-
     const carModel = await CarModel.create({
       brand: brandId,
       title: title.trim(),
       imageUrl,
+      seater: seater || "",
+      order:
+        order !== undefined && order !== null && order !== ""
+          ? Number(order)
+          : null,
     });
-
-    // ----------------------------------------------------------
-    // RESPONSE
-    // ----------------------------------------------------------
 
     return res.status(201).json({
       success: true,
@@ -89,7 +82,6 @@ export const addCarModel = async (req, res) => {
     });
   } catch (err) {
     console.error("ADD CAR MODEL ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -100,27 +92,21 @@ export const addCarModel = async (req, res) => {
 // ============================================================
 // GET ALL CAR MODELS
 // ============================================================
-
 export const getAllCarModels = async (req, res) => {
   try {
     const carModels = await CarModel.find()
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ order: 1, createdAt: -1 })
       .populate("brand", "name logoUrl");
 
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -129,7 +115,6 @@ export const getAllCarModels = async (req, res) => {
     });
   } catch (err) {
     console.error("GET ALL CAR MODELS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -140,15 +125,9 @@ export const getAllCarModels = async (req, res) => {
 // ============================================================
 // GET CAR MODELS BY BRAND
 // ============================================================
-
 export const getCarModelsByBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
-
-    // --------------------------------------------------------
-    // CHECK BRAND
-    // --------------------------------------------------------
-
     const brand = await CarBrand.findById(brandId);
 
     if (!brand) {
@@ -158,76 +137,41 @@ export const getCarModelsByBrand = async (req, res) => {
       });
     }
 
-    // --------------------------------------------------------
-    // GET MODELS
-    // --------------------------------------------------------
-
-    const carModels = await CarModel.find({
-      brand: brandId,
-    })
-      .sort({
-        createdAt: -1,
-      })
+    const carModels = await CarModel.find({ brand: brandId })
+      .sort({ order: 1, createdAt: -1 })
       .populate("brand", "name logoUrl");
 
-    // --------------------------------------------------------
-    // PRIORITY
-    // --------------------------------------------------------
-
-    const priority = [
-      "crysta",
-      "innova",
-      "ertiga",
-      "swift",
-      "wagon r",
-    ];
+    const priority = ["crysta", "innova", "ertiga", "swift", "wagon r"];
 
     carModels.sort((a, b) => {
       const aTitle = (a.title || "").trim().toLowerCase();
-
       const bTitle = (b.title || "").trim().toLowerCase();
+      const aIndex = priority.findIndex((item) => aTitle.startsWith(item));
+      const bIndex = priority.findIndex((item) => bTitle.startsWith(item));
 
-      const aIndex = priority.findIndex((item) =>
-        aTitle.startsWith(item)
-      );
-
-      const bIndex = priority.findIndex((item) =>
-        bTitle.startsWith(item)
-      );
-
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex;
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      if (a.order != null && b.order != null && a.order !== b.order) {
+        return a.order - b.order;
       }
-
-      if (aIndex !== -1) {
-        return -1;
-      }
-
-      if (bIndex !== -1) {
-        return 1;
-      }
+      if (a.order != null) return -1;
+      if (b.order != null) return 1;
 
       return aTitle.localeCompare(bTitle, "en", {
         sensitivity: "base",
       });
     });
 
-    // --------------------------------------------------------
-    // RESPONSE
-    // --------------------------------------------------------
-
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -236,7 +180,6 @@ export const getCarModelsByBrand = async (req, res) => {
     });
   } catch (err) {
     console.error("GET CAR MODELS BY BRAND ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -248,78 +191,38 @@ export const getCarModelsByBrand = async (req, res) => {
 // GET VISIBLE CAR MODELS
 // HIDE LOAD VEHICLES + OTHER STATE
 // ============================================================
-
 export const getONEBrandhideCarModels = async (req, res) => {
   try {
-    // --------------------------------------------------------
-    // LOAD VEHICLES BRAND
-    // --------------------------------------------------------
-
     const loadBrand = await CarBrand.findOne({
       name: "Load vehicles லோடு வாகனங்கள்",
     });
-
-    // --------------------------------------------------------
-    // OTHER STATE BRAND
-    // --------------------------------------------------------
 
     const otherStateBrand = await CarBrand.findOne({
       name: "Other State டெல்லி",
     });
 
-    // --------------------------------------------------------
-    // HIDDEN IDS
-    // --------------------------------------------------------
-
     const hiddenBrandIds = [];
-
-    if (loadBrand) {
-      hiddenBrandIds.push(loadBrand._id);
-    }
-
-    if (otherStateBrand) {
-      hiddenBrandIds.push(otherStateBrand._id);
-    }
-
-    // --------------------------------------------------------
-    // QUERY
-    // --------------------------------------------------------
+    if (loadBrand) hiddenBrandIds.push(loadBrand._id);
+    if (otherStateBrand) hiddenBrandIds.push(otherStateBrand._id);
 
     const query =
       hiddenBrandIds.length > 0
-        ? {
-            brand: {
-              $nin: hiddenBrandIds,
-            },
-          }
+        ? { brand: { $nin: hiddenBrandIds } }
         : {};
 
-    // --------------------------------------------------------
-    // GET MODELS
-    // --------------------------------------------------------
-
     const carModels = await CarModel.find(query)
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ order: 1, createdAt: -1 })
       .populate("brand", "name logoUrl");
-
-    // --------------------------------------------------------
-    // RESPONSE
-    // --------------------------------------------------------
 
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -328,7 +231,6 @@ export const getONEBrandhideCarModels = async (req, res) => {
     });
   } catch (err) {
     console.error("GET VISIBLE CAR MODELS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -339,7 +241,6 @@ export const getONEBrandhideCarModels = async (req, res) => {
 // ============================================================
 // LOAD VEHICLES CAR MODELS
 // ============================================================
-
 export const getLoadVehiclesCarModels = async (req, res) => {
   try {
     const brand = await CarBrand.findOne({
@@ -353,26 +254,19 @@ export const getLoadVehiclesCarModels = async (req, res) => {
       });
     }
 
-    const carModels = await CarModel.find({
-      brand: brand._id,
-    })
-      .sort({
-        createdAt: -1,
-      })
+    const carModels = await CarModel.find({ brand: brand._id })
+      .sort({ order: 1, createdAt: -1 })
       .populate("brand", "name logoUrl");
 
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -381,7 +275,6 @@ export const getLoadVehiclesCarModels = async (req, res) => {
     });
   } catch (err) {
     console.error("GET LOAD VEHICLES CAR MODELS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -392,7 +285,6 @@ export const getLoadVehiclesCarModels = async (req, res) => {
 // ============================================================
 // OTHER STATE CAR MODELS
 // ============================================================
-
 export const getOtherStateCarModels = async (req, res) => {
   try {
     const brand = await CarBrand.findOne({
@@ -406,26 +298,19 @@ export const getOtherStateCarModels = async (req, res) => {
       });
     }
 
-    const carModels = await CarModel.find({
-      brand: brand._id,
-    })
-      .sort({
-        createdAt: -1,
-      })
+    const carModels = await CarModel.find({ brand: brand._id })
+      .sort({ order: 1, createdAt: -1 })
       .populate("brand", "name logoUrl");
 
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -434,7 +319,6 @@ export const getOtherStateCarModels = async (req, res) => {
     });
   } catch (err) {
     console.error("GET OTHER STATE CAR MODELS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -445,7 +329,6 @@ export const getOtherStateCarModels = async (req, res) => {
 // ============================================================
 // SELECTED CAR MODELS
 // ============================================================
-
 export const getSelectedCarModels = async (req, res) => {
   try {
     const carModels = await CarModel.find({
@@ -459,22 +342,17 @@ export const getSelectedCarModels = async (req, res) => {
       },
     })
       .populate("brand", "name logoUrl")
-      .sort({
-        createdAt: -1,
-      });
+      .sort({ order: 1, createdAt: -1 });
 
     const data = carModels.map((model) => ({
       _id: model._id.toString(),
-
       brandId: model.brand?._id?.toString() || "",
-
       brandName: model.brand?.name || "",
-
       brandLogo: model.brand?.logoUrl || "",
-
       modelName: model.title || "",
-
       modelImage: model.imageUrl || "",
+      seater: model.seater || "",
+      order: model.order ?? null,
     }));
 
     return res.status(200).json({
@@ -483,7 +361,6 @@ export const getSelectedCarModels = async (req, res) => {
     });
   } catch (err) {
     console.error("GET SELECTED CAR MODELS ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -493,18 +370,11 @@ export const getSelectedCarModels = async (req, res) => {
 
 // ============================================================
 // UPDATE CAR MODEL
-// IMAGE IS OPTIONAL
 // ============================================================
-
 export const updateCarModel = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const { title, brandId } = req.body;
-
-    // --------------------------------------------------------
-    // FIND MODEL
-    // --------------------------------------------------------
+    const { title, brandId, seater, order } = req.body;
 
     const carModel = await CarModel.findById(id);
 
@@ -515,17 +385,27 @@ export const updateCarModel = async (req, res) => {
       });
     }
 
-    // --------------------------------------------------------
-    // UPDATE TITLE
-    // --------------------------------------------------------
-
-    if (title && title.trim()) {
-      carModel.title = title.trim();
+    if (seater && !["5 seater", "7 seater"].includes(seater)) {
+      return res.status(400).json({
+        success: false,
+        message: "Seater must be 5 seater or 7 seater",
+      });
     }
 
-    // --------------------------------------------------------
-    // UPDATE BRAND
-    // --------------------------------------------------------
+    if (order !== undefined && order !== null && order !== "") {
+      const orderNumber = Number(order);
+      if (!Number.isInteger(orderNumber) || orderNumber < 1 || orderNumber > 99) {
+        return res.status(400).json({
+          success: false,
+          message: "Order must be an integer between 1 and 99",
+        });
+      }
+      carModel.order = orderNumber;
+    } else if (order === "" || order === null) {
+      carModel.order = null;
+    }
+
+    if (title && title.trim()) carModel.title = title.trim();
 
     if (brandId) {
       const brand = await CarBrand.findById(brandId);
@@ -540,28 +420,18 @@ export const updateCarModel = async (req, res) => {
       carModel.brand = brandId;
     }
 
-    // --------------------------------------------------------
-    // UPDATE IMAGE
-    // ONLY IF NEW IMAGE IS PROVIDED
-    // --------------------------------------------------------
+    if (seater !== undefined) {
+      carModel.seater = seater || "";
+    }
 
     if (req.file) {
       if (carModel.imageUrl) {
         await deleteCarModelImage(carModel.imageUrl);
       }
-
       carModel.imageUrl = await uploadCarModelImage(req.file);
     }
 
-    // --------------------------------------------------------
-    // SAVE
-    // --------------------------------------------------------
-
     await carModel.save();
-
-    // --------------------------------------------------------
-    // RESPONSE
-    // --------------------------------------------------------
 
     return res.status(200).json({
       success: true,
@@ -570,7 +440,6 @@ export const updateCarModel = async (req, res) => {
     });
   } catch (err) {
     console.error("UPDATE CAR MODEL ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -581,15 +450,9 @@ export const updateCarModel = async (req, res) => {
 // ============================================================
 // DELETE CAR MODEL
 // ============================================================
-
 export const deleteCarModel = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // --------------------------------------------------------
-    // FIND MODEL
-    // --------------------------------------------------------
-
     const carModel = await CarModel.findById(id);
 
     if (!carModel) {
@@ -599,24 +462,11 @@ export const deleteCarModel = async (req, res) => {
       });
     }
 
-    // --------------------------------------------------------
-    // DELETE R2 IMAGE
-    // ONLY IF IMAGE EXISTS
-    // --------------------------------------------------------
-
     if (carModel.imageUrl) {
       await deleteCarModelImage(carModel.imageUrl);
     }
 
-    // --------------------------------------------------------
-    // DELETE DATABASE
-    // --------------------------------------------------------
-
     await carModel.deleteOne();
-
-    // --------------------------------------------------------
-    // RESPONSE
-    // --------------------------------------------------------
 
     return res.status(200).json({
       success: true,
@@ -624,7 +474,6 @@ export const deleteCarModel = async (req, res) => {
     });
   } catch (err) {
     console.error("DELETE CAR MODEL ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -634,10 +483,7 @@ export const deleteCarModel = async (req, res) => {
 
 // ============================================================
 // ESCAPE REGEX
-// Prevent special characters in model title from breaking
-// duplicate checking regex.
 // ============================================================
-
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -2,7 +2,6 @@
 import CarModel from "../../../models/car/model/car_model_model.js";
 import CarBrand from "../../../models/car/brand/car_brand_model.js";
 import {uploadCarModelImage,deleteCarModelImage} from "../../../utils/car/model/carModel.js";
-
 // ============================================================
 // ADD CAR MODEL
 // Brand + Title REQUIRED
@@ -13,53 +12,39 @@ export const addCarModel=async(req,res)=>{
     const{brandId,title,seater,order}=req.body;
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!["5 seater","7 seater"].includes(seater))return res.status(400).json({success:false,message:"Seater must be 5 seater or 7 seater"});
+    let orderValue=null;
     if(order!==undefined&&order!==null&&order!==""){
-      const orderNumber=Number(order);
-      if(!Number.isInteger(orderNumber)||orderNumber<1||orderNumber>99)return res.status(400).json({success:false,message:"Order must be an integer between 1 and 99"});
+      const n=Number(order);
+      if(!Number.isFinite(n))return res.status(400).json({success:false,message:"Order must be a number"});
+      orderValue=n;
     }
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
-    const existing=await CarModel.findOne({brand:brandId,title:new RegExp(`^${escapeRegex(title.trim())}$`,"i")});
+    const cleanTitle=title.trim();
+    const existing=await CarModel.findOne({brand:brandId,title:new RegExp(`^${escapeRegex(cleanTitle)}$`,"i")});
     if(existing)return res.status(409).json({success:false,message:"Car model already exists"});
     let imageUrl="";
     if(req.file)imageUrl=await uploadCarModelImage(req.file);
-    const carModel=await CarModel.create({
-      brand:brandId,
-      title:title.trim(),
-      imageUrl,
-      seater:seater||"",
-      order:order!==undefined&&order!==null&&order!==""?Number(order):null
-    });
+    const carModel=await CarModel.create({brand:brandId,title:cleanTitle,imageUrl,seater:seater||"",order:orderValue});
     return res.status(201).json({success:true,message:"Car model added successfully",carModel});
   }catch(err){
     console.error("ADD CAR MODEL ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // GET ALL CAR MODELS
 // ============================================================
 export const getAllCarModels=async(req,res)=>{
   try{
     const carModels=await CarModel.find().sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET ALL CAR MODELS ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // GET CAR MODELS BY BRAND
 // ============================================================
@@ -72,7 +57,7 @@ export const getCarModelsByBrand=async(req,res)=>{
     const priority=["crysta","innova","ertiga","swift","wagon r"];
     carModels.sort((a,b)=>{
       const aTitle=(a.title||"").trim().toLowerCase(),bTitle=(b.title||"").trim().toLowerCase();
-      const aIndex=priority.findIndex(item=>aTitle.startsWith(item)),bIndex=priority.findIndex(item=>bTitle.startsWith(item));
+      const aIndex=priority.findIndex(x=>aTitle.startsWith(x)),bIndex=priority.findIndex(x=>bTitle.startsWith(x));
       if(aIndex!==-1&&bIndex!==-1)return aIndex-bIndex;
       if(aIndex!==-1)return-1;
       if(bIndex!==-1)return 1;
@@ -81,23 +66,13 @@ export const getCarModelsByBrand=async(req,res)=>{
       if(b.order!=null)return 1;
       return aTitle.localeCompare(bTitle,"en",{sensitivity:"base"});
     });
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET CAR MODELS BY BRAND ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // GET VISIBLE CAR MODELS
 // HIDE LOAD VEHICLES + OTHER STATE
@@ -109,25 +84,15 @@ export const getONEBrandhideCarModels=async(req,res)=>{
     const hiddenBrandIds=[];
     if(loadBrand)hiddenBrandIds.push(loadBrand._id);
     if(otherStateBrand)hiddenBrandIds.push(otherStateBrand._id);
-    const query=hiddenBrandIds.length>0?{brand:{$nin:hiddenBrandIds}}:{};
+    const query=hiddenBrandIds.length?{brand:{$nin:hiddenBrandIds}}:{};
     const carModels=await CarModel.find(query).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET VISIBLE CAR MODELS ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // LOAD VEHICLES CAR MODELS
 // ============================================================
@@ -136,23 +101,13 @@ export const getLoadVehiclesCarModels=async(req,res)=>{
     const brand=await CarBrand.findOne({name:/load vehicles/i});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
     const carModels=await CarModel.find({brand:brand._id}).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET LOAD VEHICLES CAR MODELS ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // OTHER STATE CAR MODELS
 // ============================================================
@@ -161,48 +116,26 @@ export const getOtherStateCarModels=async(req,res)=>{
     const brand=await CarBrand.findOne({name:"Other State டெல்லி"});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
     const carModels=await CarModel.find({brand:brand._id}).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET OTHER STATE CAR MODELS ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // SELECTED CAR MODELS
 // ============================================================
 export const getSelectedCarModels=async(req,res)=>{
   try{
-    const carModels=await CarModel.find({
-      title:{$in:["Innova இன்னோவா","Crysta கிரிஸ்டா","Swift ஸ்விப்ட்","Ertiga எரிகா"]}
-    }).populate("brand","name logoUrl").sort({order:1,createdAt:-1});
-    const data=carModels.map(model=>({
-      _id:model._id.toString(),
-      brandId:model.brand?._id?.toString()||"",
-      brandName:model.brand?.name||"",
-      brandLogo:model.brand?.logoUrl||"",
-      modelName:model.title||"",
-      modelImage:model.imageUrl||"",
-      seater:model.seater||"",
-      order:model.order??null
-    }));
+    const carModels=await CarModel.find({title:{$in:["Innova இன்னோவா","Crysta கிரிஸ்டா","Swift ஸ்விப்ட்","Ertiga எர்டிகா"]}}).populate("brand","name logoUrl").sort({order:1,createdAt:-1});
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET SELECTED CAR MODELS ERROR 👉",err);
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // UPDATE CAR MODEL
 // Brand + Title REQUIRED
@@ -216,23 +149,20 @@ export const updateCarModel=async(req,res)=>{
     if(!carModel)return res.status(404).json({success:false,message:"Car model not found"});
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!["5 seater","7 seater"].includes(seater))return res.status(400).json({success:false,message:"Seater must be 5 seater or 7 seater"});
+    let orderValue=null;
     if(order!==undefined&&order!==null&&order!==""){
-      const orderNumber=Number(order);
-      if(!Number.isInteger(orderNumber)||orderNumber<1||orderNumber>99)return res.status(400).json({success:false,message:"Order must be an integer between 1 and 99"});
-      carModel.order=orderNumber;
-    }else if(order===""||order===null){
-      carModel.order=null;
+      const n=Number(order);
+      if(!Number.isFinite(n))return res.status(400).json({success:false,message:"Order must be a number"});
+      orderValue=n;
     }
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
-    const duplicate=await CarModel.findOne({
-      _id:{$ne:id},
-      brand:brandId,
-      title:new RegExp(`^${escapeRegex(title.trim())}$`,"i")
-    });
+    const cleanTitle=title.trim();
+    const duplicate=await CarModel.findOne({_id:{$ne:id},brand:brandId,title:new RegExp(`^${escapeRegex(cleanTitle)}$`,"i")});
     if(duplicate)return res.status(409).json({success:false,message:"Car model already exists"});
-    carModel.title=title.trim();
+    carModel.title=cleanTitle;
     carModel.brand=brandId;
+    carModel.order=orderValue;
     if(seater!==undefined)carModel.seater=seater||"";
     if(req.file){
       if(carModel.imageUrl)await deleteCarModelImage(carModel.imageUrl);
@@ -245,7 +175,6 @@ export const updateCarModel=async(req,res)=>{
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // DELETE CAR MODEL
 // ============================================================
@@ -262,7 +191,6 @@ export const deleteCarModel=async(req,res)=>{
     return res.status(500).json({success:false,message:err.message});
   }
 };
-
 // ============================================================
 // ESCAPE REGEX
 // ============================================================

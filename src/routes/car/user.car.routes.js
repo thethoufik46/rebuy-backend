@@ -610,6 +610,11 @@ router.get(
    GET ALL PUBLIC CARS
 ============================================================ */
 
+
+/* ============================================================
+   GET ALL PUBLIC CARS
+============================================================ */
+
 router.get(
   "/",
   verifyTokenOptional,
@@ -638,17 +643,59 @@ router.get(
 
       const filter = {};
 
-      if (brand) {
-        filter.brand = brand;
+      /* ======================================================
+         MULTI BRAND / MODEL / VARIANT FILTER
+      ====================================================== */
+
+      const parseObjectIds = (value) => {
+        if (
+          value === undefined ||
+          value === null ||
+          value === ""
+        ) {
+          return [];
+        }
+
+        const values = Array.isArray(value)
+          ? value
+          : String(value).split(",");
+
+        return values
+          .map((item) => String(item).trim())
+          .filter((item) =>
+            mongoose.Types.ObjectId.isValid(item)
+          )
+          .map(
+            (item) =>
+              new mongoose.Types.ObjectId(item)
+          );
+      };
+
+      const brandIds = parseObjectIds(brand);
+      const modelIds = parseObjectIds(model);
+      const variantIds = parseObjectIds(variant);
+
+      if (brandIds.length) {
+        filter.brand = {
+          $in: brandIds,
+        };
       }
 
-      if (model) {
-        filter.model = model;
+      if (modelIds.length) {
+        filter.model = {
+          $in: modelIds,
+        };
       }
 
-      if (variant) {
-        filter.variant = variant;
+      if (variantIds.length) {
+        filter.variant = {
+          $in: variantIds,
+        };
       }
+
+      /* ======================================================
+         STATUS
+      ====================================================== */
 
       if (status) {
         filter.status = status;
@@ -664,6 +711,10 @@ router.get(
         };
       }
 
+      /* ======================================================
+         BASIC FILTERS
+      ====================================================== */
+
       if (district) {
         filter.district = district;
       }
@@ -677,8 +728,7 @@ router.get(
       }
 
       if (transmission) {
-        filter.transmission =
-          transmission;
+        filter.transmission = transmission;
       }
 
       if (owner) {
@@ -690,71 +740,78 @@ router.get(
       }
 
       if (insurance) {
-        filter.insurance =
-          insurance;
+        filter.insurance = insurance;
       }
 
-      if (
-        minPrice ||
-        maxPrice
-      ) {
+      /* ======================================================
+         PRICE FILTER
+      ====================================================== */
+
+      if (minPrice || maxPrice) {
         filter.price = {};
 
         if (
           minPrice !== undefined &&
           minPrice !== ""
         ) {
-          filter.price.$gte =
-            Number(minPrice);
+          filter.price.$gte = Number(minPrice);
         }
 
         if (
           maxPrice !== undefined &&
           maxPrice !== ""
         ) {
-          filter.price.$lte =
-            Number(maxPrice);
+          filter.price.$lte = Number(maxPrice);
         }
       }
 
-      if (
-        minYear ||
-        maxYear
-      ) {
+      /* ======================================================
+         YEAR FILTER
+      ====================================================== */
+
+      if (minYear || maxYear) {
         filter.year = {};
 
         if (
           minYear !== undefined &&
           minYear !== ""
         ) {
-          filter.year.$gte =
-            Number(minYear);
+          filter.year.$gte = Number(minYear);
         }
 
         if (
           maxYear !== undefined &&
           maxYear !== ""
         ) {
-          filter.year.$lte =
-            Number(maxYear);
+          filter.year.$lte = Number(maxYear);
         }
       }
 
+      /* ======================================================
+         REGISTRATION STATE
+      ====================================================== */
+
       if (registrationState) {
-        filter.registrationState =
-          String(
-            registrationState
-          )
-            .trim()
-            .toUpperCase();
+        filter.registrationState = String(
+          registrationState
+        )
+          .trim()
+          .toUpperCase();
       }
 
+      /* ======================================================
+         REGISTRATION NUMBER
+      ====================================================== */
+
       if (registrationNumber) {
-        filter.registrationNumber =
-          String(
-            registrationNumber
-          ).trim();
+        filter.registrationNumber = String(
+          registrationNumber
+        ).trim();
       }
+
+      /* ======================================================
+         SEARCH
+      ====================================================== */
 
       if (search) {
         filter.$or = [
@@ -779,14 +836,21 @@ router.get(
         ];
       }
 
-      const cars =
-        await Car.find(filter)
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
+      /* ======================================================
+         GET FILTERED CARS
+      ====================================================== */
 
-      const brandIds = [
+      const cars = await Car.find(filter)
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+      /* ======================================================
+         COLLECT IDS
+      ====================================================== */
+
+      const brandIdsFromCars = [
         ...new Set(
           cars
             .map((car) =>
@@ -798,7 +862,7 @@ router.get(
         ),
       ];
 
-      const modelIds = [
+      const modelIdsFromCars = [
         ...new Set(
           cars
             .map((car) =>
@@ -810,7 +874,7 @@ router.get(
         ),
       ];
 
-      const variantIds = [
+      const variantIdsFromCars = [
         ...new Set(
           cars
             .map((car) =>
@@ -822,6 +886,10 @@ router.get(
         ),
       ];
 
+      /* ======================================================
+         POPULATE BRAND / MODEL / VARIANT
+      ====================================================== */
+
       const [
         brands,
         models,
@@ -829,7 +897,7 @@ router.get(
       ] = await Promise.all([
         CarBrand.find({
           _id: {
-            $in: brandIds,
+            $in: brandIdsFromCars,
           },
         })
           .select(
@@ -839,7 +907,7 @@ router.get(
 
         CarModel.find({
           _id: {
-            $in: modelIds,
+            $in: modelIdsFromCars,
           },
         })
           .select(
@@ -849,7 +917,7 @@ router.get(
 
         CarVariant.find({
           _id: {
-            $in: variantIds,
+            $in: variantIdsFromCars,
           },
         })
           .select(
@@ -858,77 +926,87 @@ router.get(
           .lean(),
       ]);
 
-      const brandMap =
-        new Map(
-          brands.map(
-            (item) => [
-              item._id.toString(),
-              item,
-            ]
-          )
-        );
+      /* ======================================================
+         MAP DATA
+      ====================================================== */
 
-      const modelMap =
-        new Map(
-          models.map(
-            (item) => [
-              item._id.toString(),
-              item,
-            ]
-          )
-        );
+      const brandMap = new Map(
+        brands.map((item) => [
+          item._id.toString(),
+          item,
+        ])
+      );
 
-      const variantMap =
-        new Map(
-          variants.map(
-            (item) => [
-              item._id.toString(),
-              item,
-            ]
-          )
-        );
+      const modelMap = new Map(
+        models.map((item) => [
+          item._id.toString(),
+          item,
+        ])
+      );
+
+      const variantMap = new Map(
+        variants.map((item) => [
+          item._id.toString(),
+          item,
+        ])
+      );
+
+      /* ======================================================
+         PREPARE RESPONSE
+      ====================================================== */
 
       const isAdminUser =
-        !!req.user &&
+        req.user &&
         req.user.role === "admin";
 
-      const result =
-        cars.map((car) => {
-          if (car.brand) {
-            car.brand =
-              brandMap.get(
-                car.brand.toString()
-              ) || car.brand;
-          }
+      const responseCars = cars.map(
+        (car) => {
+          const item = {
+            ...car,
 
-          if (car.model) {
-            car.model =
-              modelMap.get(
-                car.model.toString()
-              ) || car.model;
-          }
+            brand:
+              car.brand
+                ? brandMap.get(
+                    car.brand.toString()
+                  ) || car.brand
+                : null,
 
-          if (car.variant) {
-            car.variant =
-              variantMap.get(
-                car.variant.toString()
-              ) || car.variant;
-          }
+            model:
+              car.model
+                ? modelMap.get(
+                    car.model.toString()
+                  ) || car.model
+                : null,
 
-          return prepareSellerForResponse(
-            car,
+            variant:
+              car.variant
+                ? variantMap.get(
+                    car.variant.toString()
+                  ) || car.variant
+                : null,
+          };
+
+          prepareSellerForResponse(
+            item,
             isAdminUser
           );
-        });
+
+          return item;
+        }
+      );
+
+      /* ======================================================
+         RESPONSE
+      ====================================================== */
 
       return res.json({
         success: true,
-        count: result.length,
-        cars: result,
+        count: responseCars.length,
+        cars: responseCars,
       });
     } catch (error) {
       console.error(
-        "Get cars error:",
+        "GET CARS FILTER ERROR:",
         error
       );
 
@@ -936,14 +1014,11 @@ router.get(
         success: false,
         message:
           error.message ||
-          "Failed to get cars",
+          "Failed to fetch cars",
       });
     }
   }
 );
-
-
-
 
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {

@@ -1,7 +1,8 @@
 // ======================= src/models/property_model.js =======================
 
 import mongoose from "mongoose";
-import Counter from "../counter_model.js";import fs from "fs";
+import Counter from "../counter_model.js";
+import fs from "fs";
 import path from "path";
 
 /* =====================================================
@@ -68,28 +69,28 @@ const propertySchema = new mongoose.Schema(
     category: {
       type: String,
       enum: [
-        "Residential / Layout Plot (வீட்டு நிலம் / லேஅவுட் பிளாட் விற்பனை)",
-        "Agricultural Land (விவசாய நிலம் விற்பனை)",
-        "DTCP / CMDA Approved Plot (அங்கீகரிக்கப்பட்ட நிலம் விற்பனை)",
-        "Farm Land (பண்ணை நிலம் விற்பனை)",
-        "Industrial Land (தொழிற்துறை நிலம் விற்பனை)",
+        "Residential / Layout Plot (வீட்டு நிலம் / லேஅவுட் பிளாட்)",
+        "Agricultural Land (விவசாய நிலம்)",
+        "DTCP / CMDA Approved Plot (அங்கீகரிக்கப்பட்ட நிலம்)",
+        "Farm Land (பண்ணை நிலம்)",
+        "Industrial Land (தொழிற்துறை நிலம்)",
 
-        "House (வீடு விற்பனை)",
-        "Villa (வில்லா விற்பனை)",
-        "Apartment (அபார்ட்மெண்ட் விற்பனை)",
-        "Flat (பிளாட் விற்பனை)",
-        "Farm House (பண்ணை வீடு விற்பனை)",
+        "House (வீடு)",
+        "Villa (வில்லா)",
+        "Apartment (அபார்ட்மெண்ட்)",
+        "Flat (பிளாட்)",
+        "Farm House (பண்ணை வீடு)",
 
-        "Commercial Building (வணிக கட்டிடம் விற்பனை)",
-        "Shop (கடை விற்பனை)",
-        "Office (அலுவலகம் விற்பனை)",
-        "Warehouse / Godown (கிடங்கு விற்பனை)",
-        "Factory (தொழிற்சாலை விற்பனை)",
+        "Commercial Building (வணிக கட்டிடம்)",
+        "Shop (கடை)",
+        "Office (அலுவலகம்)",
+        "Warehouse / Godown (கிடங்கு)",
+        "Factory (தொழிற்சாலை)",
 
-        "Rental House (வாடகை வீடு விற்பனை)",
-        "Rental Apartment (வாடகை அபார்ட்மெண்ட் விற்பனை)",
-        "Rental Shop (வாடகை கடை விற்பனை)",
-        "Rental Office (வாடகை அலுவலகம் விற்பனை)",
+        "Rental House (வாடகை வீடு)",
+        "Rental Apartment (வாடகை அபார்ட்மெண்ட்)",
+        "Rental Shop (வாடகை கடை)",
+        "Rental Office (வாடகை அலுவலகம்)",
       ],
       required: true,
     },

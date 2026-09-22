@@ -106,7 +106,7 @@ app.use(
   "/api/sliders",
   sliderRoutes
 )
-app.get("/api/app/version",(req,res)=>res.json({latest_version:"1.0.2",force_update:false,update_url:"https://play.google.com/store/apps/details?id=com.re2buy.app"}));
+app.get("/api/app/version",(req,res)=>res.json({latest_version:"1.0.1",force_update:false,update_url:"https://play.google.com/store/apps/details?id=com.re2buy.app"}));
 app.get("/",(req,res)=>res.status(200).json({success:true,message:"🚀 REBUY Backend API running successfully"}));
 app.use((req,res)=>res.status(404).json({success:false,message:"API route not found"}));
 app.use((err,req,res,next)=>{console.error("❌ Server Error:",err);res.status(500).json({success:false,message:err?.message||"Internal server error"});});

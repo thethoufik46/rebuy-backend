@@ -48,6 +48,7 @@ import recentlyViewedRoutes from "./routes/recently.viewed.routes.js";
 import leadRoutes from "./routes/leads/lead.routes.js";
 import commonSearchRoute from "./routes/common.search.route.js";
 import surveyRoutes from "./routes/property/survey/survey.routes.js";
+import sliderRoutes from "./routes/slider/slider.routes.js";
 dotenv.config();
 const app=express(),server=http.createServer(app);
 export const io=new Server(server,{cors:{origin:"*",methods:["GET","POST","PUT","DELETE"]}});
@@ -101,6 +102,10 @@ app.use("/api/leads",leadRoutes);
 app.use("/api",commonSearchRoute);
 app.use("/api",recentlyViewedRoutes);
 app.use("/api/survey",surveyRoutes);
+app.use(
+  "/api/sliders",
+  sliderRoutes
+)
 app.get("/api/app/version",(req,res)=>res.json({latest_version:"1.0.1",force_update:false,update_url:"https://play.google.com/store/apps/details?id=com.re2buy.app"}));
 app.get("/",(req,res)=>res.status(200).json({success:true,message:"🚀 REBUY Backend API running successfully"}));
 app.use((req,res)=>res.status(404).json({success:false,message:"API route not found"}));

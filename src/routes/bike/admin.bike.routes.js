@@ -6,7 +6,7 @@ import Bike from "../../models/bike/bike_model.js";
 import BikeBrand from "../../models/bike/brand/bike_brand_model.js";
 import BikeModel from "../../models/bike/model/bike_model_model.js";
 import BikeVariant from "../../models/bike/variant/bike_variant_model.js";
-import User from "../../models/user_model.js";
+import User from "../../models/user/user_model.js";
 import { verifyToken,isAdmin } from "../../middleware/auth.js";
 import uploadBike from "../../middleware/bike/uploadBike.js";
 import { uploadBikeImage,deleteBikeImage } from "../../utils/bike/bikeUpload.js";

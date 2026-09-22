@@ -3,7 +3,7 @@
 // REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import express from "express";
 import Property from "../../models/property/property_model.js";
-import User from "../../models/user_model.js";
+import User from "../../models/user/user_model.js";
 import {verifyToken} from "../../middleware/auth.js";
 import {verifyTokenOptional} from "../../middleware/verifyTokenOptional.js";
 import uploadProperty from "../../middleware/property/uploadProperty.js";

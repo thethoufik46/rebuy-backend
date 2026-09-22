@@ -1,11 +1,9 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-
-import User from "../models/user_model.js";
-import { verifyToken } from "../middleware/auth.js";
+import User from "../../models/user/user_model.js";
+import { verifyToken } from "../../middleware/auth.js";
 
 const router = express.Router();
-
 // ============================================================
 // ADMIN AUTH
 // ============================================================
@@ -77,6 +75,25 @@ const validStatuses = [
   "verified",
 ];
 
+// ============================================================
+// LANGUAGE
+// OPTIONAL
+// ============================================================
+
+const validLanguages = [
+  "English",
+  "Tamil",
+  "Malayalam",
+  "Telugu",
+  "Hindi",
+  "Kannada",
+  "Bengali",
+  "Marathi",
+  "Gujarati",
+  "Urdu",
+  "Odia",
+];
+
 const clean = (value) => {
   if (
     value === undefined ||
@@ -98,7 +115,6 @@ const clean = (value) => {
 
 const validatePhone = (phone) => {
   const value = clean(phone);
-
   return /^[0-9]{10}$/.test(value);
 };
 
@@ -131,6 +147,31 @@ const validateAlternatePhone = (
 
   return {
     valid: true,
+    value,
+  };
+};
+
+// ============================================================
+// LANGUAGE VALIDATION
+// OPTIONAL
+// ============================================================
+
+const validateLanguage = (
+  language
+) => {
+  const value = clean(language);
+
+  if (value === "") {
+    return {
+      valid: true,
+      value: "",
+    };
+  }
+
+  return {
+    valid: validLanguages.includes(
+      value
+    ),
     value,
   };
 };
@@ -219,6 +260,9 @@ router.get(
 //
 // GALLERY:
 // ✅ Array
+//
+// LANGUAGE:
+// ✅ Optional
 // ============================================================
 
 router.post(
@@ -239,6 +283,7 @@ router.post(
         category,
         userType,
         status,
+        language,
         highlightText,
         district,
         address,
@@ -264,7 +309,6 @@ router.post(
       googleProfileImage =
         clean(googleProfileImage);
 
-      // PHONE = STRING
       phone = clean(phone);
 
       alternatePhone =
@@ -285,6 +329,9 @@ router.post(
       status =
         clean(status) ||
         "not_verified";
+
+      language =
+        clean(language);
 
       highlightText =
         clean(highlightText);
@@ -368,6 +415,27 @@ router.post(
 
       alternatePhone =
         alternateValidation.value;
+
+      // ========================================================
+      // LANGUAGE
+      // OPTIONAL
+      // ========================================================
+
+      const languageValidation =
+        validateLanguage(language);
+
+      if (
+        !languageValidation.valid
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid language",
+        });
+      }
+
+      language =
+        languageValidation.value;
 
       // ========================================================
       // ENUM VALIDATION
@@ -503,7 +571,6 @@ router.post(
 
           googleProfileImage,
 
-          // PHONE = STRING
           phone,
 
           alternatePhone,
@@ -519,6 +586,11 @@ router.post(
 
           status,
 
+          // LANGUAGE OPTIONAL
+          ...(language
+            ? { language }
+            : {}),
+
           highlightText,
 
           district,
@@ -527,7 +599,6 @@ router.post(
 
           profileImage,
 
-          // GALLERY = ARRAY
           galleryImages:
             cleanGallery,
         });
@@ -587,6 +658,25 @@ router.post(
         });
       }
 
+      if (
+        error?.name ===
+        "ValidationError"
+      ) {
+        const messages =
+          Object.values(
+            error.errors || {}
+          ).map(
+            (e) => e.message
+          );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            messages[0] ||
+            "Invalid user data",
+        });
+      }
+
       return res.status(500).json({
         success: false,
         message:
@@ -605,6 +695,9 @@ router.post(
 //
 // GALLERY:
 // ✅ Array
+//
+// LANGUAGE:
+// ✅ Optional
 // ============================================================
 
 router.put(
@@ -629,7 +722,8 @@ router.put(
       // ========================================================
 
       if (
-        req.body.name !== undefined
+        req.body.name !==
+        undefined
       ) {
         const name =
           clean(
@@ -641,6 +735,14 @@ router.put(
             success: false,
             message:
               "Name is required",
+          });
+        }
+
+        if (name.length > 50) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Name must not exceed 50 characters",
           });
         }
 
@@ -943,6 +1045,45 @@ router.put(
       }
 
       // ========================================================
+      // LANGUAGE
+      // OPTIONAL
+      //
+      // If language is not sent:
+      // ✅ Keep existing language
+      //
+      // If language is sent:
+      // ✅ Validate and update
+      // ========================================================
+
+      if (
+        req.body.language !==
+        undefined
+      ) {
+        const language =
+          clean(
+            req.body.language
+          );
+
+        // Empty language = no change
+        if (language !== "") {
+          if (
+            !validLanguages.includes(
+              language
+            )
+          ) {
+            return res.status(400).json({
+              success: false,
+              message:
+                "Invalid language",
+            });
+          }
+
+          user.language =
+            language;
+        }
+      }
+
+      // ========================================================
       // HIGHLIGHT
       // ========================================================
 
@@ -1003,10 +1144,21 @@ router.put(
         req.body.address !==
         undefined
       ) {
-        user.address =
+        const address =
           clean(
             req.body.address
-          ) || "NA";
+          );
+
+        if (address.length > 500) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Address must not exceed 500 characters",
+          });
+        }
+
+        user.address =
+          address || "NA";
       }
 
       // ========================================================
@@ -1111,6 +1263,25 @@ router.put(
           success: false,
           message:
             "District is required",
+        });
+      }
+
+      if (
+        error?.name ===
+        "ValidationError"
+      ) {
+        const messages =
+          Object.values(
+            error.errors || {}
+          ).map(
+            (e) => e.message
+          );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            messages[0] ||
+            "Invalid user data",
         });
       }
 

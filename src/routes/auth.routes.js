@@ -2,11 +2,12 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
-
-import User from "../models/user_model.js";
+import User from "../models/user/user_model.js";
 import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
+const validLanguages = ["English","Tamil","Malayalam","Telugu","Hindi","Kannada","Bengali","Marathi","Gujarati","Urdu","Odia"];
+const isValidLanguage = (language) => !language || validLanguages.includes(language.toString().trim());
 
 // ==================================================
 // GOOGLE CLIENT
@@ -119,6 +120,7 @@ router.post(
         category,
         district,
         address,
+        language,
         googleIdToken,
       } = req.body;
 
@@ -133,6 +135,19 @@ router.post(
           success: false,
           message:
             "Required fields missing",
+        });
+      }
+
+      const finalLanguage =
+        language?.toString().trim() ||
+        "English";
+
+      if (!isValidLanguage(finalLanguage)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid language",
+          validLanguages,
         });
       }
 
@@ -283,6 +298,9 @@ router.post(
 
         district:
           district.toString().trim(),
+
+        language:
+          finalLanguage,
 
         address:
           address || "NA",
@@ -873,6 +891,10 @@ router.get(
 
           district:
             user.district,
+
+          language:
+            user.language ||
+            "English",
 
           address:
             user.address ||

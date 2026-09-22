@@ -5,101 +5,87 @@ import path from "path";
 // =====================================================
 // LOAD TAMIL NADU DISTRICTS JSON
 // =====================================================
-
 const locationsPath = path.join(
   process.cwd(),
   "src/tamilnadu_locations.json"
 );
 
 const locations = JSON.parse(
-  fs.readFileSync(
-    locationsPath,
-    "utf-8"
-  )
+  fs.readFileSync(locationsPath, "utf-8")
 );
 
 // =====================================================
 // USER SCHEMA
 // =====================================================
-
 const userSchema = new mongoose.Schema(
   {
     // =================================================
     // BASIC
     // =================================================
-
-  name: {
-  type: String,
-  required: true,
-  trim: true,
-  maxlength: 50,
-},
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 50,
+    },
 
     // =================================================
     // GOOGLE ACCOUNT DETAILS
     // =================================================
+    googleName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
- googleName: {
-  type: String,
-  required: true,
-  trim: true,
-},
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
 
-email: {
-  type: String,
-  required: true,
-  unique: true,
-  lowercase: true,
-  trim: true,
-},
+    googleId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      trim: true,
+    },
 
-googleId: {
-  type: String,
-  required: true,
-  unique: true,
-  index: true,
-  trim: true,
-},
-
-googleProfileImage: {
-  type: String,
-  required: true,
-  trim: true,
-},
+    googleProfileImage: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
     // =================================================
     // PHONE
     // SINGLE STRING
     // =================================================
-
     phone: {
       type: String,
       required: true,
       trim: true,
       set: (v) =>
-        v
-          ?.toString()
-          .replace(/\s+/g, ""),
+        v?.toString().replace(/\s+/g, ""),
     },
 
     // =================================================
     // ALTERNATE PHONE
     // =================================================
-
     alternatePhone: {
       type: String,
       default: "",
       trim: true,
       set: (v) =>
-        v
-          ?.toString()
-          .replace(/\s+/g, ""),
+        v?.toString().replace(/\s+/g, ""),
     },
 
     // =================================================
     // PASSWORD
     // =================================================
-
     password: {
       type: String,
       required: true,
@@ -108,7 +94,6 @@ googleProfileImage: {
     // =================================================
     // ROLE
     // =================================================
-
     role: {
       type: String,
       enum: [
@@ -121,7 +106,6 @@ googleProfileImage: {
     // =================================================
     // CATEGORY
     // =================================================
-
     category: {
       type: String,
       enum: [
@@ -135,7 +119,6 @@ googleProfileImage: {
     // =================================================
     // USER TYPE
     // =================================================
-
     userType: {
       type: String,
       enum: [
@@ -153,7 +136,6 @@ googleProfileImage: {
     // =================================================
     // STATUS
     // =================================================
-
     status: {
       type: String,
       enum: [
@@ -165,9 +147,30 @@ googleProfileImage: {
     },
 
     // =================================================
+    // LANGUAGE
+    // =================================================
+    language: {
+      type: String,
+      enum: [
+        "English",
+        "Tamil",
+        "Malayalam",
+        "Telugu",
+        "Hindi",
+        "Kannada",
+        "Bengali",
+        "Marathi",
+        "Gujarati",
+        "Urdu",
+        "Odia",
+      ],
+      default: "English",
+      required: true,
+    },
+
+    // =================================================
     // HIGHLIGHT
     // =================================================
-
     highlightText: {
       type: String,
       default: "",
@@ -178,24 +181,22 @@ googleProfileImage: {
     // =================================================
     // LOCATION
     // =================================================
-
     district: {
       type: String,
       required: true,
       trim: true,
     },
 
-  address: {
-  type: String,
-  default: "NA",
-  trim: true,
-  maxlength: 500,
-},
+    address: {
+      type: String,
+      default: "NA",
+      trim: true,
+      maxlength: 500,
+    },
 
     // =================================================
     // RE2BUY PROFILE IMAGE
     // =================================================
-
     profileImage: {
       type: String,
       default: "",
@@ -206,7 +207,6 @@ googleProfileImage: {
     // GALLERY
     // ARRAY - KEEP AS ARRAY
     // =================================================
-
     galleryImages: {
       type: [String],
       default: [],
@@ -215,7 +215,6 @@ googleProfileImage: {
     // =================================================
     // PASSWORD REQUEST
     // =================================================
-
     forgotRequest: {
       type: Boolean,
       default: false,
@@ -239,34 +238,27 @@ googleProfileImage: {
 // =====================================================
 // DISTRICT VALIDATION
 // =====================================================
-
 userSchema.pre(
   "save",
   function (next) {
     try {
       if (!this.district) {
         return next(
-          new Error(
-            "District is required"
-          )
+          new Error("District is required")
         );
       }
 
-      const districtKey =
-        Object.keys(locations).find(
-          (d) =>
-            d.toLowerCase() ===
-            this.district.toLowerCase()
-        );
+      const districtKey = Object.keys(locations).find(
+        (d) =>
+          d.toLowerCase() ===
+          this.district.toLowerCase()
+      );
 
       if (!districtKey) {
-        throw new Error(
-          "Invalid district"
-        );
+        throw new Error("Invalid district");
       }
 
       this.district = districtKey;
-
       next();
     } catch (error) {
       next(error);
@@ -277,7 +269,6 @@ userSchema.pre(
 // =====================================================
 // INDEXES
 // =====================================================
-
 userSchema.index({
   district: 1,
 });
@@ -298,10 +289,13 @@ userSchema.index({
   userType: 1,
 });
 
+userSchema.index({
+  language: 1,
+});
+
 // =====================================================
 // MODEL
 // =====================================================
-
 export default mongoose.model(
   "User",
   userSchema

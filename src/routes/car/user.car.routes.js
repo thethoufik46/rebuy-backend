@@ -1,9 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
-
 import Car from "../../models/car/car_model.js";
-import User from "../../models/user_model.js";
-
+import User from "../../models/user/user_model.js";
 import CarBrand from "../../models/car/brand/car_brand_model.js";
 import CarVariant from "../../models/car/variant/car_variant_model.js";
 import CarModel from "../../models/car/model/car_model_model.js";

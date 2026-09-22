@@ -1,18 +1,13 @@
 import express from "express";
-
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-
-import { verifyToken } from "../middleware/auth.js";
-import uploadUser from "../middleware/uploadUser.js";
-
-import User from "../models/user_model.js";
-
-import r2 from "../config/r2.js";
-
+import { verifyToken } from "../../middleware/auth.js";
+import uploadUser from "../../middleware/user/uploadUser.js";
+import User from "../../models/user/user_model.js";
+import r2 from "../../config/r2.js";
 import {
   uploadUserImage,
   deleteUserImage,
-} from "../utils/userUpload.js";
+} from "../../utils/user/userUpload.js";
 
 const router = express.Router();
 
@@ -34,14 +29,12 @@ const router = express.Router();
 router.post(
   "/upload-profile",
   verifyToken,
-
   uploadUser.fields([
     {
       name: "profileImage",
       maxCount: 1,
     },
   ]),
-
   async (req, res) => {
     try {
       // ==================================================
@@ -67,20 +60,17 @@ router.post(
         // ------------------------------------------------
 
         if (user.profileImage) {
-          await deleteUserImage(
-            user.profileImage
-          );
+          await deleteUserImage(user.profileImage);
         }
 
         // ------------------------------------------------
         // UPLOAD NEW PROFILE IMAGE
         // ------------------------------------------------
 
-        user.profileImage =
-          await uploadUserImage(
-            req.files.profileImage[0],
-            "users/profile"
-          );
+        user.profileImage = await uploadUserImage(
+          req.files.profileImage[0],
+          "users/profile"
+        );
       }
 
       // ==================================================
@@ -95,42 +85,21 @@ router.post(
 
       return res.json({
         success: true,
-
-        message:
-          "Profile image updated successfully",
-
-        profileImage:
-          user.profileImage || "",
-
-        // Gallery is VIEW ONLY
-        galleryImages:
-          user.galleryImages || [],
-
-        // Read-only fields
-        status:
-          user.status ||
-          "not_verified",
-
-        userType:
-          user.userType ||
-          "others",
-
-        alternatePhone:
-          user.alternatePhone || "",
-
-        highlightText:
-          user.highlightText || "",
+        message: "Profile image updated successfully",
+        profileImage: user.profileImage || "",
+        galleryImages: user.galleryImages || [],
+        status: user.status || "not_verified",
+        userType: user.userType || "others",
+        alternatePhone: user.alternatePhone || "",
+        highlightText: user.highlightText || "",
+        language: user.language || "English",
       });
     } catch (err) {
-      console.error(
-        "USER PROFILE UPLOAD ERROR:",
-        err
-      );
+      console.error("USER PROFILE UPLOAD ERROR:", err);
 
       return res.status(500).json({
         success: false,
-        message:
-          "Profile image upload failed",
+        message: "Profile image upload failed",
       });
     }
   }
@@ -145,16 +114,13 @@ router.post(
 router.delete(
   "/profile-image",
   verifyToken,
-
   async (req, res) => {
     try {
       // ==================================================
       // FIND USER
       // ==================================================
 
-      const user = await User.findById(
-        req.user.id
-      );
+      const user = await User.findById(req.user.id);
 
       if (!user) {
         return res.status(404).json({
@@ -168,12 +134,8 @@ router.delete(
       // ==================================================
 
       if (user.profileImage) {
-        await deleteUserImage(
-          user.profileImage
-        );
-
+        await deleteUserImage(user.profileImage);
         user.profileImage = "";
-
         await user.save();
       }
 
@@ -183,15 +145,11 @@ router.delete(
 
       return res.json({
         success: true,
-        message:
-          "Profile image deleted",
+        message: "Profile image deleted",
         profileImage: "",
       });
     } catch (err) {
-      console.error(
-        "DELETE PROFILE IMAGE ERROR:",
-        err
-      );
+      console.error("DELETE PROFILE IMAGE ERROR:", err);
 
       return res.status(500).json({
         success: false,
@@ -221,8 +179,7 @@ router.get(
       if (!key) {
         return res.status(400).json({
           success: false,
-          message:
-            "Image key is required",
+          message: "Image key is required",
         });
       }
 
@@ -230,16 +187,12 @@ router.get(
       // R2 GET OBJECT
       // ==================================================
 
-      const command =
-        new GetObjectCommand({
-          Bucket:
-            process.env.R2_BUCKET,
+      const command = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: key,
+      });
 
-          Key: key,
-        });
-
-      const data =
-        await r2.send(command);
+      const data = await r2.send(command);
 
       // ==================================================
       // CONTENT TYPE
@@ -247,18 +200,14 @@ router.get(
 
       res.setHeader(
         "Content-Type",
-        data.ContentType ||
-          "application/octet-stream"
+        data.ContentType || "application/octet-stream"
       );
 
       // ==================================================
       // CONTENT LENGTH
       // ==================================================
 
-      if (
-        data.ContentLength !==
-        undefined
-      ) {
+      if (data.ContentLength !== undefined) {
         res.setHeader(
           "Content-Length",
           data.ContentLength
@@ -283,8 +232,7 @@ router.get(
       } else {
         return res.status(404).json({
           success: false,
-          message:
-            "Image not found",
+          message: "Image not found",
         });
       }
     } catch (err) {
@@ -311,12 +259,14 @@ router.get(
 // ✅ User Type
 // ✅ Alternate phone
 // ✅ Highlight
+// ✅ Language
 //
 // USER CAN EDIT:
 // ✅ Name
 // ✅ Alternate phone
 // ✅ District
 // ✅ Address
+// ✅ Language
 //
 // THESE ARE READ ONLY:
 // ❌ Phone
@@ -331,23 +281,20 @@ router.get(
 router.get(
   "/profile",
   verifyToken,
-
   async (req, res) => {
     try {
       // ==================================================
       // FIND USER
       // ==================================================
 
-      const user =
-        await User.findById(
-          req.user.id
-        ).select("-password");
+      const user = await User.findById(
+        req.user.id
+      ).select("-password");
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
@@ -363,24 +310,19 @@ router.get(
 
           name: user.name,
 
-          // PHONE IS NOW STRING
+          // PHONE IS STRING
           phone: user.phone || "",
 
-          // EMAIL OPTIONAL
-          email:
-            user.email || "",
+          // EMAIL
+          email: user.email || "",
 
-          category:
-            user.category,
+          category: user.category,
 
-          district:
-            user.district,
+          district: user.district,
 
-          address:
-            user.address || "NA",
+          address: user.address || "NA",
 
-          role:
-            user.role,
+          role: user.role,
 
           // =================================================
           // STATUS
@@ -399,28 +341,33 @@ router.get(
             "others",
 
           // =================================================
+          // LANGUAGE
+          // =================================================
+
+          language:
+            user.language ||
+            "English",
+
+          // =================================================
           // ALTERNATE PHONE
           // =================================================
 
           alternatePhone:
-            user.alternatePhone ||
-            "",
+            user.alternatePhone || "",
 
           // =================================================
           // HIGHLIGHT
           // =================================================
 
           highlightText:
-            user.highlightText ||
-            "",
+            user.highlightText || "",
 
           // =================================================
           // PROFILE IMAGE
           // =================================================
 
           profileImage:
-            user.profileImage ||
-            "",
+            user.profileImage || "",
 
           // =================================================
           // GALLERY
@@ -429,17 +376,13 @@ router.get(
           // =================================================
 
           galleryImages:
-            Array.isArray(
-              user.galleryImages
-            )
+            Array.isArray(user.galleryImages)
               ? user.galleryImages
               : [],
 
-          createdAt:
-            user.createdAt,
+          createdAt: user.createdAt,
 
-          updatedAt:
-            user.updatedAt,
+          updatedAt: user.updatedAt,
         },
       });
     } catch (err) {
@@ -450,8 +393,7 @@ router.get(
 
       return res.status(500).json({
         success: false,
-        message:
-          "Failed to fetch profile",
+        message: "Failed to fetch profile",
       });
     }
   }
@@ -465,6 +407,7 @@ router.get(
 // ✅ alternatePhone
 // ✅ district
 // ✅ address
+// ✅ language
 //
 // USER CANNOT UPDATE:
 // ❌ phone
@@ -480,7 +423,6 @@ router.get(
 router.put(
   "/profile",
   verifyToken,
-
   async (req, res) => {
     try {
       let {
@@ -488,22 +430,21 @@ router.put(
         alternatePhone,
         district,
         address,
+        language,
       } = req.body;
 
       // ==================================================
       // FIND USER
       // ==================================================
 
-      const user =
-        await User.findById(
-          req.user.id
-        );
+      const user = await User.findById(
+        req.user.id
+      );
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
@@ -513,15 +454,12 @@ router.put(
       // ==================================================
 
       if (name !== undefined) {
-        name = name
-          .toString()
-          .trim();
+        name = name.toString().trim();
 
         if (!name) {
           return res.status(400).json({
             success: false,
-            message:
-              "Name is required",
+            message: "Name is required",
           });
         }
 
@@ -544,15 +482,11 @@ router.put(
       // 10 DIGITS ONLY
       // ==================================================
 
-      if (
-        alternatePhone !==
-        undefined
-      ) {
-        alternatePhone =
-          alternatePhone
-            .toString()
-            .replace(/\s+/g, "")
-            .trim();
+      if (alternatePhone !== undefined) {
+        alternatePhone = alternatePhone
+          .toString()
+          .replace(/\s+/g, "")
+          .trim();
 
         if (
           alternatePhone !== "" &&
@@ -575,24 +509,17 @@ router.put(
       // DISTRICT
       // ==================================================
 
-      if (
-        district !== undefined
-      ) {
-        district =
-          district
-            .toString()
-            .trim();
+      if (district !== undefined) {
+        district = district.toString().trim();
 
         if (!district) {
           return res.status(400).json({
             success: false,
-            message:
-              "District is required",
+            message: "District is required",
           });
         }
 
-        user.district =
-          district;
+        user.district = district;
       }
 
       // ==================================================
@@ -600,13 +527,8 @@ router.put(
       // MAXIMUM 500 CHARACTERS
       // ==================================================
 
-      if (
-        address !== undefined
-      ) {
-        address =
-          address
-            .toString()
-            .trim();
+      if (address !== undefined) {
+        address = address.toString().trim();
 
         if (address.length > 500) {
           return res.status(400).json({
@@ -616,8 +538,58 @@ router.put(
           });
         }
 
-        user.address =
-          address || "NA";
+        user.address = address || "NA";
+      }
+
+      // ==================================================
+      // LANGUAGE
+      //
+      // ALLOWED:
+      // English
+      // Tamil
+      // Malayalam
+      // Telugu
+      // Hindi
+      // Kannada
+      // Bengali
+      // Marathi
+      // Gujarati
+      // Urdu
+      // Odia
+      // ==================================================
+
+      if (language !== undefined) {
+        language = language
+          .toString()
+          .trim();
+
+        const allowedLanguages = [
+          "English",
+          "Tamil",
+          "Malayalam",
+          "Telugu",
+          "Hindi",
+          "Kannada",
+          "Bengali",
+          "Marathi",
+          "Gujarati",
+          "Urdu",
+          "Odia",
+        ];
+
+        if (
+          !allowedLanguages.includes(
+            language
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid language",
+          });
+        }
+
+        user.language = language;
       }
 
       // ==================================================
@@ -666,8 +638,7 @@ router.put(
       ) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid district",
+          message: "Invalid district",
         });
       }
 
@@ -681,13 +652,12 @@ router.put(
       ) {
         return res.status(400).json({
           success: false,
-          message:
-            "District is required",
+          message: "District is required",
         });
       }
 
       // ==================================================
-      // MONGOOSE MAXLENGTH VALIDATION
+      // MONGOOSE VALIDATION
       // ==================================================
 
       if (
@@ -741,7 +711,7 @@ router.put(
 //
 // ❌ POST   /gallery
 // ❌ PUT    /gallery
-// ❌ PATCH  /gallery 
+// ❌ PATCH  /gallery
 // ❌ DELETE /gallery/:index
 // ❌ DELETE /gallery
 //

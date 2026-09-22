@@ -2,7 +2,7 @@
 // 🔓 Optional auth middleware (ADMIN decrypt support)
 
 import jwt from "jsonwebtoken";
-import User from "../models/user_model.js";
+import User from "../models/user/user_model.js";
 
 export const verifyTokenOptional = async (req, res, next) => {
   const authHeader = req.headers.authorization;

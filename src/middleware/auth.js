@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/user_model.js";
+import User from "../models/user/user_model.js";
 
 // ============================================================
 // VERIFY TOKEN

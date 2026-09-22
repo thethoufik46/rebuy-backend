@@ -149,24 +149,24 @@ const userSchema = new mongoose.Schema(
     // =================================================
     // LANGUAGE
     // =================================================
-    language: {
-      type: String,
-      enum: [
-        "English",
-        "Tamil",
-        "Malayalam",
-        "Telugu",
-        "Hindi",
-        "Kannada",
-        "Bengali",
-        "Marathi",
-        "Gujarati",
-        "Urdu",
-        "Odia",
-      ],
-      default: "English",
-      required: true,
-    },
+  language: {
+  type: String,
+  enum: [
+    "en",
+    "ta",
+    "ml",
+    "te",
+    "hi",
+    "kn",
+    "bn",
+    "mr",
+    "gu",
+    "ur",
+    "or"
+  ],
+  default: "en",
+  required: true,
+},
 
     // =================================================
     // HIGHLIGHT

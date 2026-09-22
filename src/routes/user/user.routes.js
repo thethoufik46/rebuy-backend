@@ -92,7 +92,7 @@ router.post(
         userType: user.userType || "others",
         alternatePhone: user.alternatePhone || "",
         highlightText: user.highlightText || "",
-        language: user.language || "English",
+        language: user.language || "en",
       });
     } catch (err) {
       console.error("USER PROFILE UPLOAD ERROR:", err);
@@ -325,6 +325,17 @@ router.get(
           role: user.role,
 
           // =================================================
+          // GOOGLE ACCOUNT
+          // =================================================
+
+          googleName: user.googleName || "",
+
+          googleId: user.googleId || "",
+
+          googleProfileImage:
+            user.googleProfileImage || "",
+
+          // =================================================
           // STATUS
           // =================================================
 
@@ -346,7 +357,7 @@ router.get(
 
           language:
             user.language ||
-            "English",
+            "en",
 
           // =================================================
           // ALTERNATE PHONE
@@ -544,37 +555,39 @@ router.put(
       // ==================================================
       // LANGUAGE
       //
-      // ALLOWED:
-      // English
-      // Tamil
-      // Malayalam
-      // Telugu
-      // Hindi
-      // Kannada
-      // Bengali
-      // Marathi
-      // Gujarati
-      // Urdu
-      // Odia
+      // DATABASE STORES SHORT CODE
+      //
+      // en = English
+      // ta = தமிழ்
+      // ml = മലയാളം
+      // te = తెలుగు
+      // hi = हिन्दी
+      // kn = ಕನ್ನಡ
+      // bn = বাংলা
+      // mr = मराठी
+      // gu = ગુજરાતી
+      // ur = اردو
+      // or = ଓଡ଼ିଆ
       // ==================================================
 
       if (language !== undefined) {
         language = language
           .toString()
-          .trim();
+          .trim()
+          .toLowerCase();
 
         const allowedLanguages = [
-          "English",
-          "Tamil",
-          "Malayalam",
-          "Telugu",
-          "Hindi",
-          "Kannada",
-          "Bengali",
-          "Marathi",
-          "Gujarati",
-          "Urdu",
-          "Odia",
+          "en",
+          "ta",
+          "ml",
+          "te",
+          "hi",
+          "kn",
+          "bn",
+          "mr",
+          "gu",
+          "ur",
+          "or",
         ];
 
         if (
@@ -584,8 +597,7 @@ router.put(
         ) {
           return res.status(400).json({
             success: false,
-            message:
-              "Invalid language",
+            message: "Invalid language",
           });
         }
 

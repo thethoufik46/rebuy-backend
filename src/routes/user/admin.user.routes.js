@@ -81,18 +81,19 @@ const validStatuses = [
 // ============================================================
 
 const validLanguages = [
-  "English",
-  "Tamil",
-  "Malayalam",
-  "Telugu",
-  "Hindi",
-  "Kannada",
-  "Bengali",
-  "Marathi",
-  "Gujarati",
-  "Urdu",
-  "Odia",
+  "en",
+  "ta",
+  "ml",
+  "te",
+  "hi",
+  "kn",
+  "bn",
+  "mr",
+  "gu",
+  "ur",
+  "or",
 ];
+
 
 const clean = (value) => {
   if (

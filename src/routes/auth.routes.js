@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/user/user_model.js";
 import { verifyToken } from "../middleware/auth.js";
@@ -9,19 +10,18 @@ import { sendOtpEmail } from "../utils/sendEmail.js";
 const router = express.Router();
 
 // ==================================================
-// LOGIN LOCK CONFIG
+// CONFIG
 // ==================================================
 const MAX_LOGIN_ATTEMPTS = 3;
-const LOCK_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const LOCK_DURATION_MS = 5 * 60 * 1000;
+const ACCESS_EXPIRY = "15m";
+const REFRESH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_REFRESH_TOKENS = 5;
 
 // ==================================================
 // VALID LANGUAGE CODES
 // ==================================================
-const validLanguages = [
-  "en", "ta", "ml", "te", "hi", "kn",
-  "bn", "mr", "gu", "ur", "or",
-];
-
+const validLanguages = ["en","ta","ml","te","hi","kn","bn","mr","gu","ur","or"];
 const isValidLanguage = (language) => {
   if (!language) return true;
   return validLanguages.includes(language.toString().trim());
@@ -30,30 +30,20 @@ const isValidLanguage = (language) => {
 // ==================================================
 // GOOGLE CLIENT
 // ==================================================
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID
-);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ==================================================
-// GOOGLE TOKEN VERIFY
-// ==================================================
 const verifyGoogleToken = async (idToken) => {
   if (!idToken) throw new Error("Google ID token required");
-
   const ticket = await googleClient.verifyIdToken({
     idToken,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
-
   const payload = ticket.getPayload();
   if (!payload) throw new Error("Invalid Google account");
 
   const googleId = payload.sub;
   const email = payload.email?.toLowerCase().trim();
-
-  if (!googleId || !email) {
-    throw new Error("Google account information unavailable");
-  }
+  if (!googleId || !email) throw new Error("Google account information unavailable");
 
   return {
     googleId,
@@ -64,38 +54,76 @@ const verifyGoogleToken = async (idToken) => {
 };
 
 // ==================================================
-// JWT
+// TOKEN HELPERS
 // ==================================================
-const createToken = (user) => {
-  return jwt.sign(
+const createAccessToken = (user) =>
+  jwt.sign(
     { id: user._id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: ACCESS_EXPIRY }
   );
+
+const createRefreshToken = () => crypto.randomBytes(48).toString("hex");
+
+const saveRefreshToken = async (user, device = "") => {
+  const token = createRefreshToken();
+  const expiresAt = new Date(Date.now() + REFRESH_MAX_AGE_MS);
+
+  // Remove expired tokens
+  user.refreshTokens = (user.refreshTokens || []).filter(
+    (t) => t.expiresAt > new Date()
+  );
+
+  // Limit active devices (FIFO)
+  if (user.refreshTokens.length >= MAX_REFRESH_TOKENS) {
+    user.refreshTokens.shift();
+  }
+
+  user.refreshTokens.push({
+    token,
+    expiresAt,
+    device: device.toString().slice(0, 200),
+    createdAt: new Date(),
+  });
+
+  await user.save();
+  return token;
+};
+
+const buildAuthResponse = async (user, device = "") => {
+  const token = createAccessToken(user);
+  const refreshToken = await saveRefreshToken(user, device);
+
+  const responseUser = user.toObject();
+  delete responseUser.password;
+  delete responseUser.refreshTokens;
+  delete responseUser.loginAttempts;
+  delete responseUser.lockUntil;
+  delete responseUser.resetOtp;
+  delete responseUser.resetOtpExpiry;
+  delete responseUser.resetOtpAttempts;
+
+  return { token, refreshToken, user: responseUser };
 };
 
 // ==================================================
 // PHONE HELPERS
 // ==================================================
-const cleanPhone = (phone) => {
-  return phone?.toString().replace(/\s+/g, "").trim();
-};
+const cleanPhone = (phone) =>
+  phone?.toString().replace(/\s+/g, "").trim();
 
-const isValidPhone = (phone) => {
-  return /^[0-9]{10}$/.test(cleanPhone(phone) || "");
-};
+const isValidPhone = (phone) =>
+  /^[0-9]{10}$/.test(cleanPhone(phone) || "");
 
 // ==================================================
 // LOCK HELPERS
 // ==================================================
-const isLocked = (user) => {
-  return user.lockUntil && user.lockUntil > new Date();
-};
+const isLocked = (user) =>
+  user.lockUntil && user.lockUntil > new Date();
 
 const getRemainingLockMinutes = (user) => {
   if (!user.lockUntil) return 0;
-  const remaining = user.lockUntil - new Date();
-  return Math.ceil(remaining / 60000);
+  return Math.ceil((user.lockUntil - new Date()) / 60000);
 };
 
 // ==================================================
@@ -117,7 +145,6 @@ router.post("/register", async (req, res) => {
     }
 
     const finalLanguage = language?.toString().trim() || "en";
-
     if (!isValidLanguage(finalLanguage)) {
       return res.status(400).json({
         success: false,
@@ -127,7 +154,6 @@ router.post("/register", async (req, res) => {
     }
 
     const finalPhone = cleanPhone(phone);
-
     if (!isValidPhone(finalPhone)) {
       return res.status(400).json({
         success: false,
@@ -149,11 +175,11 @@ router.post("/register", async (req, res) => {
 
     if (googleIdToken) {
       try {
-        const googleData = await verifyGoogleToken(googleIdToken);
-        googleId = googleData.googleId;
-        googleName = googleData.googleName;
-        googleProfileImage = googleData.googleProfileImage;
-        finalEmail = googleData.email;
+        const g = await verifyGoogleToken(googleIdToken);
+        googleId = g.googleId;
+        googleName = g.googleName;
+        googleProfileImage = g.googleProfileImage;
+        finalEmail = g.email;
       } catch (error) {
         console.error("GOOGLE REGISTER VERIFY ERROR:", error);
         return res.status(401).json({
@@ -168,7 +194,6 @@ router.post("/register", async (req, res) => {
     if (googleId) orConditions.push({ googleId });
 
     const existingUser = await User.findOne({ $or: orConditions });
-
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -176,10 +201,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password.toString().trim(),
-      10
-    );
+    const hashedPassword = await bcrypt.hash(password.toString().trim(), 10);
 
     const userData = {
       name: name.toString().trim(),
@@ -200,16 +222,13 @@ router.post("/register", async (req, res) => {
     }
 
     const user = await User.create(userData);
-    const token = createToken(user);
-
-    const responseUser = user.toObject();
-    delete responseUser.password;
+    const device = req.headers["user-agent"] || "";
+    const auth = await buildAuthResponse(user, device);
 
     return res.status(201).json({
       success: true,
-      token,
+      ...auth,
       googleRegistered: !!googleId,
-      user: responseUser,
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error);
@@ -234,7 +253,6 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     let { identifier, password, isAdminLogin } = req.body;
-
     identifier = identifier?.toString().trim();
 
     if (!identifier || !password) {
@@ -245,7 +263,6 @@ router.post("/login", async (req, res) => {
     }
 
     let phoneIdentifier = identifier;
-
     if (/^[0-9]+$/.test(identifier)) {
       phoneIdentifier = cleanPhone(identifier);
     }
@@ -277,7 +294,6 @@ router.post("/login", async (req, res) => {
     // LOCK CHECK
     if (isLocked(user)) {
       const minutesLeft = getRemainingLockMinutes(user);
-
       return res.status(429).json({
         success: false,
         message: `Too many wrong attempts. Try again in ${minutesLeft} minute(s).`,
@@ -287,10 +303,7 @@ router.post("/login", async (req, res) => {
     }
 
     // PASSWORD VERIFY
-    let isMatch = await bcrypt.compare(
-      password.toString(),
-      user.password
-    );
+    let isMatch = await bcrypt.compare(password.toString(), user.password);
 
     if (
       !isMatch &&
@@ -307,7 +320,6 @@ router.post("/login", async (req, res) => {
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
         user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
         user.loginAttempts = 0;
-
         await user.save();
 
         console.log("🔒 USER LOCKED:", user._id.toString());
@@ -321,7 +333,6 @@ router.post("/login", async (req, res) => {
       }
 
       await user.save();
-
       const attemptsLeft = MAX_LOGIN_ATTEMPTS - user.loginAttempts;
 
       return res.status(400).json({
@@ -338,18 +349,10 @@ router.post("/login", async (req, res) => {
       await user.save();
     }
 
-    const token = createToken(user);
+    const device = req.headers["user-agent"] || "";
+    const auth = await buildAuthResponse(user, device);
 
-    const userResponse = user.toObject();
-    delete userResponse.password;
-    delete userResponse.loginAttempts;
-    delete userResponse.lockUntil;
-
-    return res.json({
-      success: true,
-      token,
-      user: userResponse,
-    });
+    return res.json({ success: true, ...auth });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
     return res.status(500).json({
@@ -360,12 +363,108 @@ router.post("/login", async (req, res) => {
 });
 
 // ==================================================
+// REFRESH TOKEN — Rotate tokens
+// ==================================================
+router.post("/refresh", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken || refreshToken.trim().isEmpty) {
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token required",
+      });
+    }
+
+    const token = refreshToken.trim();
+
+    const user = await User.findOne({ "refreshTokens.token": token });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token",
+        authError: true,
+        logout: true,
+      });
+    }
+
+    const stored = user.refreshTokens.find((t) => t.token === token);
+
+    if (!stored || stored.expiresAt < new Date()) {
+      // Expired token — remove & reject
+      user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
+      await user.save();
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token expired. Please login again.",
+        authError: true,
+        logout: true,
+      });
+    }
+
+    // BLOCKED
+    if (user.userType === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked.",
+        blocked: true,
+        logout: true,
+      });
+    }
+
+    // ROTATE — remove old token
+    user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
+    const device = req.headers["user-agent"] || "";
+    const auth = await buildAuthResponse(user, device);
+
+    console.log("🔄 TOKEN REFRESHED:", user._id.toString());
+
+    return res.json({ success: true, ...auth });
+  } catch (error) {
+    console.error("REFRESH ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Token refresh failed",
+    });
+  }
+});
+
+// ==================================================
+// LOGOUT — Revoke refresh token
+// ==================================================
+router.post("/logout", verifyToken, async (req, res) => {
+  try {
+    const { refreshToken, allDevices } = req.body;
+    const user = await User.findById(req.userId);
+    if (!user) return res.json({ success: true, message: "Logged out" });
+
+    if (allDevices === true) {
+      user.refreshTokens = [];
+    } else if (refreshToken) {
+      user.refreshTokens = (user.refreshTokens || []).filter(
+        (t) => t.token !== refreshToken
+      );
+    } else {
+      user.refreshTokens = [];
+    }
+
+    await user.save();
+    console.log("👋 LOGOUT:", user._id.toString());
+
+    return res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("LOGOUT ERROR:", error);
+    return res.json({ success: true });
+  }
+});
+
+// ==================================================
 // GOOGLE LOGIN
 // ==================================================
 router.post("/google-login", async (req, res) => {
   try {
     const { idToken } = req.body;
-
     if (!idToken) {
       return res.status(400).json({
         success: false,
@@ -392,26 +491,16 @@ router.post("/google-login", async (req, res) => {
     if (user.userType === "black") {
       return res.status(403).json({
         success: false,
-        message: "Your account has been blocked. Please contact support.",
+        message: "Your account has been blocked.",
         blocked: true,
         logout: true,
       });
     }
 
     let changed = false;
-
-    if (user.googleId !== googleId) {
-      user.googleId = googleId;
-      changed = true;
-    }
-    if (user.googleName !== googleName) {
-      user.googleName = googleName || "";
-      changed = true;
-    }
-    if (user.email !== email) {
-      user.email = email;
-      changed = true;
-    }
+    if (user.googleId !== googleId) { user.googleId = googleId; changed = true; }
+    if (user.googleName !== googleName) { user.googleName = googleName || ""; changed = true; }
+    if (user.email !== email) { user.email = email; changed = true; }
     if (user.googleProfileImage !== googleProfileImage) {
       user.googleProfileImage = googleProfileImage || "";
       changed = true;
@@ -424,18 +513,10 @@ router.post("/google-login", async (req, res) => {
 
     if (changed) await user.save();
 
-    const token = createToken(user);
+    const device = req.headers["user-agent"] || "";
+    const auth = await buildAuthResponse(user, device);
 
-    const userResponse = user.toObject();
-    delete userResponse.password;
-    delete userResponse.loginAttempts;
-    delete userResponse.lockUntil;
-
-    return res.json({
-      success: true,
-      token,
-      user: userResponse,
-    });
+    return res.json({ success: true, ...auth });
   } catch (error) {
     console.error("GOOGLE LOGIN ERROR:", error);
     return res.status(401).json({
@@ -446,16 +527,13 @@ router.post("/google-login", async (req, res) => {
 });
 
 // ==================================================
-// CHANGE PASSWORD (LOGGED IN USER)
-// No OTP required — direct update
+// CHANGE PASSWORD (LOGGED IN)
 // ==================================================
 router.put("/change-password", verifyToken, async (req, res) => {
   try {
     let { newPassword } = req.body;
-
     newPassword = newPassword?.toString().trim();
 
-    // PASSWORD VALIDATION
     if (!newPassword || !/^[0-9]{6,10}$/.test(newPassword)) {
       return res.status(400).json({
         success: false,
@@ -464,7 +542,6 @@ router.put("/change-password", verifyToken, async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -472,7 +549,6 @@ router.put("/change-password", verifyToken, async (req, res) => {
       });
     }
 
-    // BLOCKED USER
     if (user.userType === "black") {
       return res.status(403).json({
         success: false,
@@ -481,25 +557,22 @@ router.put("/change-password", verifyToken, async (req, res) => {
       });
     }
 
-    // HASH NEW PASSWORD
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    user.password = hashedPassword;
-
-    // Clear any pending OTP / lock state
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetOtp = null;
     user.resetOtpExpiry = null;
     user.resetOtpAttempts = 0;
     user.loginAttempts = 0;
     user.lockUntil = null;
+    // ✅ Force logout from all devices
+    user.refreshTokens = [];
 
     await user.save();
 
-    console.log("PASSWORD CHANGED:", user._id.toString());
+    console.log("🔑 PASSWORD CHANGED:", user._id.toString());
 
     return res.json({
       success: true,
-      message: "Password updated successfully",
+      message: "Password updated successfully. Please login again.",
     });
   } catch (error) {
     console.error("CHANGE PASSWORD ERROR:", error);
@@ -511,12 +584,11 @@ router.put("/change-password", verifyToken, async (req, res) => {
 });
 
 // ==================================================
-// STEP 1: FORGOT PASSWORD — SEND OTP
+// FORGOT PASSWORD — STEP 1: SEND OTP
 // ==================================================
 router.post("/forgot-send-otp", async (req, res) => {
   try {
     let { phone } = req.body;
-
     phone = phone?.toString().replace(/\s+/g, "").trim();
 
     if (!phone || !/^[0-9]{10}$/.test(phone)) {
@@ -555,33 +627,24 @@ router.post("/forgot-send-otp", async (req, res) => {
     user.resetOtp = otp;
     user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     user.resetOtpAttempts = 0;
-
     await user.save();
 
-    try {
-      await sendOtpEmail(user.email, otp, user.name);
-    } catch (mailErr) {
-      console.error("EMAIL SEND ERROR:", mailErr);
-
-      user.resetOtp = null;
-      user.resetOtpExpiry = null;
-      await user.save();
-
-      return res.status(500).json({
-        success: false,
-        message: "Failed to send OTP email",
-      });
-    }
-
     const emailParts = user.email.split("@");
-    const maskedEmail =
-      emailParts[0].slice(0, 2) + "***@" + emailParts[1];
+    const maskedEmail = emailParts[0].slice(0, 2) + "***@" + emailParts[1];
 
-    return res.json({
+    // ✅ Respond first
+    res.json({
       success: true,
       message: "OTP sent to your registered email",
       email: maskedEmail,
     });
+
+    // ✅ Send email in background
+    sendOtpEmail(user.email, otp, user.name)
+      .then((r) => console.log("✅ EMAIL SENT:", user.email, r?.data?.id || ""))
+      .catch((e) => console.error("❌ EMAIL FAILED:", e?.message));
+
+    return;
   } catch (error) {
     console.error("FORGOT SEND OTP ERROR:", error);
     return res.status(500).json({
@@ -592,12 +655,11 @@ router.post("/forgot-send-otp", async (req, res) => {
 });
 
 // ==================================================
-// STEP 2: FORGOT PASSWORD — VERIFY OTP + RESET
+// FORGOT PASSWORD — STEP 2: VERIFY OTP + RESET
 // ==================================================
 router.post("/forgot-verify-otp", async (req, res) => {
   try {
     let { phone, otp, newPassword } = req.body;
-
     phone = phone?.toString().replace(/\s+/g, "").trim();
     otp = otp?.toString().trim();
     newPassword = newPassword?.toString().trim();
@@ -624,7 +686,6 @@ router.post("/forgot-verify-otp", async (req, res) => {
     }
 
     const user = await User.findOne({ phone });
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -652,7 +713,6 @@ router.post("/forgot-verify-otp", async (req, res) => {
       user.resetOtpExpiry = null;
       user.resetOtpAttempts = 0;
       await user.save();
-
       return res.status(400).json({
         success: false,
         message: "OTP expired. Please request again.",
@@ -664,7 +724,6 @@ router.post("/forgot-verify-otp", async (req, res) => {
       user.resetOtpExpiry = null;
       user.resetOtpAttempts = 0;
       await user.save();
-
       return res.status(429).json({
         success: false,
         message: "Too many wrong attempts. Request again.",
@@ -674,25 +733,22 @@ router.post("/forgot-verify-otp", async (req, res) => {
     if (user.resetOtp !== otp) {
       user.resetOtpAttempts += 1;
       await user.save();
-
       return res.status(400).json({
         success: false,
         message: `Invalid OTP. Attempts left: ${5 - user.resetOtpAttempts}`,
       });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetOtp = null;
     user.resetOtpExpiry = null;
     user.resetOtpAttempts = 0;
     user.loginAttempts = 0;
     user.lockUntil = null;
-
+    user.refreshTokens = [];
     await user.save();
 
-    console.log("PASSWORD RESET SUCCESS:", user._id.toString());
+    console.log("🔑 PASSWORD RESET:", user._id.toString());
 
     return res.json({
       success: true,
@@ -712,7 +768,9 @@ router.post("/forgot-verify-otp", async (req, res) => {
 // ==================================================
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("-password");
+    const user = await User.findById(req.userId).select(
+      "-password -refreshTokens -resetOtp -resetOtpExpiry -resetOtpAttempts -loginAttempts -lockUntil"
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -741,9 +799,7 @@ router.get("/me", verifyToken, async (req, res) => {
         userType: user.userType || "others",
         highlightText: user.highlightText || "",
         profileImage: user.profileImage || "",
-        galleryImages: Array.isArray(user.galleryImages)
-          ? user.galleryImages
-          : [],
+        galleryImages: Array.isArray(user.galleryImages) ? user.galleryImages : [],
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -763,7 +819,6 @@ router.get("/me", verifyToken, async (req, res) => {
 router.delete("/me", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -780,8 +835,7 @@ router.delete("/me", verifyToken, async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.userId);
-
-    console.log("DELETE ACCOUNT SUCCESS:", req.userId);
+    console.log("❌ ACCOUNT DELETED:", req.userId);
 
     return res.json({
       success: true,

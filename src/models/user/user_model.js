@@ -244,6 +244,33 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // =================================================
+    // REFRESH TOKENS
+    //
+    // Multi-device support (max 5 active)
+    // Rotated on every refresh
+    // =================================================
+    refreshTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+        device: {
+          type: String,
+          default: "",
+        },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -306,6 +333,11 @@ userSchema.index({
 
 userSchema.index({
   language: 1,
+});
+
+// ✅ Index for refresh token lookup (fast)
+userSchema.index({
+  "refreshTokens.token": 1,
 });
 
 // =====================================================

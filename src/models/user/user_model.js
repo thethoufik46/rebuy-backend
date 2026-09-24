@@ -165,7 +165,7 @@ const userSchema = new mongoose.Schema(
     "or"
   ],
   default: "en",
-  required: true,
+  required: false,
 },
 
     // =================================================

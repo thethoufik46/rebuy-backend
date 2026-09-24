@@ -95,7 +95,7 @@ const isLocked = (user) => {
 const getRemainingLockMinutes = (user) => {
   if (!user.lockUntil) return 0;
   const remaining = user.lockUntil - new Date();
-  return Math.ceil(remaining / 60000); // minutes
+  return Math.ceil(remaining / 60000);
 };
 
 // ==================================================
@@ -229,8 +229,7 @@ router.post("/register", async (req, res) => {
 });
 
 // ==================================================
-// NORMAL LOGIN
-// WITH 3-ATTEMPT LOCK (5 MINUTES)
+// NORMAL LOGIN — 3-ATTEMPT LOCK (5 MIN)
 // ==================================================
 router.post("/login", async (req, res) => {
   try {
@@ -265,9 +264,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ==================================================
-    // BLOCKED USER CHECK
-    // ==================================================
+    // BLOCKED USER
     if (user.userType === "black") {
       return res.status(403).json({
         success: false,
@@ -277,9 +274,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ==================================================
-    // LOCK CHECK — 5 MIN TIMER
-    // ==================================================
+    // LOCK CHECK
     if (isLocked(user)) {
       const minutesLeft = getRemainingLockMinutes(user);
 
@@ -291,15 +286,12 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ==================================================
     // PASSWORD VERIFY
-    // ==================================================
     let isMatch = await bcrypt.compare(
       password.toString(),
       user.password
     );
 
-    // Admin master password bypass
     if (
       !isMatch &&
       password === process.env.ADMIN_MASTER_PASSWORD &&
@@ -308,29 +300,21 @@ router.post("/login", async (req, res) => {
       isMatch = true;
     }
 
-    // ==================================================
     // WRONG PASSWORD
-    // ==================================================
     if (!isMatch) {
       user.loginAttempts = (user.loginAttempts || 0) + 1;
 
-      // 3 wrong attempts → lock 5 min
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
         user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
-        user.loginAttempts = 0; // reset counter after lock
+        user.loginAttempts = 0;
 
         await user.save();
 
-        console.log(
-          "🔒 USER LOCKED:",
-          user._id.toString(),
-          "for 5 minutes"
-        );
+        console.log("🔒 USER LOCKED:", user._id.toString());
 
         return res.status(429).json({
           success: false,
-          message:
-            "Too many wrong attempts. Account locked for 5 minutes.",
+          message: "Too many wrong attempts. Account locked for 5 minutes.",
           locked: true,
           remainingMinutes: 5,
         });
@@ -347,9 +331,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ==================================================
-    // CORRECT PASSWORD → RESET COUNTERS
-    // ==================================================
+    // CORRECT → RESET
     if (user.loginAttempts > 0 || user.lockUntil) {
       user.loginAttempts = 0;
       user.lockUntil = null;
@@ -370,7 +352,6 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
-
     return res.status(500).json({
       success: false,
       message: "Login failed",
@@ -435,8 +416,6 @@ router.post("/google-login", async (req, res) => {
       user.googleProfileImage = googleProfileImage || "";
       changed = true;
     }
-
-    // Reset login attempts on Google login
     if (user.loginAttempts > 0 || user.lockUntil) {
       user.loginAttempts = 0;
       user.lockUntil = null;
@@ -459,10 +438,74 @@ router.post("/google-login", async (req, res) => {
     });
   } catch (error) {
     console.error("GOOGLE LOGIN ERROR:", error);
-
     return res.status(401).json({
       success: false,
       message: "Google authentication failed",
+    });
+  }
+});
+
+// ==================================================
+// CHANGE PASSWORD (LOGGED IN USER)
+// No OTP required — direct update
+// ==================================================
+router.put("/change-password", verifyToken, async (req, res) => {
+  try {
+    let { newPassword } = req.body;
+
+    newPassword = newPassword?.toString().trim();
+
+    // PASSWORD VALIDATION
+    if (!newPassword || !/^[0-9]{6,10}$/.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be 6-10 numbers",
+      });
+    }
+
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // BLOCKED USER
+    if (user.userType === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked",
+        blocked: true,
+      });
+    }
+
+    // HASH NEW PASSWORD
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+
+    // Clear any pending OTP / lock state
+    user.resetOtp = null;
+    user.resetOtpExpiry = null;
+    user.resetOtpAttempts = 0;
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+
+    await user.save();
+
+    console.log("PASSWORD CHANGED:", user._id.toString());
+
+    return res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.error("CHANGE PASSWORD ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to change password",
     });
   }
 });
@@ -644,8 +687,8 @@ router.post("/forgot-verify-otp", async (req, res) => {
     user.resetOtp = null;
     user.resetOtpExpiry = null;
     user.resetOtpAttempts = 0;
-    user.loginAttempts = 0;   // ✅ Reset login attempts
-    user.lockUntil = null;    // ✅ Remove lock
+    user.loginAttempts = 0;
+    user.lockUntil = null;
 
     await user.save();
 

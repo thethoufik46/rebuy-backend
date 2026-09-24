@@ -13,10 +13,7 @@ export const verifyToken = async (req, res, next) => {
 
     const authHeader = req.headers.authorization;
 
-    if (
-      !authHeader ||
-      !authHeader.startsWith("Bearer ")
-    ) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
@@ -29,9 +26,7 @@ export const verifyToken = async (req, res, next) => {
     // TOKEN
     // ----------------------------------------------------------
 
-    const token = authHeader
-      .substring(7)
-      .trim();
+    const token = authHeader.substring(7).trim();
 
     if (!token) {
       return res.status(401).json({
@@ -46,13 +41,10 @@ export const verifyToken = async (req, res, next) => {
     // VERIFY JWT
     // ----------------------------------------------------------
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // ----------------------------------------------------------
-    // USER ID
+    // USER ID CHECK
     // ----------------------------------------------------------
 
     if (!decoded?.id) {
@@ -65,12 +57,10 @@ export const verifyToken = async (req, res, next) => {
     }
 
     // ----------------------------------------------------------
-    // FIND USER
+    // FIND USER (password exclude)
     // ----------------------------------------------------------
 
-    const user = await User.findById(
-      decoded.id
-    ).select("-password");
+    const user = await User.findById(decoded.id).select("-password");
 
     // ----------------------------------------------------------
     // USER DELETED
@@ -86,11 +76,7 @@ export const verifyToken = async (req, res, next) => {
     }
 
     // ----------------------------------------------------------
-    // BLOCKED USER
-    //
-    // IMPORTANT:
-    // Your project uses userType === "black"
-    // NOT verification === "black"
+    // 🔒 BLOCKED USER CHECK — EVERY REQUEST
     // ----------------------------------------------------------
 
     if (user.userType === "black") {
@@ -106,14 +92,13 @@ export const verifyToken = async (req, res, next) => {
 
     // ----------------------------------------------------------
     // ATTACH USER TO REQUEST
+    //
+    // req.user  → full user object (isAdmin use பண்ணும்)
+    // req.userId → user._id (auth routes use பண்ணும்)
     // ----------------------------------------------------------
 
     req.user = user;
     req.userId = user._id;
-
-    // ----------------------------------------------------------
-    // CONTINUE
-    // ----------------------------------------------------------
 
     next();
   } catch (error) {
@@ -167,11 +152,7 @@ export const verifyToken = async (req, res, next) => {
 // ADMIN ONLY
 // ============================================================
 
-export const isAdmin = (
-  req,
-  res,
-  next
-) => {
+export const isAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,

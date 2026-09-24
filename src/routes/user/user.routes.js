@@ -92,7 +92,7 @@ router.post(
         userType: user.userType || "others",
         alternatePhone: user.alternatePhone || "",
         highlightText: user.highlightText || "",
-        language: user.language || "en", // ✅ FIXED
+        language: user.language || "en",
       });
     } catch (err) {
       console.error("USER PROFILE UPLOAD ERROR:", err);
@@ -357,7 +357,7 @@ router.get(
 
           language:
             user.language ||
-            "en", // ✅ FIXED
+            "en",
 
           // =================================================
           // ALTERNATE PHONE

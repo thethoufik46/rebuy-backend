@@ -1,10 +1,13 @@
-
 // 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
 // REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
+import xss from "xss-clean";
 import path from "path";
 import { fileURLToPath } from "url";
 import http from "http";
@@ -54,10 +57,23 @@ dotenv.config();
 const app = express(), server = http.createServer(app);
 export const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] } });
 const __filename = fileURLToPath(import.meta.url), __dirname = path.dirname(__filename);
+app.set("trust proxy", 1);
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" }, contentSecurityPolicy: false }));
 app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], allowedHeaders: ["Content-Type", "Authorization"] }));
 app.options("*", cors());
 app.use(express.json({ limit: "30mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "30mb" }));
+app.use(mongoSanitize());
+app.use(xss());
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again later." } });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many attempts. Try again in 15 minutes." } });
+const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many OTP requests. Wait 10 minutes." } });
+app.use("/api", apiLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/google-login", authLimiter);
+app.use("/api/auth/forgot-send-otp", otpLimiter);
+app.use("/api/auth/forgot-verify-otp", otpLimiter);
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("/privacy-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy-policy.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html")));

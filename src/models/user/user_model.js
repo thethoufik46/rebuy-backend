@@ -149,24 +149,24 @@ const userSchema = new mongoose.Schema(
     // =================================================
     // LANGUAGE
     // =================================================
-  language: {
-  type: String,
-  enum: [
-    "en",
-    "ta",
-    "ml",
-    "te",
-    "hi",
-    "kn",
-    "bn",
-    "mr",
-    "gu",
-    "ur",
-    "or"
-  ],
-  default: "en",
-  required: false,
-},
+    language: {
+      type: String,
+      enum: [
+        "en",
+        "ta",
+        "ml",
+        "te",
+        "hi",
+        "kn",
+        "bn",
+        "mr",
+        "gu",
+        "ur",
+        "or",
+      ],
+      default: "en",
+      required: false,
+    },
 
     // =================================================
     // HIGHLIGHT
@@ -213,20 +213,35 @@ const userSchema = new mongoose.Schema(
     },
 
     // =================================================
-    // PASSWORD REQUEST
+    // PASSWORD RESET OTP
     // =================================================
-    forgotRequest: {
-      type: Boolean,
-      default: false,
+    resetOtp: {
+      type: String,
+      default: null,
     },
 
-    forgotRequestAt: {
+    resetOtpExpiry: {
       type: Date,
       default: null,
     },
 
-    requestedPassword: {
-      type: String,
+    resetOtpAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    // =================================================
+    // LOGIN ATTEMPTS (Brute Force Protection)
+    //
+    // 3 wrong passwords → 5 minutes lock
+    // =================================================
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lockUntil: {
+      type: Date,
       default: null,
     },
   },

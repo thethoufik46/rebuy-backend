@@ -15,6 +15,7 @@ import { Server } from "socket.io";
 import { connectDB } from "./config/db.js";
 import { createAdminUser } from "./config/createAdmin.js";
 import authRoutes from "./routes/auth.routes.js";
+import adminAuthRoutes from "./routes/adminAuth.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
@@ -80,6 +81,7 @@ app.get("/refund-policy", (req, res) => res.sendFile(path.join(__dirname, "../pu
 app.use("/", youtubeAuthRoutes);
 connectDB().then(() => { console.log("✅ MongoDB Connected"); createAdminUser(); }).catch(err => { console.error("❌ MongoDB Error:", err); process.exit(1); });
 app.use("/api/auth", authRoutes);
+app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);

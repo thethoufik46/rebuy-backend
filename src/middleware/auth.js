@@ -4,13 +4,8 @@ import User from "../models/user/user_model.js";
 // ============================================================
 // VERIFY TOKEN
 // ============================================================
-
 export const verifyToken = async (req, res, next) => {
   try {
-    // ----------------------------------------------------------
-    // AUTH HEADER
-    // ----------------------------------------------------------
-
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -21,10 +16,6 @@ export const verifyToken = async (req, res, next) => {
         logout: true,
       });
     }
-
-    // ----------------------------------------------------------
-    // TOKEN
-    // ----------------------------------------------------------
 
     const token = authHeader.substring(7).trim();
 
@@ -37,15 +28,7 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // VERIFY JWT
-    // ----------------------------------------------------------
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // ----------------------------------------------------------
-    // USER ID CHECK
-    // ----------------------------------------------------------
 
     if (!decoded?.id) {
       return res.status(401).json({
@@ -56,15 +39,7 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // FIND USER (password exclude)
-    // ----------------------------------------------------------
-
     const user = await User.findById(decoded.id).select("-password");
-
-    // ----------------------------------------------------------
-    // USER DELETED
-    // ----------------------------------------------------------
 
     if (!user) {
       return res.status(401).json({
@@ -75,42 +50,22 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // 🔒 BLOCKED USER CHECK — EVERY REQUEST
-    // ----------------------------------------------------------
-
     if (user.userType === "black") {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked. Please contact support.",
+        message: "Your account has been blocked. Please contact support.",
         blocked: true,
         authError: true,
         logout: true,
       });
     }
 
-    // ----------------------------------------------------------
-    // ATTACH USER TO REQUEST
-    //
-    // req.user  → full user object (isAdmin use பண்ணும்)
-    // req.userId → user._id (auth routes use பண்ணும்)
-    // ----------------------------------------------------------
-
     req.user = user;
     req.userId = user._id;
 
     next();
   } catch (error) {
-    console.error(
-      "AUTH ERROR 👉",
-      error?.name,
-      error?.message
-    );
-
-    // ----------------------------------------------------------
-    // TOKEN EXPIRED
-    // ----------------------------------------------------------
+    console.error("AUTH ERROR 👉", error?.name, error?.message);
 
     if (error?.name === "TokenExpiredError") {
       return res.status(401).json({
@@ -122,10 +77,6 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // ----------------------------------------------------------
-    // INVALID TOKEN
-    // ----------------------------------------------------------
-
     if (error?.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
@@ -134,10 +85,6 @@ export const verifyToken = async (req, res, next) => {
         logout: true,
       });
     }
-
-    // ----------------------------------------------------------
-    // OTHER AUTH ERROR
-    // ----------------------------------------------------------
 
     return res.status(401).json({
       success: false,
@@ -151,7 +98,6 @@ export const verifyToken = async (req, res, next) => {
 // ============================================================
 // ADMIN ONLY
 // ============================================================
-
 export const isAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -162,7 +108,7 @@ export const isAdmin = (req, res, next) => {
     });
   }
 
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
     return res.status(403).json({
       success: false,
       message: "Admins only",

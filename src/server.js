@@ -1,8 +1,8 @@
 // 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
 // REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -53,7 +53,7 @@ import leadRoutes from "./routes/leads/lead.routes.js";
 import commonSearchRoute from "./routes/common.search.route.js";
 import surveyRoutes from "./routes/property/survey/survey.routes.js";
 import sliderRoutes from "./routes/slider/slider.routes.js";
-dotenv.config();
+import reelsRoutes from "./routes/reels/reels.routes.js";
 const app = express(), server = http.createServer(app);
 export const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] } });
 const __filename = fileURLToPath(import.meta.url), __dirname = path.dirname(__filename);
@@ -120,10 +120,11 @@ app.use("/api", commonSearchRoute);
 app.use("/api", recentlyViewedRoutes);
 app.use("/api/survey", surveyRoutes);
 app.use("/api/sliders", sliderRoutes);
+app.use("/api/reels", reelsRoutes);
 app.get("/api/app/version", (req, res) => res.json({ latest_version: "1.0.1", force_update: false, update_url: "https://play.google.com/store/apps/details?id=com.re2buy.app" }));
 app.get("/", (req, res) => res.status(200).json({ success: true, message: "🚀 REBUY Backend API running successfully" }));
 app.use((req, res) => res.status(404).json({ success: false, message: "API route not found" }));
 app.use((err, req, res, next) => { console.error("❌ Server Error:", err); res.status(500).json({ success: false, message: err?.message || "Internal server error" }); });
 io.on("connection", socket => { console.log("🟢 Socket Connected:", socket.id); socket.on("join", userId => { socket.join(userId); console.log(`User Joined: ${userId}`); }); socket.on("join-admin", () => { socket.join("admin"); console.log("👨‍💼 Admin Joined"); }); socket.on("disconnect", () => console.log("🔴 Socket Disconnected")); });
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => { console.log(`✅ Server running on port ${PORT}`); console.log("📍 Car Brands API: /api/carbrands"); console.log("📍 Car Models API: /api/carmodels"); console.log("📍 Car Variants API: /api/carvariants"); console.log("📍 Admin Add Car: POST /api/cars/add"); console.log("📍 Admin Cars: /api/cars/admin"); console.log("📍 User Cars: /api/cars"); console.log("📍 Bike Brands API: /api/bikebrands"); console.log("📍 Bike Models API: /api/bikemodels"); console.log("📍 Bike Variants API: /api/bikevariants"); console.log("📍 Mobile Brands API: /api/mobile-brands"); console.log("📍 Laptop Brands API: /api/laptop-brands"); console.log("📍 PC Brands API: /api/pc-brands"); console.log("📍 User Electronics API: /api/electronics"); console.log("📍 Admin Electronics API: /api/electronics/admin"); console.log("📍 User Property API: /api/properties"); console.log("📍 Admin Property API: /api/properties/admin"); console.log("📍 Orders API: /api/orders"); console.log("📍 My Orders: GET /api/orders/my"); console.log("📍 Create Order: POST /api/orders"); console.log("📍 Survey API: /api/survey"); console.log("📍 Add Survey: POST /api/survey/add"); });
+server.listen(PORT, () => { console.log(`✅ Server running on port ${PORT}`); console.log("📍 Reels API: /api/reels"); });

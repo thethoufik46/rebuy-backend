@@ -6,13 +6,8 @@ import User from "../models/user/user_model.js";
 const router = express.Router();
 
 // ==========================================================
-// ADMIN CONFIG
-// ==========================================================
-
-const ADMIN_ACCESS_EXPIRY = "1d";
-
-// ==========================================================
-// CREATE ADMIN TOKEN
+// CREATE ADMIN TOKEN (NO EXPIRY)
+// Token valid until admin logout (server-side tracking)
 // ==========================================================
 
 const createAdminToken = (user) => {
@@ -22,10 +17,9 @@ const createAdminToken = (user) => {
       role: user.role,
       isAdmin: true,
     },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: ADMIN_ACCESS_EXPIRY,
-    }
+    process.env.JWT_SECRET
+    // ✅ No expiresIn → token never expires
+    // ✅ Logout = adminActiveToken DB-ல null → invalid
   );
 };
 
@@ -64,16 +58,13 @@ router.post("/login", async (req, res) => {
         .trim();
     }
 
+    // ✅ select("+adminActiveToken") — hidden field-ஐ explicit-ஆ எடுக்க
     const user = await User.findOne({
       $or: [
-        {
-          phone: phoneIdentifier,
-        },
-        {
-          email: identifier.toLowerCase(),
-        },
+        { phone: phoneIdentifier },
+        { email: identifier.toLowerCase() },
       ],
-    });
+    }).select("+adminActiveToken");
 
     // ------------------------------------------------------
     // USER NOT FOUND
@@ -117,10 +108,7 @@ router.post("/login", async (req, res) => {
     let isMatch = false;
 
     if (user.password) {
-      isMatch = await bcrypt.compare(
-        password,
-        user.password
-      );
+      isMatch = await bcrypt.compare(password, user.password);
     }
 
     // ------------------------------------------------------
@@ -147,18 +135,26 @@ router.post("/login", async (req, res) => {
     }
 
     // ------------------------------------------------------
-    // CREATE TOKEN
+    // ✅ CREATE FRESH TOKEN (every login)
     // ------------------------------------------------------
 
     const token = createAdminToken(user);
 
     // ------------------------------------------------------
-    // REMOVE PASSWORD
+    // ✅ SAVE TOKEN TO DB
+    // (Old token automatically invalid ஆகும்)
+    // ------------------------------------------------------
+
+    user.adminActiveToken = token;
+    await user.save();
+
+    // ------------------------------------------------------
+    // REMOVE SENSITIVE FIELDS
     // ------------------------------------------------------
 
     const adminResponse = user.toObject();
-
     delete adminResponse.password;
+    delete adminResponse.adminActiveToken;
 
     // ------------------------------------------------------
     // SUCCESS
@@ -194,6 +190,7 @@ router.get("/me", async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Admin token required",
+        logout: true,
       });
     }
 
@@ -202,14 +199,12 @@ router.get("/me", async (req, res) => {
     let decoded;
 
     try {
-      decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
       return res.status(401).json({
         success: false,
-        message: "Invalid or expired admin token",
+        message: "Invalid admin token",
+        logout: true,
       });
     }
 
@@ -217,10 +212,7 @@ router.get("/me", async (req, res) => {
     // TOKEN MUST BE ADMIN
     // ------------------------------------------------------
 
-    if (
-      decoded.isAdmin !== true ||
-      decoded.role !== "admin"
-    ) {
+    if (decoded.isAdmin !== true || decoded.role !== "admin") {
       return res.status(403).json({
         success: false,
         message: "Admin access denied",
@@ -228,17 +220,31 @@ router.get("/me", async (req, res) => {
     }
 
     // ------------------------------------------------------
-    // FIND ADMIN
+    // FIND ADMIN (with hidden token field)
     // ------------------------------------------------------
 
-    const user = await User.findById(decoded.id).select(
-      "-password"
-    );
+    const user = await User.findById(decoded.id)
+      .select("-password +adminActiveToken");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Admin account not found",
+        logout: true,
+      });
+    }
+
+    // ------------------------------------------------------
+    // ✅ CHECK TOKEN MATCHES DB
+    // Logout ஆனா DB-ல null → 401
+    // ------------------------------------------------------
+
+    if (!user.adminActiveToken || user.adminActiveToken !== token) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please login again.",
+        logout: true,
+        authError: true,
       });
     }
 
@@ -267,12 +273,16 @@ router.get("/me", async (req, res) => {
     }
 
     // ------------------------------------------------------
-    // SUCCESS
+    // SUCCESS — remove hidden token
     // ------------------------------------------------------
+
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.adminActiveToken;
 
     return res.json({
       success: true,
-      user,
+      user: userData,
     });
 
   } catch (error) {
@@ -286,16 +296,137 @@ router.get("/me", async (req, res) => {
 });
 
 // ==========================================================
+// ✅ ADMIN MIDDLEWARE
+// Other admin routes-ல use பண்ண (reels, listings, etc.)
+// ==========================================================
+
+export const verifyAdminToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Admin token required",
+        logout: true,
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid admin token",
+        logout: true,
+      });
+    }
+
+    if (decoded.isAdmin !== true || decoded.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access denied",
+      });
+    }
+
+    const user = await User.findById(decoded.id)
+      .select("-password +adminActiveToken");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Admin account not found",
+        logout: true,
+      });
+    }
+
+    // ✅ Token matches DB?
+    if (!user.adminActiveToken || user.adminActiveToken !== token) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please login again.",
+        logout: true,
+        authError: true,
+      });
+    }
+
+    if (user.userType === "black") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin account has been blocked",
+        blocked: true,
+        logout: true,
+      });
+    }
+
+    req.userId = user._id;
+    req.adminUser = user;
+    req.adminToken = token;
+
+    next();
+  } catch (error) {
+    console.error("VERIFY ADMIN TOKEN ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Auth check failed",
+    });
+  }
+};
+
+// ==========================================================
 // ADMIN LOGOUT
 // POST /api/admin/auth/logout
 // ==========================================================
 
 router.post("/logout", async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+
+    // Token இல்லனா — anyway success (idempotent)
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.json({
+        success: true,
+        message: "Admin logged out successfully",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.json({
+        success: true,
+        message: "Admin logged out successfully",
+      });
+    }
+
+    // ------------------------------------------------------
+    // ✅ DB-ல இருந்து token clear
+    // ------------------------------------------------------
+
+    const user = await User.findById(decoded.id)
+      .select("+adminActiveToken");
+
+    if (user) {
+      // Safety: only clear if same token
+      if (user.adminActiveToken === token) {
+        user.adminActiveToken = null;
+        await user.save();
+      }
+    }
+
     return res.json({
       success: true,
       message: "Admin logged out successfully",
     });
+
   } catch (error) {
     console.error("ADMIN LOGOUT ERROR:", error);
 

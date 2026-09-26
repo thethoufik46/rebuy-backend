@@ -16,7 +16,6 @@ const locations = JSON.parse(fs.readFileSync(locationsPath, "utf-8"));
 // =====================================================
 const sessionSchema = new mongoose.Schema(
   {
-    // ✅ Hashed token (never store raw)
     tokenHash: {
       type: String,
       required: true,
@@ -42,7 +41,6 @@ const sessionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    // ✅ Reuse detection — rotated tokens
     replacedBy: {
       type: String,
       default: null,
@@ -228,6 +226,17 @@ const userSchema = new mongoose.Schema(
     lastSecurityEventAt: {
       type: Date,
       default: null,
+    },
+
+    // =================================================
+    // ✅ ADMIN ACTIVE TOKEN
+    // Only ONE token per admin — logout-ல clear ஆகும்
+    // Admin login-ல override ஆகும்
+    // =================================================
+    adminActiveToken: {
+      type: String,
+      default: null,
+      select: false,   // Default query-ல வராது (security)
     },
   },
   { timestamps: true }

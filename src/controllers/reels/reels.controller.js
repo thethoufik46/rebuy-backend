@@ -129,6 +129,36 @@ export const getFeed = async (req, res) => {
   }
 };
 
+export const getAdminReels = async (req, res) => {
+  try {
+    const { category } = req.query;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const filter = {};
+    if (category) filter.category = category;
+    const reels = await Reel.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    const data = reels.map((reel) => ({
+      reelUuid: reel.reelUuid,
+      category: reel.category,
+      listingId: reel.listingId,
+      videoUrl1080: reel.videoUrl1080,
+      videoUrl720: reel.videoUrl720,
+      thumbnailUrl: reel.thumbnailUrl,
+      duration: reel.duration,
+      shares: reel.shares,
+      status: reel.status,
+      failReason: reel.failReason,
+      createdAt: reel.createdAt,
+    }));
+    return res.status(200).json({ success: true, reels: data });
+  } catch (err) {
+    console.error("GET ADMIN REELS ERROR 👉", err);
+    return res.status(400).json({ success: false, message: err.message || "Failed to get reels" });
+  }
+};
+
 export const shareReel = async (req, res) => {
   try {
     const { reelUuid } = req.params;
@@ -166,4 +196,4 @@ export const deleteReel = async (req, res) => {
   }
 };
 
-export default { initUpload, completeUpload, getFeed, shareReel, deleteReel };
+export default { initUpload, completeUpload, getFeed, getAdminReels, shareReel, deleteReel };

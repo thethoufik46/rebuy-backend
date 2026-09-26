@@ -9,15 +9,17 @@ import {
   initUpload,
   completeUpload,
   getFeed,
+  getAdminReels,
   shareReel,
   deleteReel,
 } from "../../controllers/reels/reels.controller.js";
 
 const router = express.Router();
 
-// ADMIN ONLY — upload + delete
+// ADMIN ONLY — upload + list + delete
 router.post("/init", verifyAdminToken, initUpload);
 router.post("/complete", verifyAdminToken, completeUpload);
+router.get("/admin/list", verifyAdminToken, getAdminReels);
 router.delete("/:reelUuid", verifyAdminToken, deleteReel);
 
 // ALL LOGGED-IN USERS — view + share

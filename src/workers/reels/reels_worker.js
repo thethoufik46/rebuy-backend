@@ -5,12 +5,19 @@
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
 import ffmpeg from "fluent-ffmpeg";
+import ffmpegStatic from "ffmpeg-static";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import Reel from "../../models/reels/reels_model.js";
 import { r2, BUCKET, publicUrl, deleteReelFile } from "../../utils/reels/sendReels.js";
+
+// ✅ Set FFmpeg binary path (works on Render + local)
+if (ffmpegStatic) {
+  ffmpeg.setFfmpegPath(ffmpegStatic);
+  console.log("✅ FFmpeg path set:", ffmpegStatic);
+}
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://127.0.0.1:6379", { maxRetriesPerRequest: null });
 

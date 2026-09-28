@@ -124,14 +124,14 @@ const processReel=async({reelUuid,inputPath})=>{
     if(!width||!height)throw new Error("Invalid video resolution");
     const minSide=Math.min(width,height);
     const make1080=minSide>=1000;
-    const make720=minSide>=700;
-    console.log(`📐 ${reelUuid} — source: ${width}x${height} | 1080p: ${make1080} | 720p: ${make720}`);
+    const make720=true;
+    console.log(`📐 ${reelUuid} — source: ${width}x${height} | 1080p: ${make1080} | 720p: true`);
     if(make1080)await ffmpegPromise(inputPath,p1080,OPTS_1080);
-    if(make720)await ffmpegPromise(inputPath,p720,OPTS_720);
+    await ffmpegPromise(inputPath,p720,OPTS_720);
     console.log(`🖼️ THUMBNAIL START 👉 ${reelUuid}`);
     await new Promise((resolve,reject)=>{
       ffmpeg(inputPath)
-        .seekInput(1)
+        .seekInput(Math.min(1,Math.max(0,duration/2)))
         .frames(1)
         .outputOptions(["-q:v","3"])
         .output(pThumb)
@@ -147,11 +147,9 @@ const processReel=async({reelUuid,inputPath})=>{
     });
     const key1080=`videos/1080/${reelUuid}.mp4`;
     const key720=`videos/720/${reelUuid}.mp4`;
-    const keyOriginal=`videos/original/${reelUuid}.mp4`;
     const keyThumb=`thumbnails/${reelUuid}.jpg`;
+    await uploadFile(key720,p720,"video/mp4");
     if(make1080)await uploadFile(key1080,p1080,"video/mp4");
-    if(make720)await uploadFile(key720,p720,"video/mp4");
-    if(!make720)await uploadFile(keyOriginal,inputPath,"video/mp4");
     await uploadFile(keyThumb,pThumb,"image/jpeg");
     const update={
       $set:{
@@ -159,6 +157,8 @@ const processReel=async({reelUuid,inputPath})=>{
         duration:duration>0?duration:null,
         thumbnailKey:keyThumb,
         thumbnailUrl:publicUrl(keyThumb),
+        videoKey720:key720,
+        videoUrl720:publicUrl(key720),
         failReason:null,
       },
       $unset:{rawKey:""},
@@ -166,18 +166,9 @@ const processReel=async({reelUuid,inputPath})=>{
     if(make1080){
       update.$set.videoKey1080=key1080;
       update.$set.videoUrl1080=publicUrl(key1080);
-      update.$set.videoKey720=key720;
-      update.$set.videoUrl720=publicUrl(key720);
-    }else if(make720){
-      update.$set.videoKey720=key720;
-      update.$set.videoUrl720=publicUrl(key720);
+    }else{
       update.$set.videoKey1080=key720;
       update.$set.videoUrl1080=publicUrl(key720);
-    }else{
-      update.$set.videoKey1080=keyOriginal;
-      update.$set.videoUrl1080=publicUrl(keyOriginal);
-      update.$set.videoKey720=keyOriginal;
-      update.$set.videoUrl720=publicUrl(keyOriginal);
     }
     await Reel.updateOne({reelUuid},update);
     console.log(`💾 REEL DATABASE UPDATED 👉 ${reelUuid} | status: ready`);

@@ -20,7 +20,8 @@ connection.on("error",err=>console.error("❌ REDIS ERROR 👉",err.message||err
 connection.on("close",()=>console.log("⚠️ REDIS CONNECTION CLOSED 👉 Reels worker"));
 connection.on("reconnecting",()=>console.log("🔄 REDIS RECONNECTING 👉 Reels worker"));
 export const reelQueue=new Queue("reel-processing",{connection});
-const queueEvents=new QueueEvents("reel-processing",{connection:new IORedis(redisUrl,{maxRetriesPerRequest:null})});
+const queueEventsConnection=new IORedis(redisUrl,{maxRetriesPerRequest:null});
+const queueEvents=new QueueEvents("reel-processing",{connection:queueEventsConnection});
 queueEvents.on("waiting",({jobId})=>console.log(`⏳ REEL JOB WAITING 👉 ${jobId}`));
 queueEvents.on("active",({jobId,prev})=>console.log(`▶️ REEL JOB ACTIVE 👉 ${jobId} | previous: ${prev||"none"}`));
 queueEvents.on("completed",({jobId,returnvalue})=>console.log(`✅ REEL JOB COMPLETED 👉 ${jobId} | ${returnvalue||""}`));
@@ -30,8 +31,6 @@ export const enqueueReelProcessing=async({reelUuid,inputPath})=>{
   console.log(`📥 REEL JOB ADDING 👉 ${reelUuid}`);
   console.log(`📁 REEL INPUT PATH 👉 ${inputPath}`);
   try{
-    await connection.waitUntilReady();
-    console.log(`🟢 REDIS READY BEFORE JOB 👉 ${reelUuid}`);
     const job=await reelQueue.add("process",{reelUuid,inputPath},{
       jobId:reelUuid,
       attempts:2,

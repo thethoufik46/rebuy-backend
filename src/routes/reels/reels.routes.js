@@ -4,17 +4,9 @@
 import express from "express";
 import { verifyToken } from "../../middleware/auth.js";
 import { verifyAdminToken } from "../adminAuth.routes.js";
-import uploadReel from "../../middleware/reels/uploadReels.js";
-import {
-  initUpload,
-  completeUpload,
-  getFeed,
-  getAdminReels,
-  shareReel,
-  deleteReel,
-} from "../../controllers/reels/reels.controller.js";
+import { initUpload,completeUpload,getFeed,getAdminReels,shareReel,deleteReel } from "../../controllers/reels/reels.controller.js";
 const router=express.Router();
-router.post("/init",verifyAdminToken,uploadReel.single("video"),initUpload);
+router.post("/init",verifyAdminToken,initUpload);
 router.post("/complete",verifyAdminToken,completeUpload);
 router.get("/admin/list",verifyAdminToken,getAdminReels);
 router.delete("/:reelUuid",verifyAdminToken,deleteReel);

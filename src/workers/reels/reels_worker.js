@@ -1,16 +1,18 @@
 // ======================= src/workers/reels/reels_worker.js =======================
 // 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
-import { Queue, Worker, QueueEvents } from "bullmq";
+import { Queue,Worker,QueueEvents } from "bullmq";
 import IORedis from "ioredis";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegStatic from "ffmpeg-static";
-import fs from "fs/promises";
+import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 import os from "os";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { pipeline } from "stream/promises";
+import { GetObjectCommand,PutObjectCommand } from "@aws-sdk/client-s3";
 import Reel from "../../models/reels/reels_model.js";
-import { r2, BUCKET, publicUrl } from "../../utils/reels/sendReels.js";
+import { r2,BUCKET,publicUrl,deleteReelFile } from "../../utils/reels/sendReels.js";
 if(ffmpegStatic)ffmpeg.setFfmpegPath(ffmpegStatic);
 const redisUrl=process.env.REDIS_URL||"redis://127.0.0.1:6379";
 const connection=new IORedis(redisUrl,{maxRetriesPerRequest:null});
@@ -27,11 +29,11 @@ queueEvents.on("active",({jobId,prev})=>console.log(`▶️ REEL JOB ACTIVE 👉
 queueEvents.on("completed",({jobId,returnvalue})=>console.log(`✅ REEL JOB COMPLETED 👉 ${jobId} | ${returnvalue||""}`));
 queueEvents.on("failed",({jobId,failedReason})=>console.error(`❌ REEL JOB FAILED 👉 ${jobId} | ${failedReason||"unknown"}`));
 queueEvents.on("error",err=>console.error("❌ REEL QUEUE EVENTS ERROR 👉",err.message||err));
-export const enqueueReelProcessing=async({reelUuid,inputPath})=>{
+export const enqueueReelProcessing=async({reelUuid,rawKey})=>{
   console.log(`📥 REEL JOB ADDING 👉 ${reelUuid}`);
-  console.log(`📁 REEL INPUT PATH 👉 ${inputPath}`);
+  console.log(`☁️ REEL RAW KEY 👉 ${rawKey}`);
   try{
-    const job=await reelQueue.add("process",{reelUuid,inputPath},{
+    const job=await reelQueue.add("process",{reelUuid,rawKey},{
       jobId:reelUuid,
       attempts:2,
       backoff:{type:"exponential",delay:5000},
@@ -46,17 +48,26 @@ export const enqueueReelProcessing=async({reelUuid,inputPath})=>{
     throw err;
   }
 };
+const downloadRawToTemp=async(rawKey,filePath)=>{
+  console.log(`☁️ R2 RAW DOWNLOAD START 👉 ${rawKey}`);
+  const result=await r2.send(new GetObjectCommand({Bucket:BUCKET,Key:rawKey}));
+  if(!result.Body)throw new Error("R2 raw video body is empty");
+  await pipeline(result.Body,fs.createWriteStream(filePath));
+  const stat=await fsp.stat(filePath);
+  console.log(`☁️ R2 RAW DOWNLOAD DONE 👉 ${rawKey} | ${stat.size} bytes`);
+  return stat.size;
+};
 const uploadFile=async(key,filePath,contentType)=>{
   console.log(`☁️ R2 UPLOAD START 👉 ${key}`);
-  const buf=await fs.readFile(filePath);
-  console.log(`☁️ R2 FILE SIZE 👉 ${key} | ${buf.length} bytes`);
+  const stat=await fsp.stat(filePath);
   await r2.send(new PutObjectCommand({
     Bucket:BUCKET,
     Key:key,
-    Body:buf,
+    Body:fs.createReadStream(filePath),
+    ContentLength:stat.size,
     ContentType:contentType,
   }));
-  console.log(`☁️ R2 UPLOAD DONE 👉 ${key}`);
+  console.log(`☁️ R2 UPLOAD DONE 👉 ${key} | ${stat.size} bytes`);
 };
 const ffmpegPromise=(input,output,options)=>new Promise((resolve,reject)=>{
   console.log(`🎬 FFMPEG START 👉 ${path.basename(output)}`);
@@ -93,38 +104,36 @@ const probeVideo=input=>new Promise((resolve,reject)=>{
   });
 });
 const cleanupTemp=async(files)=>{
-  await Promise.all(files.filter(Boolean).map(file=>fs.unlink(file).catch(()=>{})));
-  console.log(`🧹 REEL TEMP CLEANUP DONE 👉 ${files.filter(Boolean).length} files checked`);
+  await Promise.all(files.filter(Boolean).map(file=>fsp.unlink(file).catch(()=>{})));
 };
 const OPTS_1080=[
   "-vf","scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black",
-  "-c:v","libx264","-preset","medium","-crf","21","-maxrate","3.5M","-bufsize","7M",
-  "-profile:v","high","-level","4.1","-pix_fmt","yuv420p",
+  "-c:v","libx264","-preset","veryfast","-crf","22","-maxrate","3.5M","-bufsize","7M",
+  "-profile:v","high","-level","4.1","-pix_fmt","yuv420p","-threads","1",
   "-c:a","aac","-b:a","96k","-ac","2","-ar","44100","-movflags","+faststart",
 ];
 const OPTS_720=[
-  "-vf","scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black",
-  "-c:v","libx264","-preset","medium","-crf","23","-maxrate","1.5M","-bufsize","3M",
-  "-profile:v","main","-level","3.1","-pix_fmt","yuv420p",
+  "-vf","scale=720:1280:force_original_aspect_ratio:decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black",
+  "-c:v","libx264","-preset","veryfast","-crf","24","-maxrate","1.5M","-bufsize","3M",
+  "-profile:v","main","-level","3.1","-pix_fmt","yuv420p","-threads","1",
   "-c:a","aac","-b:a","80k","-ac","2","-ar","44100","-movflags","+faststart",
 ];
-const processReel=async({reelUuid,inputPath})=>{
+const processReel=async({reelUuid,rawKey})=>{
   const tmp=process.env.REEL_TEMP_DIR||path.join(os.tmpdir(),"re2buy-reels");
+  await fsp.mkdir(tmp,{recursive:true});
+  const inputPath=path.join(tmp,`${reelUuid}_raw.mp4`);
   const p1080=path.join(tmp,`${reelUuid}_1080.mp4`);
   const p720=path.join(tmp,`${reelUuid}_720.mp4`);
   const pThumb=path.join(tmp,`${reelUuid}.jpg`);
   const tempFiles=[inputPath,p1080,p720,pThumb];
   console.log(`🚀 REEL PROCESS START 👉 ${reelUuid}`);
-  console.log(`📁 REEL INPUT 👉 ${inputPath}`);
-  console.log(`📂 REEL TEMP DIR 👉 ${tmp}`);
+  console.log(`☁️ REEL RAW KEY 👉 ${rawKey}`);
   try{
-    await fs.access(inputPath);
-    console.log(`✅ REEL INPUT FILE EXISTS 👉 ${reelUuid}`);
+    await downloadRawToTemp(rawKey,inputPath);
     const {width,height,duration}=await probeVideo(inputPath);
     if(!width||!height)throw new Error("Invalid video resolution");
     const minSide=Math.min(width,height);
     const make1080=minSide>=1000;
-    const make720=true;
     console.log(`📐 ${reelUuid} — source: ${width}x${height} | 1080p: ${make1080} | 720p: true`);
     if(make1080)await ffmpegPromise(inputPath,p1080,OPTS_1080);
     await ffmpegPromise(inputPath,p720,OPTS_720);
@@ -133,16 +142,10 @@ const processReel=async({reelUuid,inputPath})=>{
       ffmpeg(inputPath)
         .seekInput(Math.min(1,Math.max(0,duration/2)))
         .frames(1)
-        .outputOptions(["-q:v","3"])
+        .outputOptions(["-q:v","4"])
         .output(pThumb)
-        .on("end",()=>{
-          console.log(`✅ THUMBNAIL DONE 👉 ${reelUuid}`);
-          resolve();
-        })
-        .on("error",err=>{
-          console.error(`❌ THUMBNAIL ERROR 👉 ${reelUuid}`,err);
-          reject(err);
-        })
+        .on("end",()=>resolve())
+        .on("error",reject)
         .run();
     });
     const key1080=`videos/1080/${reelUuid}.mp4`;
@@ -172,6 +175,8 @@ const processReel=async({reelUuid,inputPath})=>{
     }
     await Reel.updateOne({reelUuid},update);
     console.log(`💾 REEL DATABASE UPDATED 👉 ${reelUuid} | status: ready`);
+    await deleteReelFile(rawKey);
+    console.log(`🗑️ R2 RAW DELETED 👉 ${rawKey}`);
     await cleanupTemp(tempFiles);
     console.log(`✅ REEL READY 👉 ${reelUuid} | ${width}x${height} | duration: ${duration}s`);
     return "ready";
@@ -197,7 +202,7 @@ if(process.env.NODE_ENV!=="test"){
       console.log(`🏁 REEL WORKER FINISHED JOB 👉 ${job.id} | ${result}`);
       return result;
     },
-    {connection,concurrency:2},
+    {connection,concurrency:1},
   );
   reelWorker.on("ready",()=>console.log("🟢 REEL WORKER READY 👉 BullMQ"));
   reelWorker.on("active",job=>console.log(`▶️ REEL WORKER ACTIVE 👉 ${job.id}`));

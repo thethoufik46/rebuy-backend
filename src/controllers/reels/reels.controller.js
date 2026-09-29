@@ -21,6 +21,16 @@ const verifyListing=async(category,listingId)=>{
   const listing=await entry.model.findOne({[entry.idField]:listingId}).select(`${entry.idField} createdBy sellerUser status`).lean();
   return listing||null;
 };
+const hydrateListings=async(category,reels)=>{
+  const entry=listingModelMap[category];
+  if(!entry||!reels.length)return {};
+  const ids=[...new Set(reels.map(r=>r.listingId).filter(id=>id!=null))];
+  if(!ids.length)return {};
+  const listings=await entry.model.find({[entry.idField]:{$in:ids}}).lean();
+  const map={};
+  for(const item of listings)map[item[entry.idField]]=item;
+  return map;
+};
 const initSchema=z.object({
   category:z.enum(["cars","bikes","property","electronics"]),
   contentType:z.string().regex(/^video\//),
@@ -107,6 +117,7 @@ export const getFeed=async(req,res)=>{
     const items=hasMore?reels.slice(0,limit):reels;
     const last=items[items.length-1];
     const nextCursor=hasMore&&last?Buffer.from(JSON.stringify({createdAt:last.createdAt,id:last._id})).toString("base64url"):null;
+    const listingMap=await hydrateListings(category,items);
     return res.status(200).json({
       success:true,
       reels:items.map(reel=>({
@@ -119,6 +130,10 @@ export const getFeed=async(req,res)=>{
         duration:reel.duration,
         shares:reel.shares,
         sizeBytes:reel.sizeBytes,
+        car:reel.category==="cars"?(listingMap[reel.listingId]||null):null,
+        bike:reel.category==="bikes"?(listingMap[reel.listingId]||null):null,
+        property:reel.category==="property"?(listingMap[reel.listingId]||null):null,
+        electronics:reel.category==="electronics"?(listingMap[reel.listingId]||null):null,
       })),
       nextCursor,
       hasMore,

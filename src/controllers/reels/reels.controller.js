@@ -26,7 +26,12 @@ const hydrateListings=async(category,reels)=>{
   if(!entry||!reels.length)return {};
   const ids=[...new Set(reels.map(r=>r.listingId).filter(id=>id!=null))];
   if(!ids.length)return {};
-  const listings=await entry.model.find({[entry.idField]:{$in:ids}}).lean();
+  const listings=await entry.model
+    .find({[entry.idField]:{$in:ids}})
+    .populate("brand","name logoUrl")
+    .populate("model","name title modelName")
+    .populate("variant","variantName title name")
+    .lean();
   const map={};
   for(const item of listings)map[item[entry.idField]]=item;
   return map;

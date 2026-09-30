@@ -13,7 +13,7 @@ const router = express.Router();
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCK_DURATION_MS = 5 * 60 * 1000;
 const ACCESS_EXPIRY = "15m";
-const REFRESH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const REFRESH_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 const MAX_ACTIVE_SESSIONS = 5;
 const validLanguages = ["en","ta","ml","te","hi","kn","bn","mr","gu","ur","or"];
 const isValidLanguage = (l) => !l || validLanguages.includes(l.toString().trim());
@@ -79,20 +79,23 @@ const rotateSession = async (user, oldTokenHash, req) => {
   await user.save();
   return { rawNew, newHash };
 };
+const sanitizeUser = (user) => {
+  const u = user.toObject();
+  delete u.password;
+  delete u.sessions;
+  delete u.loginAttempts;
+  delete u.lockUntil;
+  delete u.resetOtp;
+  delete u.resetOtpExpiry;
+  delete u.resetOtpAttempts;
+  delete u.lastSecurityEvent;
+  delete u.lastSecurityEventAt;
+  return u;
+};
 const buildAuthResponse = async (user, req) => {
   const token = createAccessToken(user);
   const { rawRefresh } = await createSession(user, req);
-  const responseUser = user.toObject();
-  delete responseUser.password;
-  delete responseUser.sessions;
-  delete responseUser.loginAttempts;
-  delete responseUser.lockUntil;
-  delete responseUser.resetOtp;
-  delete responseUser.resetOtpExpiry;
-  delete responseUser.resetOtpAttempts;
-  delete responseUser.lastSecurityEvent;
-  delete responseUser.lastSecurityEventAt;
-  return { token, refreshToken: rawRefresh, user: responseUser };
+  return { token, refreshToken: rawRefresh, user: sanitizeUser(user) };
 };
 const cleanPhone = (phone) => phone?.toString().replace(/\s+/g, "").trim();
 const isValidPhone = (phone) => /^[0-9]{10}$/.test(cleanPhone(phone) || "");
@@ -132,16 +135,7 @@ router.post("/register", async (req, res) => {
     const existing = await User.findOne({ $or: orConditions });
     if (existing) return res.status(400).json({ success: false, message: "User already exists" });
     const hashedPassword = await bcrypt.hash(password.toString().trim(), 10);
-    const userData = {
-      name: name.toString().trim(),
-      phone: finalPhone,
-      password: hashedPassword,
-      role: "user",
-      category: category.toString().trim(),
-      district: district.toString().trim(),
-      language: finalLanguage,
-      address: address || "NA",
-    };
+    const userData = { name: name.toString().trim(), phone: finalPhone, password: hashedPassword, role: "user", category: category.toString().trim(), district: district.toString().trim(), language: finalLanguage, address: address || "NA" };
     if (finalEmail) userData.email = finalEmail;
     if (googleId) {
       userData.googleId = googleId;
@@ -219,18 +213,8 @@ router.post("/refresh", async (req, res) => {
       return res.status(401).json({ success: false, message: "Session expired. Please login again.", authError: true, logout: true, securityAlert: true });
     }
     const newAccessToken = createAccessToken(user);
-    const responseUser = user.toObject();
-    delete responseUser.password;
-    delete responseUser.sessions;
-    delete responseUser.loginAttempts;
-    delete responseUser.lockUntil;
-    delete responseUser.resetOtp;
-    delete responseUser.resetOtpExpiry;
-    delete responseUser.resetOtpAttempts;
-    delete responseUser.lastSecurityEvent;
-    delete responseUser.lastSecurityEventAt;
     console.log("TOKEN ROTATED:", user._id.toString());
-    return res.json({ success: true, token: newAccessToken, refreshToken: rotated.rawNew, user: responseUser });
+    return res.json({ success: true, token: newAccessToken, refreshToken: rotated.rawNew, user: sanitizeUser(user) });
   } catch (error) {
     console.error("REFRESH ERROR:", error);
     return res.status(500).json({ success: false, message: "Token refresh failed" });
@@ -266,14 +250,7 @@ router.get("/sessions", verifyToken, async (req, res) => {
     const user = await User.findById(req.userId).select("sessions");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     const now = new Date();
-    const active = (user.sessions || []).filter((s) => s.expiresAt > now && !s.revokedAt).map((s) => ({
-      _id: s._id,
-      device: s.device,
-      ip: s.ip,
-      lastActiveAt: s.lastActiveAt,
-      createdAt: s.createdAt,
-      expiresAt: s.expiresAt,
-    }));
+    const active = (user.sessions || []).filter((s) => s.expiresAt > now && !s.revokedAt).map((s) => ({ _id: s._id, device: s.device, ip: s.ip, lastActiveAt: s.lastActiveAt, createdAt: s.createdAt, expiresAt: s.expiresAt }));
     return res.json({ success: true, count: active.length, sessions: active });
   } catch (error) {
     console.error("GET SESSIONS ERROR:", error);

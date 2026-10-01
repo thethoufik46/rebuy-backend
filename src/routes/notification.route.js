@@ -1,5 +1,6 @@
 import express from "express";
 import uploadNotification from "../middleware/uploadNotification.js";
+import { verifyToken } from "../middleware/auth.js";
 import {
   addNotification,
   getNotifications,
@@ -19,6 +20,21 @@ router.post(
 );
 
 router.get("/", getNotifications);
+
+// ✅ NEW — unread count
+router.get("/unread-count", verifyToken, async (req, res) => {
+  try {
+    const Notification = (await import("../models/notification.model.js")).default;
+    const count = await Notification.countDocuments({
+      userId: req.userId,
+      read: false
+    });
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error("UNREAD COUNT ERROR:", error);
+    res.status(500).json({ success: false, count: 0 });
+  }
+});
 
 router.put(
   "/:id",

@@ -1,6 +1,7 @@
 import express from "express";
 import uploadNotification from "../middleware/uploadNotification.js";
 import { verifyToken } from "../middleware/auth.js";
+import Notification from "../models/notification_model.js";   // ✅ top
 import {
   addNotification,
   getNotifications,
@@ -21,13 +22,15 @@ router.post(
 
 router.get("/", getNotifications);
 
-// ✅ NEW — unread count
+// ✅ UNREAD COUNT
 router.get("/unread-count", verifyToken, async (req, res) => {
   try {
-    const Notification = (await import("../models/notification.model.js")).default;
     const count = await Notification.countDocuments({
-      userId: req.userId,
-      read: false
+      read: false,
+      $or: [
+        { userId: req.userId },
+        { userId: null },   // global notifications
+      ],
     });
     res.json({ success: true, count });
   } catch (error) {

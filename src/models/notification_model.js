@@ -29,12 +29,24 @@ const notificationSchema = new mongoose.Schema(
       default: "",
     },
 
-    // ✅ NEW FIELD: TYPE (Dropdown)
     type: {
       type: String,
-      enum: ["notification", "driver_jobs"], // 🔥 restrict values
+      enum: ["notification", "driver_jobs"],
       default: "notification",
       required: true,
+    },
+
+    // ✅ NEW — unread count-க்கு
+    read: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ✅ NEW — user-specific notifications
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   { timestamps: true }

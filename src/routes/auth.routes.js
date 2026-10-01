@@ -12,7 +12,7 @@ import { sendOtpEmail } from "../utils/sendEmail.js";
 const router = express.Router();
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCK_DURATION_MS = 5 * 60 * 1000;
-const ACCESS_EXPIRY = "15m";
+const ACCESS_EXPIRY = "30d";
 const REFRESH_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 const MAX_ACTIVE_SESSIONS = 5;
 const validLanguages = ["en","ta","ml","te","hi","kn","bn","mr","gu","ur","or"];

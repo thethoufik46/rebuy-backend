@@ -8,7 +8,7 @@ const carModelSchema=new mongoose.Schema({
   title:{type:String,required:true,trim:true},
   imageUrl:{type:String,required:false,default:"",trim:true},
   taxiImageUrl:{type:String,required:false,default:"",trim:true},
-  seater:{type:String,enum:["","5 seater","7 seater"],required:false,default:"",trim:true},
+  seater:{type:String,enum:["","2 seater","4 seater","5 seater","7 seater","7+ seater"],required:false,default:"",trim:true},
   order:{type:Number,default:null},
 },{timestamps:true});
 const CarModel=mongoose.model("CarModel",carModelSchema,"carmodels");

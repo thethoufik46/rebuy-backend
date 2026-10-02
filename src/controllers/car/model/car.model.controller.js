@@ -6,6 +6,8 @@ import CarModel from "../../../models/car/model/car_model_model.js";
 import CarBrand from "../../../models/car/brand/car_brand_model.js";
 import {uploadCarModelImage,deleteCarModelImage,uploadTaxiImage,deleteTaxiImage} from "../../../utils/car/model/carModel.js";
 
+const SEATER_OPTIONS=["2 seater","4 seater","5 seater","7 seater","7+ seater"];
+
 // ============================================================
 // ADD CAR MODEL
 // ============================================================
@@ -13,7 +15,7 @@ export const addCarModel=async(req,res)=>{
   try{
     const{brandId,title,seater,order,taxiImageUrl}=req.body;
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
-    if(seater&&!["5 seater","7 seater"].includes(seater))return res.status(400).json({success:false,message:"Seater must be 5 seater or 7 seater"});
+    if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
     let orderValue=null;
     if(order!==undefined&&order!==null&&order!==""){
       const n=Number(order);
@@ -156,7 +158,7 @@ export const updateCarModel=async(req,res)=>{
     const carModel=await CarModel.findById(id);
     if(!carModel)return res.status(404).json({success:false,message:"Car model not found"});
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
-    if(seater&&!["5 seater","7 seater"].includes(seater))return res.status(400).json({success:false,message:"Seater must be 5 seater or 7 seater"});
+    if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
     let orderValue=null;
     if(order!==undefined&&order!==null&&order!==""){
       const n=Number(order);

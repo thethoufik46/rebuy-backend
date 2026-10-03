@@ -16,12 +16,7 @@ export const addCarModel=async(req,res)=>{
     const{brandId,title,seater,order,taxiImageUrl}=req.body;
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
-    let orderValue=null;
-    if(order!==undefined&&order!==null&&order!==""){
-      const n=Number(order);
-      if(!Number.isFinite(n))return res.status(400).json({success:false,message:"Order must be a number"});
-      orderValue=n;
-    }
+    const orderValue=parseOrder(order);
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
     const cleanTitle=title.trim();
@@ -44,7 +39,7 @@ export const addCarModel=async(req,res)=>{
 // ============================================================
 export const getAllCarModels=async(req,res)=>{
   try{
-    const carModels=await CarModel.find().sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
+    const carModels=await CarModel.find().sort({createdAt:-1}).populate("brand","name logoUrl");
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
@@ -61,7 +56,7 @@ export const getCarModelsByBrand=async(req,res)=>{
     const{brandId}=req.params;
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
-    const carModels=await CarModel.find({brand:brandId}).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
+    const carModels=await CarModel.find({brand:brandId}).populate("brand","name logoUrl");
     const priority=["crysta","innova","ertiga","swift","wagon r"];
     carModels.sort((a,b)=>{
       const aTitle=(a.title||"").trim().toLowerCase(),bTitle=(b.title||"").trim().toLowerCase();
@@ -69,9 +64,10 @@ export const getCarModelsByBrand=async(req,res)=>{
       if(aIndex!==-1&&bIndex!==-1)return aIndex-bIndex;
       if(aIndex!==-1)return-1;
       if(bIndex!==-1)return 1;
-      if(a.order!=null&&b.order!=null&&a.order!==b.order)return a.order-b.order;
-      if(a.order!=null)return-1;
-      if(b.order!=null)return 1;
+      const aOrder=normalizeOrder(a.order),bOrder=normalizeOrder(b.order);
+      if(aOrder!==null&&bOrder!==null&&aOrder!==bOrder)return aOrder-bOrder;
+      if(aOrder!==null)return-1;
+      if(bOrder!==null)return 1;
       return aTitle.localeCompare(bTitle,"en",{sensitivity:"base"});
     });
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
@@ -93,7 +89,7 @@ export const getONEBrandhideCarModels=async(req,res)=>{
     if(loadBrand)hiddenBrandIds.push(loadBrand._id);
     if(otherStateBrand)hiddenBrandIds.push(otherStateBrand._id);
     const query=hiddenBrandIds.length?{brand:{$nin:hiddenBrandIds}}:{};
-    const carModels=await CarModel.find(query).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
+    const carModels=await CarModel.find(query).populate("brand","name logoUrl");
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
@@ -109,7 +105,7 @@ export const getLoadVehiclesCarModels=async(req,res)=>{
   try{
     const brand=await CarBrand.findOne({name:/load vehicles/i});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
-    const carModels=await CarModel.find({brand:brand._id}).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
+    const carModels=await CarModel.find({brand:brand._id}).populate("brand","name logoUrl");
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
@@ -125,7 +121,7 @@ export const getOtherStateCarModels=async(req,res)=>{
   try{
     const brand=await CarBrand.findOne({name:"Other State டெல்லி"});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
-    const carModels=await CarModel.find({brand:brand._id}).sort({order:1,createdAt:-1}).populate("brand","name logoUrl");
+    const carModels=await CarModel.find({brand:brand._id}).populate("brand","name logoUrl");
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
@@ -139,7 +135,7 @@ export const getOtherStateCarModels=async(req,res)=>{
 // ============================================================
 export const getSelectedCarModels=async(req,res)=>{
   try{
-    const carModels=await CarModel.find({title:{$in:["Innova இன்னோவா","Crysta கிரிஸ்டா","Swift ஸ்விப்ட்","Ertiga எர்டிகா"]}}).populate("brand","name logoUrl").sort({order:1,createdAt:-1});
+    const carModels=await CarModel.find({title:{$in:["Innova இன்னோவா","Crysta கிரிஸ்டா","Swift ஸ்விப்ட்","Ertiga எர்டிகா"]}}).populate("brand","name logoUrl");
     const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
@@ -159,12 +155,7 @@ export const updateCarModel=async(req,res)=>{
     if(!carModel)return res.status(404).json({success:false,message:"Car model not found"});
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
-    let orderValue=null;
-    if(order!==undefined&&order!==null&&order!==""){
-      const n=Number(order);
-      if(!Number.isFinite(n))return res.status(400).json({success:false,message:"Order must be a number"});
-      orderValue=n;
-    }
+    const orderValue=parseOrder(order);
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
     const cleanTitle=title.trim();
@@ -208,6 +199,30 @@ export const deleteCarModel=async(req,res)=>{
     return res.status(500).json({success:false,message:err.message});
   }
 };
+
+// ============================================================
+// PARSE ORDER — accepts text ("T03","IDPI") or number (1,2). Empty → null
+// ============================================================
+function parseOrder(order){
+  if(order===undefined||order===null)return null;
+  if(typeof order==="string"){
+    const trimmed=order.trim();
+    if(trimmed==="")return null;
+    return trimmed;
+  }
+  if(typeof order==="number"&&Number.isFinite(order))return order;
+  return null;
+}
+
+// ============================================================
+// NORMALIZE ORDER FOR SORTING — numbers sort numerically, strings after numbers
+// ============================================================
+function normalizeOrder(order){
+  if(order===null||order===undefined||order==="")return null;
+  if(typeof order==="number")return order;
+  const n=Number(order);
+  return Number.isFinite(n)?n:null;
+}
 
 // ============================================================
 // ESCAPE REGEX

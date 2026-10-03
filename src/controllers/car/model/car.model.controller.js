@@ -145,12 +145,12 @@ export const getSelectedCarModels=async(req,res)=>{
 };
 
 // ============================================================
-// UPDATE CAR MODEL
+// UPDATE CAR MODEL  ← NOW HANDLES removeImage / removeTaxiImage
 // ============================================================
 export const updateCarModel=async(req,res)=>{
   try{
     const{id}=req.params;
-    const{title,brandId,seater,order,taxiImageUrl}=req.body;
+    const{title,brandId,seater,order,taxiImageUrl,removeImage,removeTaxiImage}=req.body;
     const carModel=await CarModel.findById(id);
     if(!carModel)return res.status(404).json({success:false,message:"Car model not found"});
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
@@ -166,6 +166,18 @@ export const updateCarModel=async(req,res)=>{
     carModel.order=orderValue;
     if(seater!==undefined)carModel.seater=seater||"";
     if(taxiImageUrl!==undefined)carModel.taxiImageUrl=taxiImageUrl||"";
+    // ---------- REMOVE IMAGE EXPLICITLY ----------
+    const shouldRemoveImage=removeImage===true||removeImage==="true";
+    const shouldRemoveTaxi=removeTaxiImage===true||removeTaxiImage==="true";
+    if(shouldRemoveImage&&carModel.imageUrl){
+      await deleteCarModelImage(carModel.imageUrl);
+      carModel.imageUrl="";
+    }
+    if(shouldRemoveTaxi&&carModel.taxiImageUrl){
+      await deleteTaxiImage(carModel.taxiImageUrl);
+      carModel.taxiImageUrl="";
+    }
+    // ---------- REPLACE IMAGE (new upload wins) ----------
     if(req.files?.image?.[0]){
       if(carModel.imageUrl)await deleteCarModelImage(carModel.imageUrl);
       carModel.imageUrl=await uploadCarModelImage(req.files.image[0]);
@@ -205,17 +217,13 @@ export const deleteCarModel=async(req,res)=>{
 // ============================================================
 function parseOrder(order){
   if(order===undefined||order===null)return null;
-  if(typeof order==="string"){
-    const trimmed=order.trim();
-    if(trimmed==="")return null;
-    return trimmed;
-  }
+  if(typeof order==="string"){const trimmed=order.trim();if(trimmed==="")return null;return trimmed;}
   if(typeof order==="number"&&Number.isFinite(order))return order;
   return null;
 }
 
 // ============================================================
-// NORMALIZE ORDER FOR SORTING — numbers sort numerically, strings after numbers
+// NORMALIZE ORDER FOR SORTING
 // ============================================================
 function normalizeOrder(order){
   if(order===null||order===undefined||order==="")return null;

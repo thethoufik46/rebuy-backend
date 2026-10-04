@@ -69,16 +69,59 @@ app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 app.use(mongoSanitize());
 app.use(xss());
 
-const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again later." } });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many attempts. Try again in 15 minutes." } });
-const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many OTP requests. Wait 10 minutes." } });
+// ==================================================
+// RATE LIMITERS — PRODUCTION SAFE
+// ==================================================
 
+// ✅ General API Limiter — 300 → 3000 (10x increase)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests. Try again later." },
+});
+
+// ✅ Auth Limiter — login/register (20 → 100)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts. Try again in 15 minutes." },
+});
+
+// ✅ OTP Limiter — OTP requests (5 → 20)
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many OTP requests. Wait 10 minutes." },
+});
+
+// ✅ Admin Limiter — Admin routes + chat polling (HIGH LIMIT)
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many admin requests. Try again later." },
+});
+
+// ==================================================
+// APPLY LIMITERS
+// ==================================================
 app.use("/api", apiLimiter);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/google-login", authLimiter);
 app.use("/api/auth/forgot-send-otp", otpLimiter);
 app.use("/api/auth/forgot-verify-otp", otpLimiter);
+
+// ✅ Admin routes + chat polling — தனி HIGH-LIMIT limiter
+app.use("/api/admin", adminLimiter);
+app.use("/api/chat/admin", adminLimiter);
 
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("/privacy-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy-policy.html")));

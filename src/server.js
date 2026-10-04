@@ -17,6 +17,7 @@ import { createAdminUser } from "./config/createAdmin.js";
 import authRoutes from "./routes/auth.routes.js";
 import adminAuthRoutes from "./routes/adminAuth.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
+import adminUserRoutes from "./routes/user/admin.user.routes.js"; // ✅ ADDED
 import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import carBrandRoutes from "./routes/car/brand/car.brand.routes.js";
@@ -54,9 +55,11 @@ import commonSearchRoute from "./routes/common.search.route.js";
 import surveyRoutes from "./routes/property/survey/survey.routes.js";
 import sliderRoutes from "./routes/slider/slider.routes.js";
 import reelsRoutes from "./routes/reels/reels.routes.js";
+
 const app = express(), server = http.createServer(app);
 export const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] } });
 const __filename = fileURLToPath(import.meta.url), __dirname = path.dirname(__filename);
+
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" }, contentSecurityPolicy: false }));
 app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], allowedHeaders: ["Content-Type", "Authorization"] }));
@@ -65,24 +68,31 @@ app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 app.use(mongoSanitize());
 app.use(xss());
+
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again later." } });
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many attempts. Try again in 15 minutes." } });
 const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many OTP requests. Wait 10 minutes." } });
+
 app.use("/api", apiLimiter);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/google-login", authLimiter);
 app.use("/api/auth/forgot-send-otp", otpLimiter);
 app.use("/api/auth/forgot-verify-otp", otpLimiter);
+
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("/privacy-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy-policy.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html")));
 app.get("/refund-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/refund-cancellation-policy.html")));
+
 app.use("/", youtubeAuthRoutes);
+
 connectDB().then(() => { console.log("✅ MongoDB Connected"); createAdminUser(); }).catch(err => { console.error("❌ MongoDB Error:", err); process.exit(1); });
+
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/admin/users", adminUserRoutes); // ✅ ADDED — Admin User Routes
 app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/carbrands", carBrandRoutes);
@@ -121,10 +131,13 @@ app.use("/api", recentlyViewedRoutes);
 app.use("/api/survey", surveyRoutes);
 app.use("/api/sliders", sliderRoutes);
 app.use("/api/reels", reelsRoutes);
+
 app.get("/api/app/version", (req, res) => res.json({ latest_version: "1.0.1", force_update: false, update_url: "https://play.google.com/store/apps/details?id=com.re2buy.app" }));
 app.get("/", (req, res) => res.status(200).json({ success: true, message: "🚀 REBUY Backend API running successfully" }));
 app.use((req, res) => res.status(404).json({ success: false, message: "API route not found" }));
 app.use((err, req, res, next) => { console.error("❌ Server Error:", err); res.status(500).json({ success: false, message: err?.message || "Internal server error" }); });
+
 io.on("connection", socket => { console.log("🟢 Socket Connected:", socket.id); socket.on("join", userId => { socket.join(userId); console.log(`User Joined: ${userId}`); }); socket.on("join-admin", () => { socket.join("admin"); console.log("👨‍💼 Admin Joined"); }); socket.on("disconnect", () => console.log("🔴 Socket Disconnected")); });
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => { console.log(`✅ Server running on port ${PORT}`); console.log("📍 Reels API: /api/reels"); });

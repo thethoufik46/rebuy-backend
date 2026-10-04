@@ -3,6 +3,7 @@
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
 import jwt from "jsonwebtoken";
 import User from "../models/user/user_model.js";
+
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -24,8 +25,12 @@ export const verifyToken = async (req, res, next) => {
     return res.status(401).json({ success: false, message: "Authentication failed", authError: true, logout: true });
   }
 };
+
 export const isAdmin = (req, res, next) => {
   if (!req.user) return res.status(401).json({ success: false, message: "Authentication required", authError: true, logout: true });
   if (req.user.role !== "admin" && req.user.role !== "superadmin") return res.status(403).json({ success: false, message: "Admins only", adminRequired: true });
   next();
 };
+
+// ✅ Alias for isAdmin — for backward compatibility
+export const verifyAdmin = isAdmin;

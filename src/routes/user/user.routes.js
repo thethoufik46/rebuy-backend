@@ -12,35 +12,15 @@ import {
 const router = express.Router();
 
 // ==================================================
-// USER PROFILE IMAGE
-//
-// USER CAN:
-// ✅ Upload / replace profile image
-//
-// USER CANNOT:
-// ❌ Upload gallery
-// ❌ Edit gallery
-// ❌ Delete gallery
-// ❌ Change status
-// ❌ Change userType
-// ❌ Change highlight
+// USER PROFILE IMAGE UPLOAD
+// POST /users/upload-profile
 // ==================================================
-
 router.post(
   "/upload-profile",
   verifyToken,
-  uploadUser.fields([
-    {
-      name: "profileImage",
-      maxCount: 1,
-    },
-  ]),
+  uploadUser.fields([{ name: "profileImage", maxCount: 1 }]),
   async (req, res) => {
     try {
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
       const user = await User.findById(req.user.id);
 
       if (!user) {
@@ -50,38 +30,20 @@ router.post(
         });
       }
 
-      // ==================================================
-      // PROFILE IMAGE ONLY
-      // ==================================================
-
       if (req.files?.profileImage?.length) {
-        // ------------------------------------------------
-        // DELETE OLD PROFILE IMAGE
-        // ------------------------------------------------
-
+        // Delete old profile image
         if (user.profileImage) {
           await deleteUserImage(user.profileImage);
         }
 
-        // ------------------------------------------------
-        // UPLOAD NEW PROFILE IMAGE
-        // ------------------------------------------------
-
+        // Upload new profile image
         user.profileImage = await uploadUserImage(
           req.files.profileImage[0],
           "users/profile"
         );
       }
 
-      // ==================================================
-      // SAVE
-      // ==================================================
-
       await user.save();
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
 
       return res.json({
         success: true,
@@ -107,627 +69,296 @@ router.post(
 
 // ==================================================
 // DELETE USER PROFILE IMAGE
-//
-// USER CAN DELETE ONLY PROFILE IMAGE
+// DELETE /users/profile-image
 // ==================================================
+router.delete("/profile-image", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
 
-router.delete(
-  "/profile-image",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user = await User.findById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // ==================================================
-      // DELETE PROFILE IMAGE
-      // ==================================================
-
-      if (user.profileImage) {
-        await deleteUserImage(user.profileImage);
-        user.profileImage = "";
-        await user.save();
-      }
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.json({
-        success: true,
-        message: "Profile image deleted",
-        profileImage: "",
-      });
-    } catch (err) {
-      console.error("DELETE PROFILE IMAGE ERROR:", err);
-
-      return res.status(500).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Delete failed",
+        message: "User not found",
       });
     }
+
+    if (user.profileImage) {
+      await deleteUserImage(user.profileImage);
+      user.profileImage = "";
+      await user.save();
+    }
+
+    return res.json({
+      success: true,
+      message: "Profile image deleted",
+      profileImage: "",
+    });
+  } catch (err) {
+    console.error("DELETE PROFILE IMAGE ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Delete failed",
+    });
   }
-);
+});
 
 // ==================================================
-// VIEW IMAGE
-//
-// PUBLIC
-// No token required
+// VIEW IMAGE (PUBLIC)
+// GET /users/image/*
 // ==================================================
+router.get("/image/*", async (req, res) => {
+  try {
+    const key = req.params[0];
 
-router.get(
-  "/image/*",
-  async (req, res) => {
-    try {
-      // ==================================================
-      // IMAGE KEY
-      // ==================================================
-
-      const key = req.params[0];
-
-      if (!key) {
-        return res.status(400).json({
-          success: false,
-          message: "Image key is required",
-        });
-      }
-
-      // ==================================================
-      // R2 GET OBJECT
-      // ==================================================
-
-      const command = new GetObjectCommand({
-        Bucket: process.env.R2_BUCKET,
-        Key: key,
+    if (!key) {
+      return res.status(400).json({
+        success: false,
+        message: "Image key is required",
       });
+    }
 
-      const data = await r2.send(command);
+    const command = new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+    });
 
-      // ==================================================
-      // CONTENT TYPE
-      // ==================================================
+    const data = await r2.send(command);
 
-      res.setHeader(
-        "Content-Type",
-        data.ContentType || "application/octet-stream"
-      );
+    res.setHeader(
+      "Content-Type",
+      data.ContentType || "application/octet-stream"
+    );
 
-      // ==================================================
-      // CONTENT LENGTH
-      // ==================================================
+    if (data.ContentLength !== undefined) {
+      res.setHeader("Content-Length", data.ContentLength);
+    }
 
-      if (data.ContentLength !== undefined) {
-        res.setHeader(
-          "Content-Length",
-          data.ContentLength
-        );
-      }
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=31536000, immutable"
+    );
 
-      // ==================================================
-      // CACHE
-      // ==================================================
-
-      res.setHeader(
-        "Cache-Control",
-        "public, max-age=31536000, immutable"
-      );
-
-      // ==================================================
-      // STREAM
-      // ==================================================
-
-      if (data.Body) {
-        data.Body.pipe(res);
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: "Image not found",
-        });
-      }
-    } catch (err) {
-      console.error(
-        "IMAGE VIEW ERROR:",
-        err?.message
-      );
-
+    if (data.Body) {
+      data.Body.pipe(res);
+    } else {
       return res.status(404).json({
         success: false,
         message: "Image not found",
       });
     }
+  } catch (err) {
+    console.error("IMAGE VIEW ERROR:", err?.message);
+
+    return res.status(404).json({
+      success: false,
+      message: "Image not found",
+    });
   }
-);
+});
 
 // ==================================================
 // GET MY PROFILE
-//
-// USER CAN VIEW:
-// ✅ Profile image
-// ✅ Gallery
-// ✅ Status
-// ✅ User Type
-// ✅ Alternate phone
-// ✅ Highlight
-// ✅ Language
-//
-// USER CAN EDIT:
-// ✅ Name
-// ✅ Alternate phone
-// ✅ District
-// ✅ Address
-// ✅ Language
-//
-// THESE ARE READ ONLY:
-// ❌ Phone
-// ❌ Email
-// ❌ Category
-// ❌ Status
-// ❌ User Type
-// ❌ Highlight
-// ❌ Gallery
+// GET /users/profile
 // ==================================================
+router.get("/profile", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
 
-router.get(
-  "/profile",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user = await User.findById(
-        req.user.id
-      ).select("-password");
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.json({
-        success: true,
-
-        user: {
-          _id: user._id,
-
-          name: user.name,
-
-          // PHONE IS STRING
-          phone: user.phone || "",
-
-          // EMAIL
-          email: user.email || "",
-
-          category: user.category,
-
-          district: user.district,
-
-          address: user.address || "NA",
-
-          role: user.role,
-
-          // =================================================
-          // GOOGLE ACCOUNT
-          // =================================================
-
-          googleName: user.googleName || "",
-
-          googleId: user.googleId || "",
-
-          googleProfileImage:
-            user.googleProfileImage || "",
-
-          // =================================================
-          // STATUS
-          // =================================================
-
-          status:
-            user.status ||
-            "not_verified",
-
-          // =================================================
-          // USER TYPE
-          // =================================================
-
-          userType:
-            user.userType ||
-            "others",
-
-          // =================================================
-          // LANGUAGE
-          // =================================================
-
-          language:
-            user.language ||
-            "en",
-
-          // =================================================
-          // ALTERNATE PHONE
-          // =================================================
-
-          alternatePhone:
-            user.alternatePhone || "",
-
-          // =================================================
-          // HIGHLIGHT
-          // =================================================
-
-          highlightText:
-            user.highlightText || "",
-
-          // =================================================
-          // PROFILE IMAGE
-          // =================================================
-
-          profileImage:
-            user.profileImage || "",
-
-          // =================================================
-          // GALLERY
-          //
-          // ARRAY
-          // =================================================
-
-          galleryImages:
-            Array.isArray(user.galleryImages)
-              ? user.galleryImages
-              : [],
-
-          createdAt: user.createdAt,
-
-          updatedAt: user.updatedAt,
-        },
-      });
-    } catch (err) {
-      console.error(
-        "GET USER PROFILE ERROR:",
-        err
-      );
-
-      return res.status(500).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Failed to fetch profile",
+        message: "User not found",
       });
     }
+
+    return res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone || "",
+        email: user.email || "",
+        category: user.category,
+        district: user.district,
+        address: user.address || "NA",
+        role: user.role,
+        googleName: user.googleName || "",
+        googleId: user.googleId || "",
+        googleProfileImage: user.googleProfileImage || "",
+        status: user.status || "not_verified",
+        userType: user.userType || "others",
+        language: user.language || "en",
+        alternatePhone: user.alternatePhone || "",
+        highlightText: user.highlightText || "",
+        profileImage: user.profileImage || "",
+        galleryImages: Array.isArray(user.galleryImages)
+          ? user.galleryImages
+          : [],
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (err) {
+    console.error("GET USER PROFILE ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch profile",
+    });
   }
-);
+});
 
 // ==================================================
 // UPDATE MY PROFILE
-//
-// USER CAN UPDATE:
-// ✅ name
-// ✅ alternatePhone
-// ✅ district
-// ✅ address
-// ✅ language
-//
-// USER CANNOT UPDATE:
-// ❌ phone
-// ❌ email
-// ❌ category
-// ❌ status
-// ❌ userType
-// ❌ highlightText
-// ❌ gallery
-// ❌ role
+// PUT /users/profile
 // ==================================================
+router.put("/profile", verifyToken, async (req, res) => {
+  try {
+    let { name, alternatePhone, district, address, language } = req.body;
 
-router.put(
-  "/profile",
-  verifyToken,
-  async (req, res) => {
-    try {
-      let {
-        name,
-        alternatePhone,
-        district,
-        address,
-        language,
-      } = req.body;
+    const user = await User.findById(req.user.id);
 
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user = await User.findById(
-        req.user.id
-      );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // ==================================================
-      // NAME
-      // MAXIMUM 50 CHARACTERS
-      // ==================================================
-
-      if (name !== undefined) {
-        name = name.toString().trim();
-
-        if (!name) {
-          return res.status(400).json({
-            success: false,
-            message: "Name is required",
-          });
-        }
-
-        if (name.length > 50) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Name must not exceed 50 characters",
-          });
-        }
-
-        user.name = name;
-      }
-
-      // ==================================================
-      // ALTERNATE PHONE
-      //
-      // USER CAN EDIT
-      // OPTIONAL
-      // 10 DIGITS ONLY
-      // ==================================================
-
-      if (alternatePhone !== undefined) {
-        alternatePhone = alternatePhone
-          .toString()
-          .replace(/\s+/g, "")
-          .trim();
-
-        if (
-          alternatePhone !== "" &&
-          !/^[0-9]{10}$/.test(
-            alternatePhone
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Alternate phone must contain 10 digits",
-          });
-        }
-
-        user.alternatePhone =
-          alternatePhone;
-      }
-
-      // ==================================================
-      // DISTRICT
-      // ==================================================
-
-      if (district !== undefined) {
-        district = district.toString().trim();
-
-        if (!district) {
-          return res.status(400).json({
-            success: false,
-            message: "District is required",
-          });
-        }
-
-        user.district = district;
-      }
-
-      // ==================================================
-      // ADDRESS
-      // MAXIMUM 500 CHARACTERS
-      // ==================================================
-
-      if (address !== undefined) {
-        address = address.toString().trim();
-
-        if (address.length > 500) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Address must not exceed 500 characters",
-          });
-        }
-
-        user.address = address || "NA";
-      }
-
-      // ==================================================
-      // LANGUAGE
-      //
-      // DATABASE STORES SHORT CODE
-      //
-      // en = English
-      // ta = தமிழ்
-      // ml = മലയാളം
-      // te = తెలుగు
-      // hi = हिन्दी
-      // kn = ಕನ್ನಡ
-      // bn = বাংলা
-      // mr = मराठी
-      // gu = ગુજરાતી
-      // ur = اردو
-      // or = ଓଡ଼ିଆ
-      // ==================================================
-
-      if (language !== undefined) {
-        language = language
-          .toString()
-          .trim()
-          .toLowerCase();
-
-        const allowedLanguages = [
-          "en",
-          "ta",
-          "ml",
-          "te",
-          "hi",
-          "kn",
-          "bn",
-          "mr",
-          "gu",
-          "ur",
-          "or",
-        ];
-
-        if (
-          !allowedLanguages.includes(
-            language
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid language",
-          });
-        }
-
-        user.language = language;
-      }
-
-      // ==================================================
-      // SAVE
-      //
-      // District validation from
-      // user schema will run here.
-      // ==================================================
-
-      await user.save();
-
-      // ==================================================
-      // REMOVE PASSWORD
-      // ==================================================
-
-      const userResponse =
-        user.toObject();
-
-      delete userResponse.password;
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.json({
-        success: true,
-
-        message:
-          "Profile updated successfully",
-
-        user: userResponse,
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
       });
-    } catch (err) {
-      console.error(
-        "UPDATE USER PROFILE ERROR:",
-        err
-      );
+    }
 
-      // ==================================================
-      // INVALID DISTRICT
-      // ==================================================
+    // Name
+    if (name !== undefined) {
+      name = name.toString().trim();
 
-      if (
-        err?.message ===
-        "Invalid district"
-      ) {
+      if (!name) {
         return res.status(400).json({
           success: false,
-          message: "Invalid district",
+          message: "Name is required",
         });
       }
 
-      // ==================================================
-      // DISTRICT REQUIRED
-      // ==================================================
+      if (name.length > 50) {
+        return res.status(400).json({
+          success: false,
+          message: "Name must not exceed 50 characters",
+        });
+      }
 
-      if (
-        err?.message ===
-        "District is required"
-      ) {
+      user.name = name;
+    }
+
+    // Alternate Phone
+    if (alternatePhone !== undefined) {
+      alternatePhone = alternatePhone
+        .toString()
+        .replace(/\s+/g, "")
+        .trim();
+
+      if (alternatePhone !== "" && !/^[0-9]{10}$/.test(alternatePhone)) {
+        return res.status(400).json({
+          success: false,
+          message: "Alternate phone must contain 10 digits",
+        });
+      }
+
+      user.alternatePhone = alternatePhone;
+    }
+
+    // District
+    if (district !== undefined) {
+      district = district.toString().trim();
+
+      if (!district) {
         return res.status(400).json({
           success: false,
           message: "District is required",
         });
       }
 
-      // ==================================================
-      // MONGOOSE VALIDATION
-      // ==================================================
+      user.district = district;
+    }
 
-      if (
-        err?.name ===
-        "ValidationError"
-      ) {
-        const messages =
-          Object.values(
-            err.errors || {}
-          ).map(
-            (e) => e.message
-          );
+    // Address
+    if (address !== undefined) {
+      address = address.toString().trim();
 
+      if (address.length > 500) {
         return res.status(400).json({
           success: false,
-          message:
-            messages[0] ||
-            "Invalid profile data",
+          message: "Address must not exceed 500 characters",
         });
       }
 
-      // ==================================================
-      // DUPLICATE EMAIL
-      // ==================================================
+      user.address = address || "NA";
+    }
 
-      if (err?.code === 11000) {
-        return res.status(409).json({
+    // Language
+    if (language !== undefined) {
+      language = language.toString().trim().toLowerCase();
+
+      const allowedLanguages = [
+        "en", "ta", "ml", "te", "hi", "kn",
+        "bn", "mr", "gu", "ur", "or",
+      ];
+
+      if (!allowedLanguages.includes(language)) {
+        return res.status(400).json({
           success: false,
-          message:
-            "Email already exists",
+          message: "Invalid language",
         });
       }
 
-      // ==================================================
-      // OTHER ERROR
-      // ==================================================
+      user.language = language;
+    }
 
-      return res.status(500).json({
+    await user.save();
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: userResponse,
+    });
+  } catch (err) {
+    console.error("UPDATE USER PROFILE ERROR:", err);
+
+    if (err?.message === "Invalid district") {
+      return res.status(400).json({
         success: false,
-        message:
-          "Profile update failed",
+        message: "Invalid district",
       });
     }
-  }
-);
 
-// ==================================================
-// IMPORTANT
-//
-// NO USER GALLERY ROUTES HERE
-//
-// ❌ POST   /gallery
-// ❌ PUT    /gallery
-// ❌ PATCH  /gallery
-// ❌ DELETE /gallery/:index
-// ❌ DELETE /gallery
-//
-// Gallery is ADMIN ONLY.
-// ==================================================
+    if (err?.message === "District is required") {
+      return res.status(400).json({
+        success: false,
+        message: "District is required",
+      });
+    }
+
+    if (err?.name === "ValidationError") {
+      const messages = Object.values(err.errors || {}).map((e) => e.message);
+
+      return res.status(400).json({
+        success: false,
+        message: messages[0] || "Invalid profile data",
+      });
+    }
+
+    if (err?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Profile update failed",
+    });
+  }
+});
 
 export default router;

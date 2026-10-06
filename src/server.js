@@ -17,7 +17,7 @@ import { createAdminUser } from "./config/createAdmin.js";
 import authRoutes from "./routes/auth.routes.js";
 import adminAuthRoutes from "./routes/adminAuth.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
-import adminUserRoutes from "./routes/user/admin.user.routes.js"; // ✅ ADDED
+import adminUserRoutes from "./routes/user/admin.user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import carBrandRoutes from "./routes/car/brand/car.brand.routes.js";
@@ -135,7 +135,7 @@ connectDB().then(() => { console.log("✅ MongoDB Connected"); createAdminUser()
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/admin/users", adminUserRoutes); // ✅ ADDED — Admin User Routes
+app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/carbrands", carBrandRoutes);

@@ -1,8 +1,8 @@
-
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
+// ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
+// REDUCE LINE COUNT AGGRESSIVELY: ~100 LINES → ~30 LINES WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import mongoose from "mongoose";
-
 import Lead from "../../models/leads/lead_model.js";
-
 import {
   uploadLeadAudio,
   deleteLeadAudio,
@@ -10,40 +10,19 @@ import {
 
 /* ============================================================
    HELPER
-   Validate MongoDB ObjectId
 ============================================================ */
-
-const isValidObjectId = (id) => {
-  return mongoose.Types.ObjectId.isValid(id);
-};
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 /* ============================================================
    1️⃣ ADD LEAD
 ============================================================ */
-
 export const addLead = async (req, res) => {
   let uploadedAudioUrl = null;
-
   try {
     const {
-      phone,
-      district,
-      address,
-      type,
-      payment,
-      buyer,
-      board,
-      transmission,
-      status,
-      review,
-      description,
-      reason,
-      publish,
+      phone, district, address, type, payment, buyer, board,
+      transmission, status, review, description, reason, publish,
     } = req.body;
-
-    /* ========================================================
-       REQUIRED FIELDS
-    ======================================================== */
 
     if (!phone || !description) {
       return res.status(400).json({
@@ -52,53 +31,28 @@ export const addLead = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       CLEAN PHONE
-    ======================================================== */
+    const cleanPhone = phone.toString().replace(/\D/g, "");
 
-    const cleanPhone = phone
-      .toString()
-      .replace(/\D/g, "");
-
-    /* ========================================================
-       DUPLICATE PHONE CHECK
-       Includes soft-deleted leads
-    ======================================================== */
-
-    const existingLead = await Lead.findOne({
-      phone: cleanPhone,
-    });
-
+    const existingLead = await Lead.findOne({ phone: cleanPhone });
     if (existingLead) {
       if (existingLead.isDeleted) {
         return res.status(400).json({
           success: false,
-          message:
-            "Phone number already exists in Recently Deleted. Please restore it instead.",
+          message: "Phone number already exists in Recently Deleted. Please restore it instead.",
           leadId: existingLead._id,
         });
       }
-
       return res.status(400).json({
         success: false,
         message: "Phone number already registered",
       });
     }
 
-    /* ========================================================
-       AUDIO UPLOAD
-    ======================================================== */
-
     if (req.file) {
       uploadedAudioUrl = await uploadLeadAudio(req.file);
     }
 
-    /* ========================================================
-       INITIAL REASON HISTORY
-    ======================================================== */
-
     const reasonHistory = [];
-
     if (reason && reason.toString().trim()) {
       reasonHistory.push({
         message: reason.toString().trim(),
@@ -106,46 +60,22 @@ export const addLead = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       CREATE LEAD
-    ======================================================== */
-
     const lead = await Lead.create({
       phone: cleanPhone,
-
       description: description.toString().trim(),
-
       district: district || "",
-
       address: address || "",
-
       type: type || null,
-
       payment: payment || null,
-
       buyer: buyer || null,
-
       board: board || null,
-
       transmission: transmission || null,
-
       status: status || "pending",
-
       review: review || "",
-
       reasonHistory,
-
-      publish:
-        publish === "on"
-          ? "on"
-          : "off",
-
+      publish: publish === "on" ? "on" : "off",
       audioNote: uploadedAudioUrl,
     });
-
-    /* ========================================================
-       RESPONSE
-    ======================================================== */
 
     return res.status(201).json({
       success: true,
@@ -154,27 +84,15 @@ export const addLead = async (req, res) => {
     });
   } catch (err) {
     console.error("ADD LEAD ERROR 👉", err);
-
-    /*
-      If lead creation fails after audio upload,
-      remove uploaded audio from R2.
-    */
-
     if (uploadedAudioUrl) {
       await deleteLeadAudio(uploadedAudioUrl);
     }
-
-    /* ========================================================
-       DUPLICATE KEY ERROR
-    ======================================================== */
-
     if (err.code === 11000) {
       return res.status(400).json({
         success: false,
         message: "Phone number already registered",
       });
     }
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -183,18 +101,11 @@ export const addLead = async (req, res) => {
 };
 
 /* ============================================================
-   2️⃣ GET ALL ACTIVE LEADS
-   Excludes soft-deleted leads
+   2️⃣ GET ALL ACTIVE LEADS (ADMIN)
 ============================================================ */
-
 export const getLeads = async (req, res) => {
   try {
-    const leads = await Lead.find({
-      isDeleted: false,
-    }).sort({
-      createdAt: -1,
-    });
-
+    const leads = await Lead.find({ isDeleted: false }).sort({ createdAt: -1 });
     return res.json({
       success: true,
       total: leads.length,
@@ -202,7 +113,46 @@ export const getLeads = async (req, res) => {
     });
   } catch (err) {
     console.error("GET LEADS ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
+/* ============================================================
+   ✅ GET PUBLISHED LEADS (PUBLIC)
+   Only: publish == "on", isDeleted == false
+   Returns ONLY 9 fields
+============================================================ */
+export const getPublishedLeads = async (req, res) => {
+  try {
+    const leads = await Lead.find({
+      isDeleted: false,
+      publish: "on",
+    })
+      .select({
+        _id: 0,
+        description: 1,
+        district: 1,
+        type: 1,
+        payment: 1,
+        buyer: 1,
+        board: 1,
+        transmission: 1,
+        audioNote: 1,
+        createdAt: 1,
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      total: leads.length,
+      leads,
+    });
+  } catch (err) {
+    console.error("GET PUBLISHED LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -213,26 +163,16 @@ export const getLeads = async (req, res) => {
 /* ============================================================
    3️⃣ GET RECENTLY DELETED LEADS
 ============================================================ */
-
 export const getDeletedLeads = async (req, res) => {
   try {
-    const leads = await Lead.find({
-      isDeleted: true,
-    }).sort({
-      deletedAt: -1,
-    });
-
+    const leads = await Lead.find({ isDeleted: true }).sort({ deletedAt: -1 });
     return res.json({
       success: true,
       total: leads.length,
       leads,
     });
   } catch (err) {
-    console.error(
-      "GET DELETED LEADS ERROR 👉",
-      err
-    );
-
+    console.error("GET DELETED LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -242,36 +182,26 @@ export const getDeletedLeads = async (req, res) => {
 
 /* ============================================================
    4️⃣ GET SINGLE LEAD
-   Includes active + deleted
 ============================================================ */
-
 export const getLead = async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid lead ID",
       });
     }
-
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
         message: "Lead not found",
       });
     }
-
-    return res.json({
-      success: true,
-      lead,
-    });
+    return res.json({ success: true, lead });
   } catch (err) {
     console.error("GET LEAD ERROR 👉", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -281,19 +211,11 @@ export const getLead = async (req, res) => {
 
 /* ============================================================
    5️⃣ UPDATE LEAD
-   Active leads only
-
-   NOTE:
-   reason is NOT overwritten.
-   New reason is appended to reasonHistory.
 ============================================================ */
-
 export const updateLead = async (req, res) => {
   let uploadedAudioUrl = null;
-
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
@@ -302,7 +224,6 @@ export const updateLead = async (req, res) => {
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -310,163 +231,77 @@ export const updateLead = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       BLOCK UPDATE FOR DELETED LEAD
-    ======================================================== */
-
     if (lead.isDeleted) {
       return res.status(400).json({
         success: false,
-        message:
-          "Cannot update a deleted lead. Restore it first.",
+        message: "Cannot update a deleted lead. Restore it first.",
       });
     }
 
-    /* ========================================================
-       PHONE UPDATE
-    ======================================================== */
-
     if (req.body.phone !== undefined) {
-      const cleanPhone = req.body.phone
-        .toString()
-        .replace(/\D/g, "");
-
+      const cleanPhone = req.body.phone.toString().replace(/\D/g, "");
       if (!cleanPhone) {
         return res.status(400).json({
           success: false,
           message: "Invalid phone number",
         });
       }
-
       const existingLead = await Lead.findOne({
         phone: cleanPhone,
-        _id: {
-          $ne: lead._id,
-        },
+        _id: { $ne: lead._id },
       });
-
       if (existingLead) {
         return res.status(400).json({
           success: false,
           message: "Phone number already registered",
         });
       }
-
       lead.phone = cleanPhone;
     }
 
-    /* ========================================================
-       NORMAL LEAD FIELDS
-    ======================================================== */
-
     const fields = [
-      "district",
-      "address",
-      "type",
-      "payment",
-      "buyer",
-      "board",
-      "transmission",
-      "status",
-      "review",
-      "description",
+      "district", "address", "type", "payment", "buyer", "board",
+      "transmission", "status", "review", "description",
     ];
-
     fields.forEach((field) => {
       if (req.body[field] !== undefined) {
         lead[field] = req.body[field];
       }
     });
 
-    /* ========================================================
-       PUBLISH
-       Accept only on / off
-    ======================================================== */
-
     if (req.body.publish !== undefined) {
-      if (
-        req.body.publish !== "on" &&
-        req.body.publish !== "off"
-      ) {
+      if (req.body.publish !== "on" && req.body.publish !== "off") {
         return res.status(400).json({
           success: false,
-          message:
-            'Publish must be either "on" or "off"',
+          message: 'Publish must be either "on" or "off"',
         });
       }
-
       lead.publish = req.body.publish;
     }
 
-    /* ========================================================
-       ADD REASON TO CHAT HISTORY
-       
-       Supported:
-       {
-         "reason": "Customer asked for finance"
-       }
-
-       OR:
-       {
-         "message": "Customer asked for finance"
-       }
-
-       Existing history will NEVER be overwritten.
-    ======================================================== */
-
-    const newReason =
-      req.body.reason !== undefined
-        ? req.body.reason
-        : req.body.message;
-
-    if (
-      newReason !== undefined &&
-      newReason !== null &&
-      newReason.toString().trim()
-    ) {
+    const newReason = req.body.reason !== undefined ? req.body.reason : req.body.message;
+    if (newReason !== undefined && newReason !== null && newReason.toString().trim()) {
       lead.reasonHistory.push({
         message: newReason.toString().trim(),
         createdAt: new Date(),
       });
     }
 
-    /* ========================================================
-       REMOVE EXISTING AUDIO
-    ======================================================== */
-
     if (req.body.removeAudio === "true") {
       if (lead.audioNote) {
         await deleteLeadAudio(lead.audioNote);
       }
-
       lead.audioNote = null;
     }
 
-    /* ========================================================
-       UPLOAD NEW AUDIO
-    ======================================================== */
-
     if (req.file) {
-      uploadedAudioUrl = await uploadLeadAudio(
-        req.file
-      );
-
-      /*
-        Delete old audio only after new audio
-        has successfully uploaded.
-      */
-
+      uploadedAudioUrl = await uploadLeadAudio(req.file);
       if (lead.audioNote) {
         await deleteLeadAudio(lead.audioNote);
       }
-
       lead.audioNote = uploadedAudioUrl;
       uploadedAudioUrl = null;
     }
-
-    /* ========================================================
-       SAVE
-    ======================================================== */
 
     await lead.save();
 
@@ -476,26 +311,16 @@ export const updateLead = async (req, res) => {
       lead,
     });
   } catch (err) {
-    console.error(
-      "UPDATE LEAD ERROR 👉",
-      err
-    );
-
-    /*
-      Cleanup newly uploaded audio if save failed.
-    */
-
+    console.error("UPDATE LEAD ERROR 👉", err);
     if (uploadedAudioUrl) {
       await deleteLeadAudio(uploadedAudioUrl);
     }
-
     if (err.code === 11000) {
       return res.status(400).json({
         success: false,
         message: "Phone number already registered",
       });
     }
-
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -506,11 +331,9 @@ export const updateLead = async (req, res) => {
 /* ============================================================
    6️⃣ ADD REASON CHAT MESSAGE
 ============================================================ */
-
 export const addLeadReason = async (req, res) => {
   try {
     const { id } = req.params;
-
     const { message, reason } = req.body;
 
     if (!isValidObjectId(id)) {
@@ -520,16 +343,8 @@ export const addLeadReason = async (req, res) => {
       });
     }
 
-    const reasonMessage =
-      message !== undefined
-        ? message
-        : reason;
-
-    if (
-      reasonMessage === undefined ||
-      reasonMessage === null ||
-      !reasonMessage.toString().trim()
-    ) {
+    const reasonMessage = message !== undefined ? message : reason;
+    if (reasonMessage === undefined || reasonMessage === null || !reasonMessage.toString().trim()) {
       return res.status(400).json({
         success: false,
         message: "Reason message is required",
@@ -537,7 +352,6 @@ export const addLeadReason = async (req, res) => {
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -545,39 +359,21 @@ export const addLeadReason = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       Do not add reasons to deleted leads
-    ======================================================== */
-
     if (lead.isDeleted) {
       return res.status(400).json({
         success: false,
-        message:
-          "Cannot add reason to a deleted lead. Restore it first.",
+        message: "Cannot add reason to a deleted lead. Restore it first.",
       });
     }
-
-    /* ========================================================
-       APPEND NEW MESSAGE
-    ======================================================== */
 
     const reasonEntry = {
       message: reasonMessage.toString().trim(),
       createdAt: new Date(),
     };
-
     lead.reasonHistory.push(reasonEntry);
-
     await lead.save();
 
-    /* ========================================================
-       RETURN LATEST MESSAGE
-    ======================================================== */
-
-    const addedReason =
-      lead.reasonHistory[
-        lead.reasonHistory.length - 1
-      ];
+    const addedReason = lead.reasonHistory[lead.reasonHistory.length - 1];
 
     return res.status(201).json({
       success: true,
@@ -587,11 +383,7 @@ export const addLeadReason = async (req, res) => {
       lead,
     });
   } catch (err) {
-    console.error(
-      "ADD LEAD REASON ERROR 👉",
-      err
-    );
-
+    console.error("ADD LEAD REASON ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -602,40 +394,29 @@ export const addLeadReason = async (req, res) => {
 /* ============================================================
    7️⃣ GET LEAD REASON HISTORY
 ============================================================ */
-
 export const getLeadReasons = async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid lead ID",
       });
     }
-
-    const lead = await Lead.findById(id).select(
-      "reasonHistory"
-    );
-
+    const lead = await Lead.findById(id).select("reasonHistory");
     if (!lead) {
       return res.status(404).json({
         success: false,
         message: "Lead not found",
       });
     }
-
     return res.json({
       success: true,
       total: lead.reasonHistory.length,
       reasonHistory: lead.reasonHistory,
     });
   } catch (err) {
-    console.error(
-      "GET LEAD REASONS ERROR 👉",
-      err
-    );
-
+    console.error("GET LEAD REASONS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -646,18 +427,15 @@ export const getLeadReasons = async (req, res) => {
 /* ============================================================
    8️⃣ DELETE ONE REASON HISTORY MESSAGE
 ============================================================ */
-
 export const deleteLeadReason = async (req, res) => {
   try {
     const { id, reasonId } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid lead ID",
       });
     }
-
     if (!isValidObjectId(reasonId)) {
       return res.status(400).json({
         success: false,
@@ -666,7 +444,6 @@ export const deleteLeadReason = async (req, res) => {
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -674,11 +451,9 @@ export const deleteLeadReason = async (req, res) => {
       });
     }
 
-    const reasonIndex =
-      lead.reasonHistory.findIndex(
-        (item) =>
-          item._id.toString() === reasonId
-      );
+    const reasonIndex = lead.reasonHistory.findIndex(
+      (item) => item._id.toString() === reasonId
+    );
 
     if (reasonIndex === -1) {
       return res.status(404).json({
@@ -687,15 +462,7 @@ export const deleteLeadReason = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       REMOVE ONE MESSAGE
-    ======================================================== */
-
-    lead.reasonHistory.splice(
-      reasonIndex,
-      1
-    );
-
+    lead.reasonHistory.splice(reasonIndex, 1);
     await lead.save();
 
     return res.json({
@@ -704,11 +471,7 @@ export const deleteLeadReason = async (req, res) => {
       reasonHistory: lead.reasonHistory,
     });
   } catch (err) {
-    console.error(
-      "DELETE LEAD REASON ERROR 👉",
-      err
-    );
-
+    console.error("DELETE LEAD REASON ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -719,14 +482,9 @@ export const deleteLeadReason = async (req, res) => {
 /* ============================================================
    9️⃣ UPDATE PUBLISH
 ============================================================ */
-
-export const updateLeadPublish = async (
-  req,
-  res
-) => {
+export const updateLeadPublish = async (req, res) => {
   try {
     const { id } = req.params;
-
     const { publish } = req.body;
 
     if (!isValidObjectId(id)) {
@@ -736,19 +494,14 @@ export const updateLeadPublish = async (
       });
     }
 
-    if (
-      publish !== "on" &&
-      publish !== "off"
-    ) {
+    if (publish !== "on" && publish !== "off") {
       return res.status(400).json({
         success: false,
-        message:
-          'Publish must be either "on" or "off"',
+        message: 'Publish must be either "on" or "off"',
       });
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -759,13 +512,11 @@ export const updateLeadPublish = async (
     if (lead.isDeleted) {
       return res.status(400).json({
         success: false,
-        message:
-          "Cannot change publish status of a deleted lead.",
+        message: "Cannot change publish status of a deleted lead.",
       });
     }
 
     lead.publish = publish;
-
     await lead.save();
 
     return res.json({
@@ -775,11 +526,7 @@ export const updateLeadPublish = async (
       lead,
     });
   } catch (err) {
-    console.error(
-      "UPDATE LEAD PUBLISH ERROR 👉",
-      err
-    );
-
+    console.error("UPDATE LEAD PUBLISH ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -789,13 +536,10 @@ export const updateLeadPublish = async (
 
 /* ============================================================
    🔟 SOFT DELETE LEAD
-   Move to trash
 ============================================================ */
-
 export const deleteLead = async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
@@ -804,7 +548,6 @@ export const deleteLead = async (req, res) => {
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -819,14 +562,8 @@ export const deleteLead = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       SOFT DELETE
-       Keep audio + history for restore
-    ======================================================== */
-
     lead.isDeleted = true;
     lead.deletedAt = new Date();
-
     await lead.save();
 
     return res.json({
@@ -835,11 +572,7 @@ export const deleteLead = async (req, res) => {
       lead,
     });
   } catch (err) {
-    console.error(
-      "DELETE LEAD ERROR 👉",
-      err
-    );
-
+    console.error("DELETE LEAD ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -850,11 +583,9 @@ export const deleteLead = async (req, res) => {
 /* ============================================================
    1️⃣1️⃣ RESTORE SINGLE LEAD
 ============================================================ */
-
 export const restoreLead = async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
@@ -863,7 +594,6 @@ export const restoreLead = async (req, res) => {
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -878,13 +608,8 @@ export const restoreLead = async (req, res) => {
       });
     }
 
-    /* ========================================================
-       RESTORE
-    ======================================================== */
-
     lead.isDeleted = false;
     lead.deletedAt = null;
-
     await lead.save();
 
     return res.json({
@@ -893,11 +618,7 @@ export const restoreLead = async (req, res) => {
       lead,
     });
   } catch (err) {
-    console.error(
-      "RESTORE LEAD ERROR 👉",
-      err
-    );
-
+    console.error("RESTORE LEAD ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -908,34 +629,17 @@ export const restoreLead = async (req, res) => {
 /* ============================================================
    1️⃣2️⃣ RESTORE MANY LEADS
 ============================================================ */
-
-export const restoreManyLeads = async (
-  req,
-  res
-) => {
+export const restoreManyLeads = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    if (
-      !ids ||
-      !Array.isArray(ids) ||
-      ids.length === 0
-    ) {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please provide an array of lead IDs",
+        message: "Please provide an array of lead IDs",
       });
     }
 
-    /* ========================================================
-       VALIDATE ALL IDS
-    ======================================================== */
-
-    const invalidIds = ids.filter(
-      (id) => !isValidObjectId(id)
-    );
-
+    const invalidIds = ids.filter((id) => !isValidObjectId(id));
     if (invalidIds.length > 0) {
       return res.status(400).json({
         success: false,
@@ -945,34 +649,22 @@ export const restoreManyLeads = async (
     }
 
     const leads = await Lead.find({
-      _id: {
-        $in: ids,
-      },
+      _id: { $in: ids },
       isDeleted: true,
     });
 
     if (leads.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "No deleted leads found for the provided IDs",
+        message: "No deleted leads found for the provided IDs",
       });
     }
 
-    const restoredIds = leads.map(
-      (lead) => lead._id
-    );
+    const restoredIds = leads.map((lead) => lead._id);
 
     await Lead.updateMany(
-      {
-        _id: {
-          $in: restoredIds,
-        },
-      },
-      {
-        isDeleted: false,
-        deletedAt: null,
-      }
+      { _id: { $in: restoredIds } },
+      { isDeleted: false, deletedAt: null }
     );
 
     return res.json({
@@ -982,11 +674,7 @@ export const restoreManyLeads = async (
       modifiedCount: restoredIds.length,
     });
   } catch (err) {
-    console.error(
-      "RESTORE MANY LEADS ERROR 👉",
-      err
-    );
-
+    console.error("RESTORE MANY LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -996,16 +684,10 @@ export const restoreManyLeads = async (
 
 /* ============================================================
    1️⃣3️⃣ PERMANENT DELETE SINGLE LEAD
-   Deletes audio + MongoDB document
 ============================================================ */
-
-export const permanentDeleteLead = async (
-  req,
-  res
-) => {
+export const permanentDeleteLead = async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
@@ -1014,7 +696,6 @@ export const permanentDeleteLead = async (
     }
 
     const lead = await Lead.findById(id);
-
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -1025,24 +706,13 @@ export const permanentDeleteLead = async (
     if (!lead.isDeleted) {
       return res.status(400).json({
         success: false,
-        message:
-          "Cannot permanently delete an active lead. Delete it first.",
+        message: "Cannot permanently delete an active lead. Delete it first.",
       });
     }
 
-    /* ========================================================
-       DELETE AUDIO FROM R2
-    ======================================================== */
-
     if (lead.audioNote) {
-      await deleteLeadAudio(
-        lead.audioNote
-      );
+      await deleteLeadAudio(lead.audioNote);
     }
-
-    /* ========================================================
-       DELETE DATABASE DOCUMENT
-    ======================================================== */
 
     await lead.deleteOne();
 
@@ -1051,11 +721,7 @@ export const permanentDeleteLead = async (
       message: "Lead permanently deleted",
     });
   } catch (err) {
-    console.error(
-      "PERMANENT DELETE LEAD ERROR 👉",
-      err
-    );
-
+    console.error("PERMANENT DELETE LEAD ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -1065,36 +731,18 @@ export const permanentDeleteLead = async (
 
 /* ============================================================
    1️⃣4️⃣ PERMANENT DELETE MANY LEADS
-   Only soft-deleted leads
 ============================================================ */
-
-export const permanentDeleteManyLeads = async (
-  req,
-  res
-) => {
+export const permanentDeleteManyLeads = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    if (
-      !ids ||
-      !Array.isArray(ids) ||
-      ids.length === 0
-    ) {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please provide an array of lead IDs",
+        message: "Please provide an array of lead IDs",
       });
     }
 
-    /* ========================================================
-       VALIDATE IDS
-    ======================================================== */
-
-    const invalidIds = ids.filter(
-      (id) => !isValidObjectId(id)
-    );
-
+    const invalidIds = ids.filter((id) => !isValidObjectId(id));
     if (invalidIds.length > 0) {
       return res.status(400).json({
         success: false,
@@ -1103,73 +751,39 @@ export const permanentDeleteManyLeads = async (
       });
     }
 
-    /* ========================================================
-       ONLY SOFT-DELETED LEADS
-    ======================================================== */
-
     const leads = await Lead.find({
-      _id: {
-        $in: ids,
-      },
+      _id: { $in: ids },
       isDeleted: true,
     });
 
     if (leads.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "No deleted leads found for the provided IDs",
+        message: "No deleted leads found for the provided IDs",
       });
     }
 
-    const deleteIds = leads.map(
-      (lead) => lead._id
-    );
-
-    /* ========================================================
-       DELETE ALL AUDIO FILES
-    ======================================================== */
+    const deleteIds = leads.map((lead) => lead._id);
 
     const audioDeletions = leads
-      .filter(
-        (lead) => lead.audioNote
-      )
-      .map(
-        (lead) =>
-          deleteLeadAudio(
-            lead.audioNote
-          )
-      );
+      .filter((lead) => lead.audioNote)
+      .map((lead) => deleteLeadAudio(lead.audioNote));
 
-    await Promise.all(
-      audioDeletions
-    );
+    await Promise.all(audioDeletions);
 
-    /* ========================================================
-       DELETE DATABASE DOCUMENTS
-    ======================================================== */
-
-    const result =
-      await Lead.deleteMany({
-        _id: {
-          $in: deleteIds,
-        },
-        isDeleted: true,
-      });
+    const result = await Lead.deleteMany({
+      _id: { $in: deleteIds },
+      isDeleted: true,
+    });
 
     return res.json({
       success: true,
       message: `${result.deletedCount} leads permanently deleted`,
       deletedIds: deleteIds,
-      deletedCount:
-        result.deletedCount,
+      deletedCount: result.deletedCount,
     });
   } catch (err) {
-    console.error(
-      "PERMANENT DELETE MANY LEADS ERROR 👉",
-      err
-    );
-
+    console.error("PERMANENT DELETE MANY LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -1179,37 +793,21 @@ export const permanentDeleteManyLeads = async (
 
 /* ============================================================
    1️⃣5️⃣ RESTORE ALL LEADS
-   Emergency utility
 ============================================================ */
-
-export const restoreAllLeads = async (
-  req,
-  res
-) => {
+export const restoreAllLeads = async (req, res) => {
   try {
-    const result =
-      await Lead.updateMany(
-        {
-          isDeleted: true,
-        },
-        {
-          isDeleted: false,
-          deletedAt: null,
-        }
-      );
+    const result = await Lead.updateMany(
+      { isDeleted: true },
+      { isDeleted: false, deletedAt: null }
+    );
 
     return res.json({
       success: true,
       message: `${result.modifiedCount} leads restored from trash`,
-      modifiedCount:
-        result.modifiedCount,
+      modifiedCount: result.modifiedCount,
     });
   } catch (err) {
-    console.error(
-      "RESTORE ALL LEADS ERROR 👉",
-      err
-    );
-
+    console.error("RESTORE ALL LEADS ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: err.message,

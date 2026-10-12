@@ -232,17 +232,18 @@ const carSchema = new mongoose.Schema(
        FUEL
     ===================================================== */
 
-    fuel: {
-      type: String,
-      enum: [
-        "petrol",
-        "diesel",
-        "cng",
-        "lpg",
-        "electric",
-      ],
-      required: true,
-    },
+fuel: {
+  type: String,
+  enum: [
+    "petrol",
+    "diesel",
+    "cng",
+    "lpg",
+    "electric",
+    "hybrid",
+  ],
+  required: true,
+},
 
     /* =====================================================
        TRANSMISSION

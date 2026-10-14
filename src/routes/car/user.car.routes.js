@@ -30,6 +30,40 @@ import {
 const router = express.Router();
 
 /* ============================================================
+   FEATURES MASTER LIST
+============================================================ */
+
+const CAR_FEATURES = [
+  "ABS","ABS with EBD","EBD","Airbags","Driver Airbag","Passenger Airbag","Side Airbags","Curtain Airbags","Vehicle Stability Control","Electronic Stability Control","Traction Control","Hill Start Assist","Hill Descent Control","Brake Assist","ISOFIX Child Seat Mounts","Child Safety Lock","Engine Immobilizer","Central Locking","Tyre Pressure Monitoring System","Rear Parking Sensors","Front Parking Sensors","Rear Parking Camera","360° Camera","Blind Spot Monitoring","Lane Departure Warning","Lane Keep Assist","Adaptive Cruise Control","Automatic Emergency Braking","Power Steering","Power Windows","Air Conditioning","Manual Air Conditioning","Automatic Climate Control","Dual Zone Climate Control","Rear AC Vents","Cruise Control","Smart Entry System","Keyless Entry","Push Button Start","Wireless Charger","Front Armrest","Rear Armrest","Cup Holders","Adjustable Steering","Tilt Steering","Telescopic Steering","Height Adjustable Driver Seat","Electrically Adjustable Driver Seat","Ventilated Seats","Heated Seats","Memory Seats","Rain-Sensing Wipers","Automatic Headlamps","Auto-Dimming IRVM","Electrically Adjustable ORVMs","Electrically Foldable ORVMs","Remote Boot Opener","Rear Defogger","Rear Wiper","Electronic Parking Brake","Paddle Shifters","Drive Modes","Fabric Seats","Leather Seats","Leather-Wrapped Steering Wheel","Premium Interior","Ambient Lighting","Rear Reading Lamps","Adjustable Headrests","Digital Instrument Cluster","Tachometer","Trip Meter","Multi-Information Display","Heads-Up Display","Alloy Wheels","Steel Wheels","LED Headlamps","Projector Headlamps","Halogen Headlamps","LED Tail Lamps","Fog Lamps","Daytime Running Lights (DRL)","Sunroof","Panoramic Sunroof","Roof Rails","Rear Spoiler","Shark Fin Antenna","Body-Coloured Bumpers","Chrome Door Handles","Rear Window Defogger","Touchscreen Infotainment System","Android Auto","Apple CarPlay","Wireless Android Auto","Wireless Apple CarPlay","Bluetooth Connectivity","USB Charging Port","USB Type-C Port","AUX Connectivity","Wireless Charging","Navigation System","Voice Commands","Steering-Mounted Audio Controls","Premium Sound System","Rear Entertainment System","Connected Car Technology","Wi-Fi Connectivity","Front Parking Camera","Rear Seat Centre Armrest","Third Row AC Vents","Power Tailgate","Hands-Free Tailgate","Automatic Start-Stop","Regenerative Braking","Hybrid System","Electric Powertrain","Spare Wheel","Tubeless Tyres","Run-Flat Tyres"
+];
+
+/* ============================================================
+   PARSE FEATURES
+============================================================ */
+
+const parseFeatures = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return [];
+  }
+
+  let arr = value;
+
+  if (typeof value === "string") {
+    try {
+      arr = JSON.parse(value);
+    } catch (_) {
+      arr = value.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+  }
+
+  if (!Array.isArray(arr)) return [];
+
+  return arr
+    .map((v) => String(v).trim())
+    .filter((v) => CAR_FEATURES.includes(v));
+};
+
+/* ============================================================
    SELLER RESPONSE
 ============================================================ */
 
@@ -58,42 +92,7 @@ const prepareSellerForResponse = (car, isAdminUser) => {
 ============================================================ */
 
 const REGISTRATION_STATES = [
-  "TN",
-  "AP",
-  "AR",
-  "AS",
-  "BR",
-  "CG",
-  "GA",
-  "GJ",
-  "HR",
-  "HP",
-  "JH",
-  "KA",
-  "KL",
-  "MP",
-  "MH",
-  "MN",
-  "ML",
-  "MZ",
-  "NL",
-  "OD",
-  "PB",
-  "RJ",
-  "SK",
-  "TS",
-  "TR",
-  "UP",
-  "UK",
-  "WB",
-  "AN",
-  "CH",
-  "DN",
-  "DL",
-  "JK",
-  "LA",
-  "LD",
-  "PY",
+  "TN","AP","AR","AS","BR","CG","GA","GJ","HR","HP","JH","KA","KL","MP","MH","MN","ML","MZ","NL","OD","PB","RJ","SK","TS","TR","UP","UK","WB","AN","CH","DN","DL","JK","LA","LD","PY",
 ];
 
 /* ============================================================
@@ -385,6 +384,35 @@ router.get(
 );
 
 /* ============================================================
+   MASTER DATA - FEATURES        // <-- FEATURES
+============================================================ */
+
+router.get(
+  "/features",
+  async (req, res) => {
+    try {
+      return res.json({
+        success: true,
+        count: CAR_FEATURES.length,
+        features: CAR_FEATURES,
+      });
+    } catch (error) {
+      console.error(
+        "GET FEATURES ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to get features",
+      });
+    }
+  }
+);
+
+/* ============================================================
    MODELS BY BRAND
 ============================================================ */
 
@@ -608,11 +636,6 @@ router.get(
    GET ALL PUBLIC CARS
 ============================================================ */
 
-
-/* ============================================================
-   GET ALL PUBLIC CARS
-============================================================ */
-
 router.get(
   "/",
   verifyTokenOptional,
@@ -630,6 +653,7 @@ router.get(
         owner,
         board,
         insurance,
+        features,        // <-- FEATURES
         search,
         minPrice,
         maxPrice,
@@ -739,6 +763,21 @@ router.get(
 
       if (insurance) {
         filter.insurance = insurance;
+      }
+
+      /* ======================================================
+         FEATURES FILTER        // <-- FEATURES
+         Match cars containing ANY of the selected features
+      ====================================================== */
+
+      if (features) {
+        const featureList = parseFeatures(features);
+
+        if (featureList.length) {
+          filter.features = {
+            $in: featureList,
+          };
+        }
       }
 
       /* ======================================================
@@ -1255,6 +1294,8 @@ router.post(
         district,
         city,
         description,
+
+        features,        // <-- FEATURES
       } = req.body;
 
       /* ======================================================
@@ -1323,6 +1364,8 @@ router.post(
 
         color:
           color || null,
+
+        features: parseFeatures(features),        // <-- FEATURES
 
         fuel,
         transmission,
@@ -1642,6 +1685,15 @@ router.put(
         variant:
           nextVariant,
       };
+
+      /* ======================================================
+         FEATURES        // <-- FEATURES
+      ====================================================== */
+
+      if (req.body.features !== undefined) {
+        updateData.features =
+          parseFeatures(req.body.features);
+      }
 
       /* ======================================================
          SELLER OPTIONAL

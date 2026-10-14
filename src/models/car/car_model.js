@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 
 /* =====================================================
-   LOAD TAMIL NADU LOCATIONS JSON
+   LOAD TAMIL NADU LOCATIONS JSON 
 ===================================================== */
 
 const locationsPath = path.join(
@@ -229,21 +229,162 @@ const carSchema = new mongoose.Schema(
     },
 
     /* =====================================================
+       FEATURES
+    ===================================================== */
+
+    features: {
+      type: [String],
+      enum: [
+        // Safety Features
+        "ABS",
+        "ABS with EBD",
+        "EBD",
+        "Airbags",
+        "Driver Airbag",
+        "Passenger Airbag",
+        "Side Airbags",
+        "Curtain Airbags",
+        "Vehicle Stability Control",
+        "Electronic Stability Control",
+        "Traction Control",
+        "Hill Start Assist",
+        "Hill Descent Control",
+        "Brake Assist",
+        "ISOFIX Child Seat Mounts",
+        "Child Safety Lock",
+        "Engine Immobilizer",
+        "Central Locking",
+        "Tyre Pressure Monitoring System",
+        "Rear Parking Sensors",
+        "Front Parking Sensors",
+        "Rear Parking Camera",
+        "360° Camera",
+        "Blind Spot Monitoring",
+        "Lane Departure Warning",
+        "Lane Keep Assist",
+        "Adaptive Cruise Control",
+        "Automatic Emergency Braking",
+
+        // Comfort & Convenience
+        "Power Steering",
+        "Power Windows",
+        "Air Conditioning",
+        "Manual Air Conditioning",
+        "Automatic Climate Control",
+        "Dual Zone Climate Control",
+        "Rear AC Vents",
+        "Cruise Control",
+        "Smart Entry System",
+        "Keyless Entry",
+        "Push Button Start",
+        "Wireless Charger",
+        "Front Armrest",
+        "Rear Armrest",
+        "Cup Holders",
+        "Adjustable Steering",
+        "Tilt Steering",
+        "Telescopic Steering",
+        "Height Adjustable Driver Seat",
+        "Electrically Adjustable Driver Seat",
+        "Ventilated Seats",
+        "Heated Seats",
+        "Memory Seats",
+        "Rain-Sensing Wipers",
+        "Automatic Headlamps",
+        "Auto-Dimming IRVM",
+        "Electrically Adjustable ORVMs",
+        "Electrically Foldable ORVMs",
+        "Remote Boot Opener",
+        "Rear Defogger",
+        "Rear Wiper",
+        "Electronic Parking Brake",
+        "Paddle Shifters",
+        "Drive Modes",
+
+        // Interior Features
+        "Fabric Seats",
+        "Leather Seats",
+        "Leather-Wrapped Steering Wheel",
+        "Premium Interior",
+        "Ambient Lighting",
+        "Rear Reading Lamps",
+        "Adjustable Headrests",
+        "Digital Instrument Cluster",
+        "Tachometer",
+        "Trip Meter",
+        "Multi-Information Display",
+        "Heads-Up Display",
+
+        // Exterior Features
+        "Alloy Wheels",
+        "Steel Wheels",
+        "LED Headlamps",
+        "Projector Headlamps",
+        "Halogen Headlamps",
+        "LED Tail Lamps",
+        "Fog Lamps",
+        "Daytime Running Lights (DRL)",
+        "Sunroof",
+        "Panoramic Sunroof",
+        "Roof Rails",
+        "Rear Spoiler",
+        "Shark Fin Antenna",
+        "Body-Coloured Bumpers",
+        "Chrome Door Handles",
+        "Rear Window Defogger",
+
+        // Infotainment & Connectivity
+        "Touchscreen Infotainment System",
+        "Android Auto",
+        "Apple CarPlay",
+        "Wireless Android Auto",
+        "Wireless Apple CarPlay",
+        "Bluetooth Connectivity",
+        "USB Charging Port",
+        "USB Type-C Port",
+        "AUX Connectivity",
+        "Wireless Charging",
+        "Navigation System",
+        "Voice Commands",
+        "Steering-Mounted Audio Controls",
+        "Premium Sound System",
+        "Rear Entertainment System",
+        "Connected Car Technology",
+        "Wi-Fi Connectivity",
+
+        // Additional Features
+        "Front Parking Camera",
+        "Rear Seat Centre Armrest",
+        "Third Row AC Vents",
+        "Power Tailgate",
+        "Hands-Free Tailgate",
+        "Automatic Start-Stop",
+        "Regenerative Braking",
+        "Hybrid System",
+        "Electric Powertrain",
+        "Spare Wheel",
+        "Tubeless Tyres",
+        "Run-Flat Tyres"
+      ],
+      default: [],
+    },
+
+    /* =====================================================
        FUEL
     ===================================================== */
 
-fuel: {
-  type: String,
-  enum: [
-    "petrol",
-    "diesel",
-    "cng",
-    "lpg",
-    "electric",
-    "hybrid",
-  ],
-  required: true,
-},
+    fuel: {
+      type: String,
+      enum: [
+        "petrol",
+        "diesel",
+        "cng",
+        "lpg",
+        "electric",
+        "hybrid",
+      ],
+      required: true,
+    },
 
     /* =====================================================
        TRANSMISSION
@@ -627,6 +768,35 @@ carSchema.pre("save", async function (next) {
       this.stig = String(
         this.stig
       ).trim();
+    }
+
+    /* =====================================================
+       FEATURES VALIDATION
+    ===================================================== */
+
+    if (
+      this.features !== null &&
+      this.features !== undefined
+    ) {
+      if (!Array.isArray(this.features)) {
+        throw new Error(
+          "Features must be an array"
+        );
+      }
+
+      const validFeatures = [
+        "ABS","ABS with EBD","EBD","Airbags","Driver Airbag","Passenger Airbag","Side Airbags","Curtain Airbags","Vehicle Stability Control","Electronic Stability Control","Traction Control","Hill Start Assist","Hill Descent Control","Brake Assist","ISOFIX Child Seat Mounts","Child Safety Lock","Engine Immobilizer","Central Locking","Tyre Pressure Monitoring System","Rear Parking Sensors","Front Parking Sensors","Rear Parking Camera","360° Camera","Blind Spot Monitoring","Lane Departure Warning","Lane Keep Assist","Adaptive Cruise Control","Automatic Emergency Braking","Power Steering","Power Windows","Air Conditioning","Manual Air Conditioning","Automatic Climate Control","Dual Zone Climate Control","Rear AC Vents","Cruise Control","Smart Entry System","Keyless Entry","Push Button Start","Wireless Charger","Front Armrest","Rear Armrest","Cup Holders","Adjustable Steering","Tilt Steering","Telescopic Steering","Height Adjustable Driver Seat","Electrically Adjustable Driver Seat","Ventilated Seats","Heated Seats","Memory Seats","Rain-Sensing Wipers","Automatic Headlamps","Auto-Dimming IRVM","Electrically Adjustable ORVMs","Electrically Foldable ORVMs","Remote Boot Opener","Rear Defogger","Rear Wiper","Electronic Parking Brake","Paddle Shifters","Drive Modes","Fabric Seats","Leather Seats","Leather-Wrapped Steering Wheel","Premium Interior","Ambient Lighting","Rear Reading Lamps","Adjustable Headrests","Digital Instrument Cluster","Tachometer","Trip Meter","Multi-Information Display","Heads-Up Display","Alloy Wheels","Steel Wheels","LED Headlamps","Projector Headlamps","Halogen Headlamps","LED Tail Lamps","Fog Lamps","Daytime Running Lights (DRL)","Sunroof","Panoramic Sunroof","Roof Rails","Rear Spoiler","Shark Fin Antenna","Body-Coloured Bumpers","Chrome Door Handles","Rear Window Defogger","Touchscreen Infotainment System","Android Auto","Apple CarPlay","Wireless Android Auto","Wireless Apple CarPlay","Bluetooth Connectivity","USB Charging Port","USB Type-C Port","AUX Connectivity","Wireless Charging","Navigation System","Voice Commands","Steering-Mounted Audio Controls","Premium Sound System","Rear Entertainment System","Connected Car Technology","Wi-Fi Connectivity","Front Parking Camera","Rear Seat Centre Armrest","Third Row AC Vents","Power Tailgate","Hands-Free Tailgate","Automatic Start-Stop","Regenerative Braking","Hybrid System","Electric Powertrain","Spare Wheel","Tubeless Tyres","Run-Flat Tyres"
+      ];
+
+      const invalid = this.features.filter(
+        (f) => !validFeatures.includes(f)
+      );
+
+      if (invalid.length) {
+        throw new Error(
+          `Invalid features: ${invalid.join(", ")}`
+        );
+      }
     }
 
     next();

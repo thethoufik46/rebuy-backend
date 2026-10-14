@@ -384,7 +384,7 @@ router.get(
 );
 
 /* ============================================================
-   MASTER DATA - FEATURES        // <-- FEATURES
+   MASTER DATA - FEATURES
 ============================================================ */
 
 router.get(
@@ -653,7 +653,7 @@ router.get(
         owner,
         board,
         insurance,
-        features,        // <-- FEATURES
+        features,
         search,
         minPrice,
         maxPrice,
@@ -766,7 +766,7 @@ router.get(
       }
 
       /* ======================================================
-         FEATURES FILTER        // <-- FEATURES
+         FEATURES FILTER
          Match cars containing ANY of the selected features
       ====================================================== */
 
@@ -1295,7 +1295,7 @@ router.post(
         city,
         description,
 
-        features,        // <-- FEATURES
+        features,
       } = req.body;
 
       /* ======================================================
@@ -1365,7 +1365,7 @@ router.post(
         color:
           color || null,
 
-        features: parseFeatures(features),        // <-- FEATURES
+        features: parseFeatures(features),
 
         fuel,
         transmission,
@@ -1378,7 +1378,6 @@ router.post(
         status:
           status || "draft",
 
-        /* SELLER OPTIONAL */
         seller:
           seller &&
           String(seller).trim()
@@ -1687,7 +1686,7 @@ router.put(
       };
 
       /* ======================================================
-         FEATURES        // <-- FEATURES
+         FEATURES
       ====================================================== */
 
       if (req.body.features !== undefined) {

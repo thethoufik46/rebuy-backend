@@ -122,15 +122,15 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+
     // =================================================
     // CATEGORY
     // =================================================
     category: {
       type: String,
-      enum: ["buyer", "seller", "driver"],
+      enum: ["buyer", "seller", "driver", "dealer"],
       required: true,
     },
-
     // =================================================
     // USER TYPE
     // =================================================
@@ -182,6 +182,40 @@ const userSchema = new mongoose.Schema(
       default: "NA",
       trim: true,
       maxlength: 500,
+    },
+
+    // =================================================
+    // ✅ DEALER ADDRESS (ALL OPTIONAL)
+    // =================================================
+    dealerName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 120,
+    },
+    dealerDoorNumber: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 50,
+    },
+    dealerBuildingName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 150,
+    },
+    dealerStreet: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+    pincode: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 10,
     },
 
     // =================================================

@@ -106,13 +106,17 @@ const getRemainingLockMinutes = (user) => {
 };
 router.post("/register", async (req, res) => {
   try {
-    const { name, phone, email, password, category, district, address, language, googleIdToken } = req.body;
+    const { name, phone, email, password, category, district, address, language, googleIdToken,
+      // ✅ Dealer fields (only used when category === "dealer")
+      dealerName, dealerDoorNumber, dealerBuildingName, dealerStreet, pincode,
+    } = req.body;
     if (!name || !phone || !password || !category || !district) return res.status(400).json({ success: false, message: "Required fields missing" });
     const finalLanguage = language?.toString().trim() || "en";
     if (!isValidLanguage(finalLanguage)) return res.status(400).json({ success: false, message: "Invalid language", validLanguages });
     const finalPhone = cleanPhone(phone);
     if (!isValidPhone(finalPhone)) return res.status(400).json({ success: false, message: "Phone must contain exactly 10 digits" });
     if (!/^[0-9]{6,10}$/.test(password.toString().trim())) return res.status(400).json({ success: false, message: "Password must be 6-10 numbers" });
+    const finalCategory = category.toString().trim().toLowerCase();
     let finalEmail = email?.toString().toLowerCase().trim();
     let googleId = "";
     let googleName = "";
@@ -135,12 +139,26 @@ router.post("/register", async (req, res) => {
     const existing = await User.findOne({ $or: orConditions });
     if (existing) return res.status(400).json({ success: false, message: "User already exists" });
     const hashedPassword = await bcrypt.hash(password.toString().trim(), 10);
-    const userData = { name: name.toString().trim(), phone: finalPhone, password: hashedPassword, role: "user", category: category.toString().trim(), district: district.toString().trim(), language: finalLanguage, address: address || "NA" };
+    const userData = { name: name.toString().trim(), phone: finalPhone, password: hashedPassword, role: "user", category: finalCategory, district: district.toString().trim(), language: finalLanguage, address: address || "NA" };
     if (finalEmail) userData.email = finalEmail;
     if (googleId) {
       userData.googleId = googleId;
       userData.googleName = googleName;
       userData.googleProfileImage = googleProfileImage;
+    }
+    // ✅ Dealer fields — ONLY when category === "dealer"
+    if (finalCategory === "dealer") {
+      if (dealerName !== undefined) userData.dealerName = dealerName.toString().trim();
+      if (dealerDoorNumber !== undefined) userData.dealerDoorNumber = dealerDoorNumber.toString().trim();
+      if (dealerBuildingName !== undefined) userData.dealerBuildingName = dealerBuildingName.toString().trim();
+      if (dealerStreet !== undefined) userData.dealerStreet = dealerStreet.toString().trim();
+      if (pincode !== undefined) {
+        const cleanPin = pincode.toString().trim();
+        if (cleanPin !== "" && !/^[0-9]{6}$/.test(cleanPin)) {
+          return res.status(400).json({ success: false, message: "Pincode must be 6 digits" });
+        }
+        userData.pincode = cleanPin;
+      }
     }
     const user = await User.create(userData);
     const auth = await buildAuthResponse(user, req);
@@ -441,6 +459,16 @@ router.get("/me", verifyToken, async (req, res) => {
         highlightText: user.highlightText || "",
         profileImage: user.profileImage || "",
         galleryImages: Array.isArray(user.galleryImages) ? user.galleryImages : [],
+        // ✅ Dealer fields — only when category is "dealer"
+        ...(user.category === "dealer"
+          ? {
+              dealerName: user.dealerName || "",
+              dealerDoorNumber: user.dealerDoorNumber || "",
+              dealerBuildingName: user.dealerBuildingName || "",
+              dealerStreet: user.dealerStreet || "",
+              pincode: user.pincode || "",
+            }
+          : {}),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

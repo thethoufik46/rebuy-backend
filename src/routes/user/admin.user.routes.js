@@ -152,6 +152,12 @@ router.post(
         status,
         alternatePhone,
         highlightText,
+        // ✅ NEW dealer fields
+        dealerName,
+        dealerDoorNumber,
+        dealerBuildingName,
+        dealerStreet,
+        pincode,
       } = req.body;
 
       // Validation
@@ -255,6 +261,12 @@ router.post(
         status: status?.trim() || "not_verified",
         alternatePhone: alternatePhone?.replace(/\s+/g, "").trim() || "",
         highlightText: highlightText?.trim() || "",
+        // ✅ NEW dealer fields
+        dealerName: dealerName?.trim() || "",
+        dealerDoorNumber: dealerDoorNumber?.trim() || "",
+        dealerBuildingName: dealerBuildingName?.trim() || "",
+        dealerStreet: dealerStreet?.trim() || "",
+        pincode: pincode?.trim() || "",
         profileImage: profileImagePath,
         galleryImages: galleryPaths,
       });
@@ -339,6 +351,12 @@ router.put(
         alternatePhone,
         highlightText,
         existingGallery,
+        // ✅ NEW dealer fields
+        dealerName,
+        dealerDoorNumber,
+        dealerBuildingName,
+        dealerStreet,
+        pincode,
       } = req.body;
 
       // Name
@@ -361,7 +379,6 @@ router.put(
             message: "Phone must be exactly 10 digits",
           });
         }
-        // Check if phone already exists for another user
         const existingPhone = await User.findOne({
           phone: cleanPhone,
           _id: { $ne: user._id },
@@ -445,6 +462,13 @@ router.put(
         }
         user.highlightText = highlightText.trim();
       }
+
+      // ✅ NEW dealer fields
+      if (dealerName !== undefined) user.dealerName = dealerName.trim();
+      if (dealerDoorNumber !== undefined) user.dealerDoorNumber = dealerDoorNumber.trim();
+      if (dealerBuildingName !== undefined) user.dealerBuildingName = dealerBuildingName.trim();
+      if (dealerStreet !== undefined) user.dealerStreet = dealerStreet.trim();
+      if (pincode !== undefined) user.pincode = pincode.trim();
 
       // Profile Image
       if (req.files?.profileImage?.length) {
@@ -794,6 +818,61 @@ router.patch("/:id/alternate-phone", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update alternate phone",
+    });
+  }
+});
+
+// ==================================================
+// UPDATE DEALER ADDRESS  ✅ NEW
+// PATCH /admin/users/:id/dealer-address
+// ==================================================
+router.patch("/:id/dealer-address", async (req, res) => {
+  try {
+    const {
+      dealerName,
+      dealerDoorNumber,
+      dealerBuildingName,
+      dealerStreet,
+      pincode,
+    } = req.body;
+
+    const update = {};
+    if (dealerName !== undefined) update.dealerName = dealerName.trim();
+    if (dealerDoorNumber !== undefined) update.dealerDoorNumber = dealerDoorNumber.trim();
+    if (dealerBuildingName !== undefined) update.dealerBuildingName = dealerBuildingName.trim();
+    if (dealerStreet !== undefined) update.dealerStreet = dealerStreet.trim();
+    if (pincode !== undefined) update.pincode = pincode.trim();
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No dealer address fields provided",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    ).select("-password -adminActiveToken");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Dealer address updated",
+      user,
+    });
+  } catch (err) {
+    console.error("ADMIN UPDATE DEALER ADDRESS ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update dealer address",
     });
   }
 });

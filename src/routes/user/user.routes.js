@@ -31,12 +31,10 @@ router.post(
       }
 
       if (req.files?.profileImage?.length) {
-        // Delete old profile image
         if (user.profileImage) {
           await deleteUserImage(user.profileImage);
         }
 
-        // Upload new profile image
         user.profileImage = await uploadUserImage(
           req.files.profileImage[0],
           "users/profile"
@@ -55,6 +53,16 @@ router.post(
         alternatePhone: user.alternatePhone || "",
         highlightText: user.highlightText || "",
         language: user.language || "en",
+        // ✅ Dealer fields (only when category is dealer)
+        ...(user.category === "dealer"
+          ? {
+              dealerName: user.dealerName || "",
+              dealerDoorNumber: user.dealerDoorNumber || "",
+              dealerBuildingName: user.dealerBuildingName || "",
+              dealerStreet: user.dealerStreet || "",
+              pincode: user.pincode || "",
+            }
+          : {}),
       });
     } catch (err) {
       console.error("USER PROFILE UPLOAD ERROR:", err);
@@ -195,6 +203,16 @@ router.get("/profile", verifyToken, async (req, res) => {
         galleryImages: Array.isArray(user.galleryImages)
           ? user.galleryImages
           : [],
+        // ✅ Dealer fields (only when category is dealer)
+        ...(user.category === "dealer"
+          ? {
+              dealerName: user.dealerName || "",
+              dealerDoorNumber: user.dealerDoorNumber || "",
+              dealerBuildingName: user.dealerBuildingName || "",
+              dealerStreet: user.dealerStreet || "",
+              pincode: user.pincode || "",
+            }
+          : {}),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -215,7 +233,19 @@ router.get("/profile", verifyToken, async (req, res) => {
 // ==================================================
 router.put("/profile", verifyToken, async (req, res) => {
   try {
-    let { name, alternatePhone, district, address, language } = req.body;
+    let {
+      name,
+      alternatePhone,
+      district,
+      address,
+      language,
+      // ✅ Dealer fields
+      dealerName,
+      dealerDoorNumber,
+      dealerBuildingName,
+      dealerStreet,
+      pincode,
+    } = req.body;
 
     const user = await User.findById(req.user.id);
 
@@ -309,6 +339,38 @@ router.put("/profile", verifyToken, async (req, res) => {
       }
 
       user.language = language;
+    }
+
+    // ✅ Dealer fields — ONLY when category is "dealer"
+    if (user.category === "dealer") {
+      if (dealerName !== undefined) {
+        user.dealerName = dealerName.toString().trim();
+      }
+
+      if (dealerDoorNumber !== undefined) {
+        user.dealerDoorNumber = dealerDoorNumber.toString().trim();
+      }
+
+      if (dealerBuildingName !== undefined) {
+        user.dealerBuildingName = dealerBuildingName.toString().trim();
+      }
+
+      if (dealerStreet !== undefined) {
+        user.dealerStreet = dealerStreet.toString().trim();
+      }
+
+      if (pincode !== undefined) {
+        const cleanPin = pincode.toString().trim();
+
+        if (cleanPin !== "" && !/^[0-9]{6}$/.test(cleanPin)) {
+          return res.status(400).json({
+            success: false,
+            message: "Pincode must be 6 digits",
+          });
+        }
+
+        user.pincode = cleanPin;
+      }
     }
 
     await user.save();

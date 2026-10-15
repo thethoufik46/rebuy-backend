@@ -53,6 +53,8 @@ router.post(
         alternatePhone: user.alternatePhone || "",
         highlightText: user.highlightText || "",
         language: user.language || "en",
+        // ✅ Pincode — for ALL categories
+        pincode: user.pincode || "",
         // ✅ Dealer fields (only when category is dealer)
         ...(user.category === "dealer"
           ? {
@@ -60,7 +62,6 @@ router.post(
               dealerDoorNumber: user.dealerDoorNumber || "",
               dealerBuildingName: user.dealerBuildingName || "",
               dealerStreet: user.dealerStreet || "",
-              pincode: user.pincode || "",
             }
           : {}),
       });
@@ -203,6 +204,8 @@ router.get("/profile", verifyToken, async (req, res) => {
         galleryImages: Array.isArray(user.galleryImages)
           ? user.galleryImages
           : [],
+        // ✅ Pincode — for ALL categories
+        pincode: user.pincode || "",
         // ✅ Dealer fields (only when category is dealer)
         ...(user.category === "dealer"
           ? {
@@ -210,7 +213,6 @@ router.get("/profile", verifyToken, async (req, res) => {
               dealerDoorNumber: user.dealerDoorNumber || "",
               dealerBuildingName: user.dealerBuildingName || "",
               dealerStreet: user.dealerStreet || "",
-              pincode: user.pincode || "",
             }
           : {}),
         createdAt: user.createdAt,
@@ -239,14 +241,14 @@ router.put("/profile", verifyToken, async (req, res) => {
       district,
       address,
       language,
-      // ✅ Category (editable)
       category,
+      // ✅ Pincode — for ALL
+      pincode,
       // ✅ Dealer fields
       dealerName,
       dealerDoorNumber,
       dealerBuildingName,
       dealerStreet,
-      pincode,
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -364,11 +366,24 @@ router.put("/profile", verifyToken, async (req, res) => {
         user.dealerDoorNumber = "";
         user.dealerBuildingName = "";
         user.dealerStreet = "";
-        user.pincode = "";
       }
     }
 
-    // ✅ Dealer fields — ONLY when final category is "dealer"
+    // ✅ Pincode — for ALL categories
+    if (pincode !== undefined) {
+      const cleanPin = pincode.toString().trim();
+
+      if (cleanPin !== "" && !/^[0-9]{6}$/.test(cleanPin)) {
+        return res.status(400).json({
+          success: false,
+          message: "Pincode must be 6 digits",
+        });
+      }
+
+      user.pincode = cleanPin;
+    }
+
+    // ✅ Dealer fields — ONLY when category is "dealer"
     if (user.category === "dealer") {
       if (dealerName !== undefined) {
         user.dealerName = dealerName.toString().trim();
@@ -384,19 +399,6 @@ router.put("/profile", verifyToken, async (req, res) => {
 
       if (dealerStreet !== undefined) {
         user.dealerStreet = dealerStreet.toString().trim();
-      }
-
-      if (pincode !== undefined) {
-        const cleanPin = pincode.toString().trim();
-
-        if (cleanPin !== "" && !/^[0-9]{6}$/.test(cleanPin)) {
-          return res.status(400).json({
-            success: false,
-            message: "Pincode must be 6 digits",
-          });
-        }
-
-        user.pincode = cleanPin;
       }
     }
 

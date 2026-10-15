@@ -1,11 +1,14 @@
+// ======================= user.car.routes.js =======================
+// 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
+// ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
+// REDUCE LINE COUNT AGGRESSIVELY WHEN SAFE. KEEP 100% LOGIC & FUNCTIONALITY.
 import express from "express";
 import mongoose from "mongoose";
 import Car from "../../models/car/car_model.js";
-import User from "../../models/user/user_model.js";
 import CarBrand from "../../models/car/brand/car_brand_model.js";
 import CarVariant from "../../models/car/variant/car_variant_model.js";
 import CarModel from "../../models/car/model/car_model_model.js";
-import { verifyToken, isAdmin } from "../../middleware/auth.js";
+import { verifyToken } from "../../middleware/auth.js";
 import { verifyTokenOptional } from "../../middleware/verifyTokenOptional.js";
 import uploadCar from "../../middleware/car/uploadCar.js";
 import { uploadCarImage, deleteCarImage } from "../../utils/car/carUpload.js";
@@ -20,9 +23,6 @@ const CAR_FEATURES = [
   "ABS","ABS with EBD","EBD","Airbags","Driver Airbag","Passenger Airbag","Side Airbags","Curtain Airbags","Vehicle Stability Control","Electronic Stability Control","Traction Control","Hill Start Assist","Hill Descent Control","Brake Assist","ISOFIX Child Seat Mounts","Child Safety Lock","Engine Immobilizer","Central Locking","Tyre Pressure Monitoring System","Rear Parking Sensors","Front Parking Sensors","Rear Parking Camera","360° Camera","Blind Spot Monitoring","Lane Departure Warning","Lane Keep Assist","Adaptive Cruise Control","Automatic Emergency Braking","Power Steering","Power Windows","Air Conditioning","Manual Air Conditioning","Automatic Climate Control","Dual Zone Climate Control","Rear AC Vents","Cruise Control","Smart Entry System","Keyless Entry","Push Button Start","Wireless Charger","Front Armrest","Rear Armrest","Cup Holders","Adjustable Steering","Tilt Steering","Telescopic Steering","Height Adjustable Driver Seat","Electrically Adjustable Driver Seat","Ventilated Seats","Heated Seats","Memory Seats","Rain-Sensing Wipers","Automatic Headlamps","Auto-Dimming IRVM","Electrically Adjustable ORVMs","Electrically Foldable ORVMs","Remote Boot Opener","Rear Defogger","Rear Wiper","Electronic Parking Brake","Paddle Shifters","Drive Modes","Fabric Seats","Leather Seats","Leather-Wrapped Steering Wheel","Premium Interior","Ambient Lighting","Rear Reading Lamps","Adjustable Headrests","Digital Instrument Cluster","Tachometer","Trip Meter","Multi-Information Display","Heads-Up Display","Alloy Wheels","Steel Wheels","LED Headlamps","Projector Headlamps","Halogen Headlamps","LED Tail Lamps","Fog Lamps","Daytime Running Lights (DRL)","Sunroof","Panoramic Sunroof","Roof Rails","Rear Spoiler","Shark Fin Antenna","Body-Coloured Bumpers","Chrome Door Handles","Rear Window Defogger","Touchscreen Infotainment System","Android Auto","Apple CarPlay","Wireless Android Auto","Wireless Apple CarPlay","Bluetooth Connectivity","USB Charging Port","USB Type-C Port","AUX Connectivity","Wireless Charging","Navigation System","Voice Commands","Steering-Mounted Audio Controls","Premium Sound System","Rear Entertainment System","Connected Car Technology","Wi-Fi Connectivity","Front Parking Camera","Rear Seat Centre Armrest","Third Row AC Vents","Power Tailgate","Hands-Free Tailgate","Automatic Start-Stop","Regenerative Braking","Hybrid System","Electric Powertrain","Spare Wheel","Tubeless Tyres","Run-Flat Tyres"
 ];
 
-/* ============================================================
-   PARSE FEATURES
-============================================================ */
 const parseFeatures = (value) => {
   if (value === undefined || value === null || value === "") return [];
   let arr = value;
@@ -35,20 +35,21 @@ const parseFeatures = (value) => {
   return arr.map((v) => String(v).trim()).filter((v) => CAR_FEATURES.includes(v));
 };
 
-/* ============================================================
-   ✅ MULTI-VALUE PARSER — for fuel, owner, transmission, board
-   Accepts: "petrol,diesel" | ["petrol","diesel"] | "petrol"
-   Returns: ["petrol","diesel"] (trimmed, unique, non-empty)
-============================================================ */
 const parseMultiValues = (value) => {
   if (value === undefined || value === null || value === "") return [];
   let arr = value;
-  if (typeof value === "string") {
-    arr = value.split(",");
-  } else if (!Array.isArray(value)) {
-    arr = [value];
-  }
+  if (typeof value === "string") arr = value.split(",");
+  else if (!Array.isArray(value)) arr = [value];
   return [...new Set(arr.map((v) => String(v).trim()).filter(Boolean))];
+};
+
+const parseObjectIds = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  const values = Array.isArray(value) ? value : String(value).split(",");
+  return values
+    .map((item) => String(item).trim())
+    .filter((item) => mongoose.Types.ObjectId.isValid(item))
+    .map((item) => new mongoose.Types.ObjectId(item));
 };
 
 /* ============================================================
@@ -64,15 +65,12 @@ const prepareSellerForResponse = (car, isAdminUser) => {
 };
 
 /* ============================================================
-   REGISTRATION STATES
+   REGISTRATION VALIDATION
 ============================================================ */
 const REGISTRATION_STATES = [
   "TN","AP","AR","AS","BR","CG","GA","GJ","HR","HP","JH","KA","KL","MP","MH","MN","ML","MZ","NL","OD","PB","RJ","SK","TS","TR","UP","UK","WB","AN","CH","DN","DL","JK","LA","LD","PY",
 ];
 
-/* ============================================================
-   REGISTRATION VALIDATION
-============================================================ */
 const validateRegistration = (state, number) => {
   const registrationState = String(state || "TN").trim().toUpperCase();
   const registrationNumber = String(number || "").trim();
@@ -124,9 +122,6 @@ const uploadCarMedia = async (files) => {
   return { bannerImage, galleryImages, audioNote, videos };
 };
 
-/* ============================================================
-   SAFE MEDIA DELETE
-============================================================ */
 const safeDeleteMedia = async (media) => {
   if (typeof media !== "string" || !media.trim()) return;
   try { await deleteCarImage(media); } catch (error) {
@@ -135,7 +130,7 @@ const safeDeleteMedia = async (media) => {
 };
 
 /* ============================================================
-   MASTER DATA - BRANDS
+   GET /api/cars/brands — MASTER BRANDS
 ============================================================ */
 router.get("/brands", async (req, res) => {
   try {
@@ -148,7 +143,7 @@ router.get("/brands", async (req, res) => {
 });
 
 /* ============================================================
-   MASTER DATA - ALL MODELS
+   GET /api/cars/carmodels — ALL MODELS
 ============================================================ */
 router.get("/carmodels", async (req, res) => {
   try {
@@ -161,7 +156,7 @@ router.get("/carmodels", async (req, res) => {
 });
 
 /* ============================================================
-   MASTER DATA - FEATURES
+   GET /api/cars/features — MASTER FEATURES
 ============================================================ */
 router.get("/features", async (req, res) => {
   try {
@@ -173,7 +168,7 @@ router.get("/features", async (req, res) => {
 });
 
 /* ============================================================
-   MODELS BY BRAND
+   GET /api/cars/carmodels/brand/:brandId
 ============================================================ */
 router.get("/carmodels/brand/:brandId", async (req, res) => {
   try {
@@ -188,7 +183,7 @@ router.get("/carmodels/brand/:brandId", async (req, res) => {
 });
 
 /* ============================================================
-   ALL VARIANTS
+   GET /api/cars/carvariants — ALL VARIANTS
 ============================================================ */
 router.get("/carvariants", async (req, res) => {
   try {
@@ -201,7 +196,7 @@ router.get("/carvariants", async (req, res) => {
 });
 
 /* ============================================================
-   VARIANTS BY MODEL
+   GET /api/cars/carvariants/model/:modelId
 ============================================================ */
 router.get("/carvariants/model/:modelId", async (req, res) => {
   try {
@@ -216,7 +211,7 @@ router.get("/carvariants/model/:modelId", async (req, res) => {
 });
 
 /* ============================================================
-   VARIANTS BY BRAND
+   GET /api/cars/carvariants/brand/:brandId
 ============================================================ */
 router.get("/carvariants/brand/:brandId", async (req, res) => {
   try {
@@ -235,7 +230,7 @@ router.get("/carvariants/brand/:brandId", async (req, res) => {
 });
 
 /* ============================================================
-   GET ALL PUBLIC CARS — ✅ MULTI FILTER SUPPORT
+   GET /api/cars — ALL PUBLIC CARS (MULTI FILTER)
 ============================================================ */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
@@ -248,15 +243,6 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 
     const filter = {};
 
-    /* ======================================================
-       MULTI BRAND / MODEL / VARIANT FILTER
-    ====================================================== */
-    const parseObjectIds = (value) => {
-      if (value === undefined || value === null || value === "") return [];
-      const values = Array.isArray(value) ? value : String(value).split(",");
-      return values.map((item) => String(item).trim()).filter((item) => mongoose.Types.ObjectId.isValid(item)).map((item) => new mongoose.Types.ObjectId(item));
-    };
-
     const brandIds = parseObjectIds(brand);
     const modelIds = parseObjectIds(model);
     const variantIds = parseObjectIds(variant);
@@ -265,19 +251,12 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     if (modelIds.length) filter.model = { $in: modelIds };
     if (variantIds.length) filter.variant = { $in: variantIds };
 
-    /* ======================================================
-       STATUS
-    ====================================================== */
     if (status) {
       filter.status = status;
     } else if (!req.user || req.user.role !== "admin") {
       filter.status = { $nin: ["draft", "delete_requested"] };
     }
 
-    /* ======================================================
-       ✅ BASIC MULTI-SELECT FILTERS
-       fuel / owner / transmission / board / district / city / insurance
-    ====================================================== */
     const fuelList = parseMultiValues(fuel);
     if (fuelList.length) filter.fuel = { $in: fuelList };
 
@@ -299,41 +278,26 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const insuranceList = parseMultiValues(insurance);
     if (insuranceList.length) filter.insurance = { $in: insuranceList };
 
-    /* ======================================================
-       FEATURES FILTER
-    ====================================================== */
     if (features) {
       const featureList = parseFeatures(features);
       if (featureList.length) filter.features = { $in: featureList };
     }
 
-    /* ======================================================
-       PRICE FILTER
-    ====================================================== */
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice !== undefined && minPrice !== "") filter.price.$gte = Number(minPrice);
       if (maxPrice !== undefined && maxPrice !== "") filter.price.$lte = Number(maxPrice);
     }
 
-    /* ======================================================
-       YEAR FILTER
-    ====================================================== */
     if (minYear || maxYear) {
       filter.year = {};
       if (minYear !== undefined && minYear !== "") filter.year.$gte = Number(minYear);
       if (maxYear !== undefined && maxYear !== "") filter.year.$lte = Number(maxYear);
     }
 
-    /* ======================================================
-       REGISTRATION STATE / NUMBER
-    ====================================================== */
     if (registrationState) filter.registrationState = String(registrationState).trim().toUpperCase();
     if (registrationNumber) filter.registrationNumber = String(registrationNumber).trim();
 
-    /* ======================================================
-       SEARCH
-    ====================================================== */
     if (search) {
       filter.$or = [
         { description: { $regex: search, $options: "i" } },
@@ -342,21 +306,12 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       ];
     }
 
-    /* ======================================================
-       GET FILTERED CARS
-    ====================================================== */
     const cars = await Car.find(filter).sort({ createdAt: -1 }).lean();
 
-    /* ======================================================
-       COLLECT IDS
-    ====================================================== */
     const brandIdsFromCars = [...new Set(cars.map((car) => (car.brand ? car.brand.toString() : null)).filter(Boolean))];
     const modelIdsFromCars = [...new Set(cars.map((car) => (car.model ? car.model.toString() : null)).filter(Boolean))];
     const variantIdsFromCars = [...new Set(cars.map((car) => (car.variant ? car.variant.toString() : null)).filter(Boolean))];
 
-    /* ======================================================
-       POPULATE BRAND / MODEL / VARIANT
-    ====================================================== */
     const [brands, models, variants] = await Promise.all([
       CarBrand.find({ _id: { $in: brandIdsFromCars } }).select("_id name logoUrl").lean(),
       CarModel.find({ _id: { $in: modelIdsFromCars } }).select("_id title imageUrl brand").lean(),
@@ -367,9 +322,6 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const modelMap = new Map(models.map((item) => [item._id.toString(), item]));
     const variantMap = new Map(variants.map((item) => [item._id.toString(), item]));
 
-    /* ======================================================
-       PREPARE RESPONSE
-    ====================================================== */
     const isAdminUser = req.user && req.user.role === "admin";
 
     const responseCars = cars.map((car) => {
@@ -391,7 +343,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
 });
 
 /* ============================================================
-   REQUEST DELETE CAR
+   PUT /api/cars/:id/request-delete
 ============================================================ */
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {
@@ -412,7 +364,7 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
 });
 
 /* ============================================================
-   GET MY CARS
+   GET /api/cars/my
 ============================================================ */
 router.get("/my", verifyToken, async (req, res) => {
   try {
@@ -439,7 +391,7 @@ router.get("/my", verifyToken, async (req, res) => {
 });
 
 /* ============================================================
-   GET USER CARS
+   GET /api/cars/my-cars
 ============================================================ */
 router.get("/my-cars", verifyToken, async (req, res) => {
   try {
@@ -458,7 +410,7 @@ router.get("/my-cars", verifyToken, async (req, res) => {
 });
 
 /* ============================================================
-   USER ADD CAR
+   POST /api/cars/user-add and /api/cars/
 ============================================================ */
 router.post(
   ["/user-add", "/"],
@@ -533,7 +485,7 @@ router.post(
 );
 
 /* ============================================================
-   GET CAR BY ID
+   GET /api/cars/:id
 ============================================================ */
 router.get("/:id", verifyTokenOptional, async (req, res) => {
   try {
@@ -564,7 +516,7 @@ router.get("/:id", verifyTokenOptional, async (req, res) => {
 });
 
 /* ============================================================
-   USER / OWNER UPDATE CAR
+   PUT /api/cars/:id
 ============================================================ */
 router.put(
   "/:id",

@@ -239,6 +239,8 @@ router.put("/profile", verifyToken, async (req, res) => {
       district,
       address,
       language,
+      // ✅ Category (editable)
+      category,
       // ✅ Dealer fields
       dealerName,
       dealerDoorNumber,
@@ -341,7 +343,32 @@ router.put("/profile", verifyToken, async (req, res) => {
       user.language = language;
     }
 
-    // ✅ Dealer fields — ONLY when category is "dealer"
+    // ✅ Category — editable
+    if (category !== undefined) {
+      const cleanCategory = category.toString().trim().toLowerCase();
+
+      const allowedCategories = ["buyer", "seller", "driver", "dealer"];
+
+      if (!allowedCategories.includes(cleanCategory)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid category",
+        });
+      }
+
+      user.category = cleanCategory;
+
+      // ✅ Clear dealer fields when switching away from dealer
+      if (cleanCategory !== "dealer") {
+        user.dealerName = "";
+        user.dealerDoorNumber = "";
+        user.dealerBuildingName = "";
+        user.dealerStreet = "";
+        user.pincode = "";
+      }
+    }
+
+    // ✅ Dealer fields — ONLY when final category is "dealer"
     if (user.category === "dealer") {
       if (dealerName !== undefined) {
         user.dealerName = dealerName.toString().trim();

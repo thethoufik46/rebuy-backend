@@ -152,7 +152,7 @@ router.post(
         status,
         alternatePhone,
         highlightText,
-        // ✅ NEW dealer fields
+        // ✅ COMMON for ALL users
         dealerName,
         dealerDoorNumber,
         dealerBuildingName,
@@ -261,7 +261,7 @@ router.post(
         status: status?.trim() || "not_verified",
         alternatePhone: alternatePhone?.replace(/\s+/g, "").trim() || "",
         highlightText: highlightText?.trim() || "",
-        // ✅ NEW dealer fields
+        // ✅ COMMON for ALL users
         dealerName: dealerName?.trim() || "",
         dealerDoorNumber: dealerDoorNumber?.trim() || "",
         dealerBuildingName: dealerBuildingName?.trim() || "",
@@ -351,7 +351,7 @@ router.put(
         alternatePhone,
         highlightText,
         existingGallery,
-        // ✅ NEW dealer fields
+        // ✅ COMMON for ALL users
         dealerName,
         dealerDoorNumber,
         dealerBuildingName,
@@ -463,11 +463,14 @@ router.put(
         user.highlightText = highlightText.trim();
       }
 
-      // ✅ NEW dealer fields
+      // ✅ COMMON for ALL users — no category condition
       if (dealerName !== undefined) user.dealerName = dealerName.trim();
-      if (dealerDoorNumber !== undefined) user.dealerDoorNumber = dealerDoorNumber.trim();
-      if (dealerBuildingName !== undefined) user.dealerBuildingName = dealerBuildingName.trim();
-      if (dealerStreet !== undefined) user.dealerStreet = dealerStreet.trim();
+      if (dealerDoorNumber !== undefined)
+        user.dealerDoorNumber = dealerDoorNumber.trim();
+      if (dealerBuildingName !== undefined)
+        user.dealerBuildingName = dealerBuildingName.trim();
+      if (dealerStreet !== undefined)
+        user.dealerStreet = dealerStreet.trim();
       if (pincode !== undefined) user.pincode = pincode.trim();
 
       // Profile Image
@@ -823,7 +826,7 @@ router.patch("/:id/alternate-phone", async (req, res) => {
 });
 
 // ==================================================
-// UPDATE DEALER ADDRESS  ✅ NEW
+// UPDATE DEALER ADDRESS (COMMON for ALL users)
 // PATCH /admin/users/:id/dealer-address
 // ==================================================
 router.patch("/:id/dealer-address", async (req, res) => {
@@ -838,8 +841,10 @@ router.patch("/:id/dealer-address", async (req, res) => {
 
     const update = {};
     if (dealerName !== undefined) update.dealerName = dealerName.trim();
-    if (dealerDoorNumber !== undefined) update.dealerDoorNumber = dealerDoorNumber.trim();
-    if (dealerBuildingName !== undefined) update.dealerBuildingName = dealerBuildingName.trim();
+    if (dealerDoorNumber !== undefined)
+      update.dealerDoorNumber = dealerDoorNumber.trim();
+    if (dealerBuildingName !== undefined)
+      update.dealerBuildingName = dealerBuildingName.trim();
     if (dealerStreet !== undefined) update.dealerStreet = dealerStreet.trim();
     if (pincode !== undefined) update.pincode = pincode.trim();
 

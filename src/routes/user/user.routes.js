@@ -53,17 +53,13 @@ router.post(
         alternatePhone: user.alternatePhone || "",
         highlightText: user.highlightText || "",
         language: user.language || "en",
-        // ✅ Pincode — for ALL categories
+
+        // ✅ COMMON for ALL categories
         pincode: user.pincode || "",
-        // ✅ Dealer fields (only when category is dealer)
-        ...(user.category === "dealer"
-          ? {
-              dealerName: user.dealerName || "",
-              dealerDoorNumber: user.dealerDoorNumber || "",
-              dealerBuildingName: user.dealerBuildingName || "",
-              dealerStreet: user.dealerStreet || "",
-            }
-          : {}),
+        dealerName: user.dealerName || "",
+        dealerDoorNumber: user.dealerDoorNumber || "",
+        dealerBuildingName: user.dealerBuildingName || "",
+        dealerStreet: user.dealerStreet || "",
       });
     } catch (err) {
       console.error("USER PROFILE UPLOAD ERROR:", err);
@@ -204,17 +200,14 @@ router.get("/profile", verifyToken, async (req, res) => {
         galleryImages: Array.isArray(user.galleryImages)
           ? user.galleryImages
           : [],
-        // ✅ Pincode — for ALL categories
+
+        // ✅ COMMON for ALL categories
         pincode: user.pincode || "",
-        // ✅ Dealer fields (only when category is dealer)
-        ...(user.category === "dealer"
-          ? {
-              dealerName: user.dealerName || "",
-              dealerDoorNumber: user.dealerDoorNumber || "",
-              dealerBuildingName: user.dealerBuildingName || "",
-              dealerStreet: user.dealerStreet || "",
-            }
-          : {}),
+        dealerName: user.dealerName || "",
+        dealerDoorNumber: user.dealerDoorNumber || "",
+        dealerBuildingName: user.dealerBuildingName || "",
+        dealerStreet: user.dealerStreet || "",
+
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -242,9 +235,8 @@ router.put("/profile", verifyToken, async (req, res) => {
       address,
       language,
       category,
-      // ✅ Pincode — for ALL
+      // ✅ COMMON — all categories
       pincode,
-      // ✅ Dealer fields
       dealerName,
       dealerDoorNumber,
       dealerBuildingName,
@@ -345,7 +337,7 @@ router.put("/profile", verifyToken, async (req, res) => {
       user.language = language;
     }
 
-    // ✅ Category — editable
+    // Category — editable
     if (category !== undefined) {
       const cleanCategory = category.toString().trim().toLowerCase();
 
@@ -359,17 +351,10 @@ router.put("/profile", verifyToken, async (req, res) => {
       }
 
       user.category = cleanCategory;
-
-      // ✅ Clear dealer fields when switching away from dealer
-      if (cleanCategory !== "dealer") {
-        user.dealerName = "";
-        user.dealerDoorNumber = "";
-        user.dealerBuildingName = "";
-        user.dealerStreet = "";
-      }
+      // ❌ REMOVED: clear dealer fields logic — dealer fields are common now
     }
 
-    // ✅ Pincode — for ALL categories
+    // ✅ Pincode — COMMON for ALL categories
     if (pincode !== undefined) {
       const cleanPin = pincode.toString().trim();
 
@@ -383,23 +368,21 @@ router.put("/profile", verifyToken, async (req, res) => {
       user.pincode = cleanPin;
     }
 
-    // ✅ Dealer fields — ONLY when category is "dealer"
-    if (user.category === "dealer") {
-      if (dealerName !== undefined) {
-        user.dealerName = dealerName.toString().trim();
-      }
+    // ✅ Dealer fields — COMMON for ALL categories
+    if (dealerName !== undefined) {
+      user.dealerName = dealerName.toString().trim();
+    }
 
-      if (dealerDoorNumber !== undefined) {
-        user.dealerDoorNumber = dealerDoorNumber.toString().trim();
-      }
+    if (dealerDoorNumber !== undefined) {
+      user.dealerDoorNumber = dealerDoorNumber.toString().trim();
+    }
 
-      if (dealerBuildingName !== undefined) {
-        user.dealerBuildingName = dealerBuildingName.toString().trim();
-      }
+    if (dealerBuildingName !== undefined) {
+      user.dealerBuildingName = dealerBuildingName.toString().trim();
+    }
 
-      if (dealerStreet !== undefined) {
-        user.dealerStreet = dealerStreet.toString().trim();
-      }
+    if (dealerStreet !== undefined) {
+      user.dealerStreet = dealerStreet.toString().trim();
     }
 
     await user.save();

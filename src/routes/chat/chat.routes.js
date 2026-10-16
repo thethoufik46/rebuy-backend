@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../middleware/auth.js";
+import { verifyToken } from "../../middleware/auth.js";
 import {
   sendUserMessage,
   sendAdminReply,
@@ -8,7 +8,7 @@ import {
   markChatAsRead,
   getAllChats,
   markAdminChatAsRead,
-} from "../controllers/chat.controller.js";
+} from "../../controllers/chat/chat.controller.js";
 
 const router = express.Router();
 

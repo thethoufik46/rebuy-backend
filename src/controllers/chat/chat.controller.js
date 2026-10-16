@@ -1,48 +1,38 @@
-import Chat from "../models/chat_model.js";
-import { io } from "../server.js";
+import Chat from "../../models/chat/chat_model.js";
+import { io } from "./../../server.js";
+
 /* USER SEND MESSAGE */
 export const sendUserMessage = async (req, res) => {
   try {
     const userId = req.userId;
     const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ message: "Message required" });
-    }
+    if (!message) return res.status(400).json({ message: "Message required" });
 
     let chat = await Chat.findOne({ userId });
 
-  if (!chat) {
-  chat = await Chat.create({
-    userId,
-    messages: [
-      {
-        sender: "admin",
-        message: "👋 Welcome! Our support team will reply soon.",
-        isRead: false,
-        adminRead: true,
-      },
-      {
+    if (!chat) {
+      chat = await Chat.create({
+        userId,
+        messages: [
+          {
+            sender: "admin",
+            message: "👋 Welcome! Our support team will reply soon.",
+            isRead: false,
+            adminRead: true,
+          },
+          { sender: "user", message, isRead: true, adminRead: false },
+        ],
+      });
+
+      io.to("admin").emit("new_message", {
+        chatId: chat._id,
+        userId,
         sender: "user",
         message,
-        isRead: true,
-        adminRead: false,
-      },
-    ],
-  });
+      });
 
-  io.to("admin").emit("new_message", {
-    chatId: chat._id,
-    userId,
-    sender: "user",
-    message,
-  });
-
-  return res.status(201).json({
-    success: true,
-    data: chat.messages,
-  });
-}
+      return res.status(201).json({ success: true, data: chat.messages });
+    }
 
     chat.messages.push({
       sender: "user",
@@ -54,16 +44,13 @@ export const sendUserMessage = async (req, res) => {
     await chat.save();
 
     io.to("admin").emit("new_message", {
-  chatId: chat._id,
-  userId,
-  sender: "user",
-  message,
-});
-
-    res.json({
-      success: true,
-      data: chat.messages,
+      chatId: chat._id,
+      userId,
+      sender: "user",
+      message,
     });
+
+    res.json({ success: true, data: chat.messages });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -73,15 +60,11 @@ export const sendUserMessage = async (req, res) => {
 export const sendAdminReply = async (req, res) => {
   try {
     const { userId, message } = req.body;
-
-    if (!userId || !message) {
+    if (!userId || !message)
       return res.status(400).json({ message: "userId & message required" });
-    }
 
     const chat = await Chat.findOne({ userId });
-    if (!chat) {
-      return res.status(404).json({ message: "Chat not found" });
-    }
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
 
     chat.messages.push({
       sender: "admin",
@@ -93,15 +76,12 @@ export const sendAdminReply = async (req, res) => {
     await chat.save();
 
     io.to(userId.toString()).emit("new_message", {
-  chatId: chat._id,
-  sender: "admin",
-  message,
-});
-
-    res.json({
-      success: true,
-      data: chat.messages,
+      chatId: chat._id,
+      sender: "admin",
+      message,
     });
+
+    res.json({ success: true, data: chat.messages });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -112,11 +92,7 @@ export const getUserChat = async (req, res) => {
   try {
     const userId = req.userId;
     const chat = await Chat.findOne({ userId });
-
-    res.json({
-      success: true,
-      data: chat ? chat.messages : [],
-    });
+    res.json({ success: true, data: chat ? chat.messages : [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -160,26 +136,16 @@ export const getUnreadCount = async (req, res) => {
 /* ADMIN GET ALL CHATS + UNREAD */
 export const getAllChats = async (req, res) => {
   try {
-    const chats = await Chat.find().populate(
-      "userId",
-      "name email phone"
-    );
+    const chats = await Chat.find().populate("userId", "name email phone");
 
     const data = chats.map((chat) => {
       const unreadCount = chat.messages.filter(
         (m) => m.sender === "user" && m.adminRead === false
       ).length;
-
-      return {
-        ...chat.toObject(),
-        unreadCount,
-      };
+      return { ...chat.toObject(), unreadCount };
     });
 
-    res.json({
-      success: true,
-      data,
-    });
+    res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

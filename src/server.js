@@ -19,7 +19,7 @@ import adminAuthRoutes from "./routes/adminAuth.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
 import adminUserRoutes from "./routes/user/admin.user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
-import chatRoutes from "./routes/chat.routes.js";
+import chatRoutes from "./routes/chat/chat.routes.js";
 import carBrandRoutes from "./routes/car/brand/car.brand.routes.js";
 import carModelRoutes from "./routes/car/model/car.model.routes.js";
 import carVariantRoutes from "./routes/car/variant/car.variant.routes.js";

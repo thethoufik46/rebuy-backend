@@ -21,17 +21,20 @@ const verifyListing=async(category,listingId)=>{
   const listing=await entry.model.findOne({[entry.idField]:listingId}).select(`${entry.idField} createdBy sellerUser status`).lean();
   return listing||null;
 };
+// 🔥 FIXED: only populate brand/model/variant for cars & bikes
 const hydrateListings=async(category,reels)=>{
   const entry=listingModelMap[category];
   if(!entry||!reels.length)return {};
   const ids=[...new Set(reels.map(r=>r.listingId).filter(id=>id!=null))];
   if(!ids.length)return {};
-  const listings=await entry.model
-    .find({[entry.idField]:{$in:ids}})
-    .populate("brand","name logoUrl")
-    .populate("model","name title modelName")
-    .populate("variant","variantName title name")
-    .lean();
+  let query=entry.model.find({[entry.idField]:{$in:ids}});
+  if(category==="cars"||category==="bikes"){
+    query=query
+      .populate("brand","name logoUrl")
+      .populate("model","name title modelName")
+      .populate("variant","variantName title name");
+  }
+  const listings=await query.lean();
   const map={};
   for(const item of listings)map[item[entry.idField]]=item;
   return map;

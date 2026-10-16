@@ -69,57 +69,17 @@ app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 app.use(mongoSanitize());
 app.use(xss());
 
-// ==================================================
-// RATE LIMITERS — PRODUCTION SAFE
-// ==================================================
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again later." } });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many attempts. Try again in 15 minutes." } });
+const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many OTP requests. Wait 10 minutes." } });
+const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10000, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many admin requests. Try again later." } });
 
-// ✅ General API Limiter — 300 → 3000 (10x increase)
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 3000,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many requests. Try again later." },
-});
-
-// ✅ Auth Limiter — login/register (20 → 100)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many attempts. Try again in 15 minutes." },
-});
-
-// ✅ OTP Limiter — OTP requests (5 → 20)
-const otpLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many OTP requests. Wait 10 minutes." },
-});
-
-// ✅ Admin Limiter — Admin routes + chat polling (HIGH LIMIT)
-const adminLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10000,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many admin requests. Try again later." },
-});
-
-// ==================================================
-// APPLY LIMITERS
-// ==================================================
 app.use("/api", apiLimiter);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/google-login", authLimiter);
 app.use("/api/auth/forgot-send-otp", otpLimiter);
 app.use("/api/auth/forgot-verify-otp", otpLimiter);
-
-// ✅ Admin routes + chat polling — தனி HIGH-LIMIT limiter
 app.use("/api/admin", adminLimiter);
 app.use("/api/chat/admin", adminLimiter);
 
@@ -180,7 +140,23 @@ app.get("/", (req, res) => res.status(200).json({ success: true, message: "🚀 
 app.use((req, res) => res.status(404).json({ success: false, message: "API route not found" }));
 app.use((err, req, res, next) => { console.error("❌ Server Error:", err); res.status(500).json({ success: false, message: err?.message || "Internal server error" }); });
 
-io.on("connection", socket => { console.log("🟢 Socket Connected:", socket.id); socket.on("join", userId => { socket.join(userId); console.log(`User Joined: ${userId}`); }); socket.on("join-admin", () => { socket.join("admin"); console.log("👨‍💼 Admin Joined"); }); socket.on("disconnect", () => console.log("🔴 Socket Disconnected")); });
+io.on("connection", socket => {
+  console.log("🟢 Socket Connected:", socket.id);
+
+  socket.on("join", userId => {
+    socket.join(userId.toString());
+    console.log(`👤 User Joined Room: [${userId}] | socket: ${socket.id}`);
+    console.log(`📋 Room [${userId}] size:`, io.sockets.adapter.rooms.get(userId.toString())?.size ?? 0);
+  });
+
+  socket.on("join-admin", () => {
+    socket.join("admin");
+    console.log(`👨‍💼 Admin Joined | socket: ${socket.id}`);
+    console.log(`📋 Admin room size:`, io.sockets.adapter.rooms.get("admin")?.size ?? 0);
+  });
+
+  socket.on("disconnect", () => console.log("🔴 Socket Disconnected:", socket.id));
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => { console.log(`✅ Server running on port ${PORT}`); console.log("📍 Reels API: /api/reels"); });

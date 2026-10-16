@@ -24,6 +24,7 @@ export const sendUserMessage = async (req, res) => {
         ],
       });
 
+      console.log("📨 New chat — emit to admin:", chat._id.toString());
       io.to("admin").emit("new_message", {
         chatId: chat._id,
         userId,
@@ -43,6 +44,7 @@ export const sendUserMessage = async (req, res) => {
 
     await chat.save();
 
+    console.log("📨 User msg — emit to admin:", chat._id.toString());
     io.to("admin").emit("new_message", {
       chatId: chat._id,
       userId,
@@ -75,7 +77,12 @@ export const sendAdminReply = async (req, res) => {
 
     await chat.save();
 
-    io.to(userId.toString()).emit("new_message", {
+    const room = userId.toString();
+    console.log("📨 Admin reply — emit to user room:", room);
+    console.log("🔍 Rooms in 'admin':", io.sockets.adapter.rooms.get("admin")?.size ?? 0);
+    console.log("🔍 Socket rooms containing user:", room, "→", io.sockets.adapter.rooms.get(room)?.size ?? 0);
+
+    io.to(room).emit("new_message", {
       chatId: chat._id,
       sender: "admin",
       message,

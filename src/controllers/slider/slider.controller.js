@@ -10,21 +10,11 @@ import {
 // ============================================================
 // VALIDATE CATEGORY
 // ============================================================
-
-const validCategories = [
-  "car",
-  "bike",
-  "property",
-  "electronics",
-];
+// ✅ enum நீக்கம் செய்யப்பட்டுள்ளதால், நீங்கள் எந்தப் பெயரை வேண்டுமானாலும் டைப் செய்யலாம்.
+// வெறும் காலி இடங்கள் (empty string) மட்டும் அனுமதிக்கப்படாது.
 
 const validateCategory = (category) => {
-  return (
-    typeof category === "string" &&
-    validCategories.includes(
-      category.trim().toLowerCase()
-    )
-  );
+  return typeof category === "string" && category.trim().length > 0;
 };
 
 // ============================================================
@@ -33,12 +23,7 @@ const validateCategory = (category) => {
 
 const validateOrder = (order) => {
   const value = Number(order);
-
-  return (
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= 100
-  );
+  return Number.isInteger(value) && value >= 1 && value <= 100;
 };
 
 // ============================================================
@@ -56,8 +41,7 @@ export const addSlider = async (req, res) => {
     if (!validateCategory(category)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Valid category is required: car, bike, property, electronics",
+        message: "Category name is required",
       });
     }
 
@@ -75,9 +59,7 @@ export const addSlider = async (req, res) => {
       });
     }
 
-    const cleanCategory =
-      category.trim().toLowerCase();
-
+    const cleanCategory = category.trim().toLowerCase();
     const cleanOrder = Number(order);
 
     // ----------------------------------------------------------
@@ -92,8 +74,7 @@ export const addSlider = async (req, res) => {
     if (existing) {
       return res.status(409).json({
         success: false,
-        message:
-          `Order ${cleanOrder} already exists for ${cleanCategory}`,
+        message: `Order ${cleanOrder} already exists for ${cleanCategory}`,
       });
     }
 
@@ -101,8 +82,7 @@ export const addSlider = async (req, res) => {
     // UPLOAD IMAGE
     // ----------------------------------------------------------
 
-    const imageUrl =
-      await uploadSliderImage(req.file);
+    const imageUrl = await uploadSliderImage(req.file);
 
     // ----------------------------------------------------------
     // CREATE SLIDER
@@ -123,16 +103,10 @@ export const addSlider = async (req, res) => {
       slider,
     });
   } catch (err) {
-    console.error(
-      "ADD SLIDER ERROR 👉",
-      err
-    );
-
+    console.error("ADD SLIDER ERROR 👉", err);
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Failed to add slider",
+      message: err.message || "Failed to add slider",
     });
   }
 };
@@ -141,70 +115,45 @@ export const addSlider = async (req, res) => {
 // GET ALL SLIDERS
 // ============================================================
 
-export const getAllSliders = async (
-  req,
-  res
-) => {
+export const getAllSliders = async (req, res) => {
   try {
     const { category } = req.query;
-
     const filter = {};
 
     if (category) {
-      const cleanCategory =
-        category.trim().toLowerCase();
-
+      const cleanCategory = category.trim().toLowerCase();
       if (!validateCategory(cleanCategory)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid category",
+          message: "Invalid category",
         });
       }
-
       filter.category = cleanCategory;
     }
 
     const sliders = await Slider.find(filter)
-      .sort({
-        category: 1,
-        order: 1,
-      })
+      .sort({ category: 1, order: 1 })
       .lean();
 
-    const data = sliders.map(
-      (slider) => ({
-        _id: slider._id.toString(),
-        category:
-          slider.category || "",
-        imageUrl:
-          slider.imageUrl || "",
-        image:
-          slider.imageUrl || "",
-        order:
-          slider.order || 0,
-        createdAt:
-          slider.createdAt,
-        updatedAt:
-          slider.updatedAt,
-      })
-    );
+    const data = sliders.map((slider) => ({
+      _id: slider._id.toString(),
+      category: slider.category || "",
+      imageUrl: slider.imageUrl || "",
+      image: slider.imageUrl || "",
+      order: slider.order || 0,
+      createdAt: slider.createdAt,
+      updatedAt: slider.updatedAt,
+    }));
 
     return res.status(200).json({
       success: true,
       sliders: data,
     });
   } catch (err) {
-    console.error(
-      "GET ALL SLIDERS ERROR 👉",
-      err
-    );
-
+    console.error("GET ALL SLIDERS ERROR 👉", err);
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Failed to get sliders",
+      message: err.message || "Failed to get sliders",
     });
   }
 };
@@ -213,79 +162,51 @@ export const getAllSliders = async (
 // GET SLIDERS BY CATEGORY
 // ============================================================
 
-export const getSlidersByCategory =
-  async (req, res) => {
-    try {
-      const category =
-        req.params.category
-          ?.trim()
-          .toLowerCase();
+export const getSlidersByCategory = async (req, res) => {
+  try {
+    const category = req.params.category?.trim().toLowerCase();
 
-      if (!validateCategory(category)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid category",
-        });
-      }
-
-      const sliders =
-        await Slider.find({
-          category,
-        })
-          .sort({
-            order: 1,
-          })
-          .lean();
-
-      const data = sliders.map(
-        (slider) => ({
-          _id:
-            slider._id.toString(),
-          category:
-            slider.category || "",
-          imageUrl:
-            slider.imageUrl || "",
-          image:
-            slider.imageUrl || "",
-          order:
-            slider.order || 0,
-        })
-      );
-
-      return res.status(200).json({
-        success: true,
-        category,
-        sliders: data,
-      });
-    } catch (err) {
-      console.error(
-        "GET CATEGORY SLIDERS ERROR 👉",
-        err
-      );
-
-      return res.status(500).json({
+    if (!validateCategory(category)) {
+      return res.status(400).json({
         success: false,
-        message:
-          err.message ||
-          "Failed to get category sliders",
+        message: "Invalid category",
       });
     }
-  };
+
+    const sliders = await Slider.find({ category })
+      .sort({ order: 1 })
+      .lean();
+
+    const data = sliders.map((slider) => ({
+      _id: slider._id.toString(),
+      category: slider.category || "",
+      imageUrl: slider.imageUrl || "",
+      image: slider.imageUrl || "",
+      order: slider.order || 0,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      category,
+      sliders: data,
+    });
+  } catch (err) {
+    console.error("GET CATEGORY SLIDERS ERROR 👉", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to get category sliders",
+    });
+  }
+};
 
 // ============================================================
 // GET SINGLE SLIDER
 // ============================================================
 
-export const getSliderById = async (
-  req,
-  res
-) => {
+export const getSliderById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const slider =
-      await Slider.findById(id);
+    const slider = await Slider.findById(id);
 
     if (!slider) {
       return res.status(404).json({
@@ -299,16 +220,10 @@ export const getSliderById = async (
       slider,
     });
   } catch (err) {
-    console.error(
-      "GET SLIDER ERROR 👉",
-      err
-    );
-
+    console.error("GET SLIDER ERROR 👉", err);
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Failed to get slider",
+      message: err.message || "Failed to get slider",
     });
   }
 };
@@ -317,21 +232,16 @@ export const getSliderById = async (
 // UPDATE SLIDER
 // ============================================================
 
-export const updateSlider = async (
-  req,
-  res
-) => {
+export const updateSlider = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, order } =
-      req.body;
+    const { category, order } = req.body;
 
     // ----------------------------------------------------------
     // FIND SLIDER
     // ----------------------------------------------------------
 
-    const slider =
-      await Slider.findById(id);
+    const slider = await Slider.findById(id);
 
     if (!slider) {
       return res.status(404).json({
@@ -344,46 +254,31 @@ export const updateSlider = async (
     // CATEGORY
     // ----------------------------------------------------------
 
-    let cleanCategory =
-      slider.category;
+    let cleanCategory = slider.category;
 
-    if (
-      category !== undefined &&
-      category !== null &&
-      category !== ""
-    ) {
+    if (category !== undefined && category !== null && category !== "") {
       if (!validateCategory(category)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid category",
+          message: "Invalid category name",
         });
       }
-
-      cleanCategory =
-        category.trim().toLowerCase();
+      cleanCategory = category.trim().toLowerCase();
     }
 
     // ----------------------------------------------------------
     // ORDER
     // ----------------------------------------------------------
 
-    let cleanOrder =
-      slider.order;
+    let cleanOrder = slider.order;
 
-    if (
-      order !== undefined &&
-      order !== null &&
-      order !== ""
-    ) {
+    if (order !== undefined && order !== null && order !== "") {
       if (!validateOrder(order)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Order must be a number from 1 to 100",
+          message: "Order must be a number from 1 to 100",
         });
       }
-
       cleanOrder = Number(order);
     }
 
@@ -391,65 +286,42 @@ export const updateSlider = async (
     // CHECK DUPLICATE
     // ----------------------------------------------------------
 
-    const duplicate =
-      await Slider.findOne({
-        _id: {
-          $ne: id,
-        },
-        category: cleanCategory,
-        order: cleanOrder,
-      });
+    const duplicate = await Slider.findOne({
+      _id: { $ne: id },
+      category: cleanCategory,
+      order: cleanOrder,
+    });
 
     if (duplicate) {
       return res.status(409).json({
         success: false,
-        message:
-          `Order ${cleanOrder} already exists for ${cleanCategory}`,
+        message: `Order ${cleanOrder} already exists for ${cleanCategory}`,
       });
     }
 
     // ----------------------------------------------------------
-    // UPDATE CATEGORY
+    // UPDATE CATEGORY & ORDER
     // ----------------------------------------------------------
 
-    slider.category =
-      cleanCategory;
-
-    // ----------------------------------------------------------
-    // UPDATE ORDER
-    // ----------------------------------------------------------
-
-    slider.order =
-      cleanOrder;
+    slider.category = cleanCategory;
+    slider.order = cleanOrder;
 
     // ----------------------------------------------------------
     // UPDATE IMAGE
     // ----------------------------------------------------------
 
     if (req.file) {
-      const oldImage =
-        slider.imageUrl;
+      const oldImage = slider.imageUrl;
+      const newImage = await uploadSliderImage(req.file);
 
-      const newImage =
-        await uploadSliderImage(
-          req.file
-        );
+      slider.imageUrl = newImage;
 
-      slider.imageUrl =
-        newImage;
-
-      // Delete old image after new
-      // image upload succeeds
+      // Delete old image after new image upload succeeds
       if (oldImage) {
         try {
-          await deleteSliderImage(
-            oldImage
-          );
+          await deleteSliderImage(oldImage);
         } catch (deleteError) {
-          console.error(
-            "OLD SLIDER IMAGE DELETE ERROR 👉",
-            deleteError
-          );
+          console.error("OLD SLIDER IMAGE DELETE ERROR 👉", deleteError);
         }
       }
     }
@@ -469,16 +341,10 @@ export const updateSlider = async (
       slider,
     });
   } catch (err) {
-    console.error(
-      "UPDATE SLIDER ERROR 👉",
-      err
-    );
-
+    console.error("UPDATE SLIDER ERROR 👉", err);
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Failed to update slider",
+      message: err.message || "Failed to update slider",
     });
   }
 };
@@ -487,10 +353,7 @@ export const updateSlider = async (
 // DELETE SLIDER
 // ============================================================
 
-export const deleteSlider = async (
-  req,
-  res
-) => {
+export const deleteSlider = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -498,8 +361,7 @@ export const deleteSlider = async (
     // FIND SLIDER
     // ----------------------------------------------------------
 
-    const slider =
-      await Slider.findById(id);
+    const slider = await Slider.findById(id);
 
     if (!slider) {
       return res.status(404).json({
@@ -514,14 +376,9 @@ export const deleteSlider = async (
 
     if (slider.imageUrl) {
       try {
-        await deleteSliderImage(
-          slider.imageUrl
-        );
+        await deleteSliderImage(slider.imageUrl);
       } catch (deleteError) {
-        console.error(
-          "SLIDER IMAGE DELETE ERROR 👉",
-          deleteError
-        );
+        console.error("SLIDER IMAGE DELETE ERROR 👉", deleteError);
       }
     }
 
@@ -540,16 +397,10 @@ export const deleteSlider = async (
       message: "Slider deleted",
     });
   } catch (err) {
-    console.error(
-      "DELETE SLIDER ERROR 👉",
-      err
-    );
-
+    console.error("DELETE SLIDER ERROR 👉", err);
     return res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        "Failed to delete slider",
+      message: err.message || "Failed to delete slider",
     });
   }
 };

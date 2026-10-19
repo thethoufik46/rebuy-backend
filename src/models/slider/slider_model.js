@@ -10,7 +10,7 @@ const sliderSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      enum: ["car", "bike", "property", "electronics"],
+      // ✅ enum நீக்கப்பட்டுவிட்டது. நீங்கள் எந்தப் பெயரை வேண்டுமானாலும் டைப் செய்யலாம்
       required: true,
       lowercase: true,
       trim: true,

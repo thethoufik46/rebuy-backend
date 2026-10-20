@@ -111,7 +111,7 @@ app.use("/api/bikebrands", bikeBrandRoutes);
 app.use("/api/bikemodels", bikeModelRoutes);
 app.use("/api/bikevariants", bikeVariantRoutes);
 app.use("/api/cars/admin", adminCarRoutes);
-app.use("/api/cars", (req, res, next) => req.method === "POST" && req.path === "/add" ? adminCarRoutes(req, res, next) : next());
+app.use("/api/cars", (req, res, next) => { const isAdminPath = (req.method === "POST" && req.path === "/add") || (req.method === "GET" && req.path.startsWith("/meta/")) || (req.method === "GET" && req.path === "/user-by-phone"); return isAdminPath ? adminCarRoutes(req, res, next) : next(); });
 app.use("/api/cars", userCarRoutes);
 app.use("/api/bikes/admin", adminBikeRoutes);
 app.use("/api/bikes", (req, res, next) => req.method === "POST" && req.path === "/add" ? adminBikeRoutes(req, res, next) : next());

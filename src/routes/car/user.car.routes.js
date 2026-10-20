@@ -23,6 +23,13 @@ const CAR_FEATURES = [
   "ABS","ABS with EBD","EBD","Airbags","Driver Airbag","Passenger Airbag","Side Airbags","Curtain Airbags","Vehicle Stability Control","Electronic Stability Control","Traction Control","Hill Start Assist","Hill Descent Control","Brake Assist","ISOFIX Child Seat Mounts","Child Safety Lock","Engine Immobilizer","Central Locking","Tyre Pressure Monitoring System","Rear Parking Sensors","Front Parking Sensors","Rear Parking Camera","360° Camera","Blind Spot Monitoring","Lane Departure Warning","Lane Keep Assist","Adaptive Cruise Control","Automatic Emergency Braking","Power Steering","Power Windows","Air Conditioning","Manual Air Conditioning","Automatic Climate Control","Dual Zone Climate Control","Rear AC Vents","Cruise Control","Smart Entry System","Keyless Entry","Push Button Start","Wireless Charger","Front Armrest","Rear Armrest","Cup Holders","Adjustable Steering","Tilt Steering","Telescopic Steering","Height Adjustable Driver Seat","Electrically Adjustable Driver Seat","Ventilated Seats","Heated Seats","Memory Seats","Rain-Sensing Wipers","Automatic Headlamps","Auto-Dimming IRVM","Electrically Adjustable ORVMs","Electrically Foldable ORVMs","Remote Boot Opener","Rear Defogger","Rear Wiper","Electronic Parking Brake","Paddle Shifters","Drive Modes","Fabric Seats","Leather Seats","Leather-Wrapped Steering Wheel","Premium Interior","Ambient Lighting","Rear Reading Lamps","Adjustable Headrests","Digital Instrument Cluster","Tachometer","Trip Meter","Multi-Information Display","Heads-Up Display","Alloy Wheels","Steel Wheels","LED Headlamps","Projector Headlamps","Halogen Headlamps","LED Tail Lamps","Fog Lamps","Daytime Running Lights (DRL)","Sunroof","Panoramic Sunroof","Roof Rails","Rear Spoiler","Shark Fin Antenna","Body-Coloured Bumpers","Chrome Door Handles","Rear Window Defogger","Touchscreen Infotainment System","Android Auto","Apple CarPlay","Wireless Android Auto","Wireless Apple CarPlay","Bluetooth Connectivity","USB Charging Port","USB Type-C Port","AUX Connectivity","Wireless Charging","Navigation System","Voice Commands","Steering-Mounted Audio Controls","Premium Sound System","Rear Entertainment System","Connected Car Technology","Wi-Fi Connectivity","Front Parking Camera","Rear Seat Centre Armrest","Third Row AC Vents","Power Tailgate","Hands-Free Tailgate","Automatic Start-Stop","Regenerative Braking","Hybrid System","Electric Powertrain","Spare Wheel","Tubeless Tyres","Run-Flat Tyres"
 ];
 
+/* ============================================================
+   BODY TYPES MASTER LIST
+============================================================ */
+const BODY_TYPES = [
+  "Hatchback","Sedan","SUV","MUV / MPV","Crossover","Coupe","Convertible","Pickup Truck"
+];
+
 const parseFeatures = (value) => {
   if (value === undefined || value === null || value === "") return [];
   let arr = value;
@@ -77,6 +84,16 @@ const validateRegistration = (state, number) => {
   if (!REGISTRATION_STATES.includes(registrationState)) throw new Error("Invalid registration state");
   if (!/^[0-9]{2}$/.test(registrationNumber)) throw new Error("Registration number must contain exactly 2 digits");
   return { registrationState, registrationNumber };
+};
+
+/* ============================================================
+   BODY TYPE VALIDATION
+============================================================ */
+const validateBodyType = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const bodyType = String(value).trim();
+  if (!BODY_TYPES.includes(bodyType)) throw new Error("Invalid body type");
+  return bodyType;
 };
 
 /* ============================================================
@@ -164,6 +181,18 @@ router.get("/features", async (req, res) => {
   } catch (error) {
     console.error("GET FEATURES ERROR:", error);
     return res.status(500).json({ success: false, message: error.message || "Failed to get features" });
+  }
+});
+
+/* ============================================================
+   GET /api/cars/body-types — MASTER BODY TYPES
+============================================================ */
+router.get("/body-types", async (req, res) => {
+  try {
+    return res.json({ success: true, count: BODY_TYPES.length, bodyTypes: BODY_TYPES });
+  } catch (error) {
+    console.error("GET BODY TYPES ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to get body types" });
   }
 });
 
@@ -352,7 +381,7 @@ router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
-      brand, model, variant, status, district, city,
+      brand, model, variant, bodyType, status, district, city,
       fuel, transmission, owner, board, insurance, features, search,
       minPrice, maxPrice, minYear, maxYear,
       registrationState, registrationNumber,
@@ -367,6 +396,11 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     if (brandIds.length) filter.brand = { $in: brandIds };
     if (modelIds.length) filter.model = { $in: modelIds };
     if (variantIds.length) filter.variant = { $in: variantIds };
+
+    if (bodyType) {
+      const bodyTypeList = parseMultiValues(bodyType).filter((v) => BODY_TYPES.includes(v));
+      if (bodyTypeList.length) filter.bodyType = { $in: bodyTypeList };
+    }
 
     if (status) {
       filter.status = status;
@@ -420,6 +454,7 @@ router.get("/", verifyTokenOptional, async (req, res) => {
         { description: { $regex: search, $options: "i" } },
         { district: { $regex: search, $options: "i" } },
         { city: { $regex: search, $options: "i" } },
+        { bodyType: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -542,7 +577,7 @@ router.post(
   async (req, res) => {
     try {
       const {
-        brand, model, variant, videoLink,
+        brand, model, variant, bodyType, videoLink,
         registrationState, registrationNumber,
         year, price, km,
         serviceRecord, csrKm, stig,
@@ -554,12 +589,14 @@ router.post(
       await validateCarHierarchy(brand, model || null, variant || null);
 
       const registration = validateRegistration(registrationState, registrationNumber);
+      const finalBodyType = validateBodyType(bodyType);
 
       const carData = {
         ...req.body,
         brand,
         model: model || null,
         variant: variant || null,
+        bodyType: finalBodyType,
         videoLink: videoLink || req.body.videoLink || null,
         registrationState: registration.registrationState,
         registrationNumber: registration.registrationNumber,
@@ -670,6 +707,8 @@ router.put(
       await validateCarHierarchy(nextBrand, nextModel, nextVariant);
 
       const updateData = { ...req.body, brand: nextBrand, model: nextModel, variant: nextVariant };
+
+      if (req.body.bodyType !== undefined) updateData.bodyType = validateBodyType(req.body.bodyType);
 
       if (req.body.features !== undefined) updateData.features = parseFeatures(req.body.features);
 

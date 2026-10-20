@@ -232,17 +232,21 @@ router.get("/carvariants/brand/:brandId", async (req, res) => {
 /* ============================================================
    ✅ GET /api/cars/similar/:carId — SIMILAR CARS (SAME BRAND + MODEL)
 ============================================================ */
+/* ============================================================
+   ✅ SIMILAR CARS — SAME BRAND + SAME MODEL (Exclude Current Car)
+============================================================ */
 router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
   try {
     const { carId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(carId)) return res.status(400).json({ success: false, message: "Invalid car id" });
 
+    // Get current car's brand and model
     const currentCar = await Car.findById(carId).select("brand model").lean();
     if (!currentCar) return res.status(404).json({ success: false, message: "Car not found" });
 
-    // Match brand and model
+    // Filter: Exclude current car, Match Brand & Model
     const filter = {
-      _id: { $ne: carId }, // Exclude current car
+      _id: { $ne: carId },
       status: { $nin: ["draft", "delete_requested"] },
     };
     if (currentCar.brand) filter.brand = currentCar.brand;
@@ -250,6 +254,7 @@ router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
 
     const cars = await Car.find(filter).sort({ createdAt: -1 }).lean();
 
+    // Populate brand, model, variant details
     const brandIds = [...new Set(cars.map((c) => (c.brand ? c.brand.toString() : null)).filter(Boolean))];
     const modelIds = [...new Set(cars.map((c) => (c.model ? c.model.toString() : null)).filter(Boolean))];
     const variantIds = [...new Set(cars.map((c) => (c.variant ? c.variant.toString() : null)).filter(Boolean))];
@@ -282,7 +287,6 @@ router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch similar cars" });
   }
 });
-
 /* ============================================================
    GET /api/cars — ALL PUBLIC CARS (MULTI FILTER)
 ============================================================ */

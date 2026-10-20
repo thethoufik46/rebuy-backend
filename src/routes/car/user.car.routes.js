@@ -290,7 +290,7 @@ router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
 
 
 /* ============================================================
-   ✅ COMPARE CARS — SAME BRAND + SAME MODEL (Max 4 Cars)
+   ✅ COMPARE CARS — SAME BRAND + SAME MODEL (ALL CARS)
 ============================================================ */
 router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
   try {
@@ -300,15 +300,15 @@ router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
     const currentCar = await Car.findById(carId).select("brand model").lean();
     if (!currentCar) return res.status(404).json({ success: false, message: "Car not found" });
 
+    // ✅ Filter: Same Brand & Model, Exclude current car, NO LIMIT
     const filter = {
-      _id: { $ne: carId }, // Exclude current car
+      _id: { $ne: carId },
       status: { $nin: ["draft", "delete_requested"] },
     };
     if (currentCar.brand) filter.brand = currentCar.brand;
     if (currentCar.model) filter.model = currentCar.model;
 
-    // Limit 3 other cars + 1 current = 4 Cars for comparison
-    const cars = await Car.find(filter).sort({ createdAt: -1 }).limit(3).lean();
+    const cars = await Car.find(filter).sort({ createdAt: -1 }).lean(); // ✅ Removed Limit
 
     const brandIds = [...new Set(cars.map((c) => (c.brand ? c.brand.toString() : null)).filter(Boolean))];
     const modelIds = [...new Set(cars.map((c) => (c.model ? c.model.toString() : null)).filter(Boolean))];
@@ -336,9 +336,8 @@ router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
       return item;
     });
 
-    // Return current car + similar cars
     const currentCarData = await Car.findById(carId).populate("brand model variant").lean();
-    return res.json({ success: true, cars: [currentCarData, ...responseCars] });
+    return res.json({ success: true, cars: [currentCarData, ...responseCars] }); // Current + All Others
   } catch (error) {
     console.error("COMPARE CARS ERROR:", error);
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch compare cars" });

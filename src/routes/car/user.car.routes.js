@@ -230,6 +230,60 @@ router.get("/carvariants/brand/:brandId", async (req, res) => {
 });
 
 /* ============================================================
+   ✅ GET /api/cars/similar/:carId — SIMILAR CARS (SAME BRAND + MODEL)
+============================================================ */
+router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
+  try {
+    const { carId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(carId)) return res.status(400).json({ success: false, message: "Invalid car id" });
+
+    const currentCar = await Car.findById(carId).select("brand model").lean();
+    if (!currentCar) return res.status(404).json({ success: false, message: "Car not found" });
+
+    // Match brand and model
+    const filter = {
+      _id: { $ne: carId }, // Exclude current car
+      status: { $nin: ["draft", "delete_requested"] },
+    };
+    if (currentCar.brand) filter.brand = currentCar.brand;
+    if (currentCar.model) filter.model = currentCar.model;
+
+    const cars = await Car.find(filter).sort({ createdAt: -1 }).lean();
+
+    const brandIds = [...new Set(cars.map((c) => (c.brand ? c.brand.toString() : null)).filter(Boolean))];
+    const modelIds = [...new Set(cars.map((c) => (c.model ? c.model.toString() : null)).filter(Boolean))];
+    const variantIds = [...new Set(cars.map((c) => (c.variant ? c.variant.toString() : null)).filter(Boolean))];
+
+    const [brands, models, variants] = await Promise.all([
+      CarBrand.find({ _id: { $in: brandIds } }).select("_id name logoUrl").lean(),
+      CarModel.find({ _id: { $in: modelIds } }).select("_id title imageUrl brand").lean(),
+      CarVariant.find({ _id: { $in: variantIds } }).select("_id title imageUrl carModel").lean(),
+    ]);
+
+    const brandMap = new Map(brands.map((i) => [i._id.toString(), i]));
+    const modelMap = new Map(models.map((i) => [i._id.toString(), i]));
+    const variantMap = new Map(variants.map((i) => [i._id.toString(), i]));
+
+    const isAdminUser = req.user && req.user.role === "admin";
+    const responseCars = cars.map((car) => {
+      const item = {
+        ...car,
+        brand: car.brand ? brandMap.get(car.brand.toString()) || car.brand : null,
+        model: car.model ? modelMap.get(car.model.toString()) || car.model : null,
+        variant: car.variant ? variantMap.get(car.variant.toString()) || car.variant : null,
+      };
+      prepareSellerForResponse(item, isAdminUser);
+      return item;
+    });
+
+    return res.json({ success: true, count: responseCars.length, cars: responseCars });
+  } catch (error) {
+    console.error("SIMILAR CARS ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to fetch similar cars" });
+  }
+});
+
+/* ============================================================
    GET /api/cars — ALL PUBLIC CARS (MULTI FILTER)
 ============================================================ */
 router.get("/", verifyTokenOptional, async (req, res) => {

@@ -35,6 +35,27 @@ const parseFeatures = (value) => {
   return arr.map((v) => String(v).trim()).filter((v) => CAR_FEATURES.includes(v));
 };
 
+/* ✅ NEW — Complaints parser (array | JSON string | comma-separated) */
+const parseComplaints = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  let arr = value;
+  if (typeof value === "string") {
+    try { arr = JSON.parse(value); } catch (_) {
+      arr = value.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr.map((v) => String(v).trim()).filter((v) => v.length > 0 && v.length <= 200).slice(0, 50);
+};
+
+/* ✅ NEW — IDV validator (null | number ≥ 0) */
+const validateIdvValue = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error("IDV value must be a valid number greater than or equal to 0");
+  return n;
+};
+
 const parseMultiValues = (value) => {
   if (value === undefined || value === null || value === "") return [];
   let arr = value;
@@ -547,6 +568,7 @@ router.post(
         year, price, km,
         serviceRecord, csrKm, stig,
         color, fuel, transmission, owner, board, insurance,
+        idvValue, complaints,
         status, seller, sellerUser, sellerinfo,
         district, city, description, features,
       } = req.body;
@@ -554,6 +576,10 @@ router.post(
       await validateCarHierarchy(brand, model || null, variant || null);
 
       const registration = validateRegistration(registrationState, registrationNumber);
+
+      /* ✅ NEW — validate idvValue & complaints */
+      const finalIdvValue = validateIdvValue(idvValue);
+      const finalComplaints = parseComplaints(complaints);
 
       const carData = {
         ...req.body,
@@ -571,6 +597,8 @@ router.post(
         features: parseFeatures(features),
         fuel, transmission, owner, board,
         insurance: insurance || null,
+        idvValue: finalIdvValue,
+        complaints: finalComplaints,
         status: status || "draft",
         seller: seller && String(seller).trim() ? encryptSeller(String(seller).trim()) : null,
         sellerUser: sellerUser || req.user.id,
@@ -672,6 +700,10 @@ router.put(
       const updateData = { ...req.body, brand: nextBrand, model: nextModel, variant: nextVariant };
 
       if (req.body.features !== undefined) updateData.features = parseFeatures(req.body.features);
+
+      /* ✅ NEW — validate idvValue & complaints on update */
+      if (req.body.idvValue !== undefined) updateData.idvValue = validateIdvValue(req.body.idvValue);
+      if (req.body.complaints !== undefined) updateData.complaints = parseComplaints(req.body.complaints);
 
       if (updateData.seller !== undefined) {
         updateData.seller = updateData.seller && String(updateData.seller).trim()

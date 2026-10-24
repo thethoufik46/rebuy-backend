@@ -442,6 +442,29 @@ features: {
     },
 
     /* =====================================================
+       IDV VALUE
+       INSURANCE IDV (Insured Declared Value)
+       OPTIONAL • IN RUPEES
+    ===================================================== */
+
+    idvValue: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    /* =====================================================
+       COMPLAINTS
+       FREE-TEXT LIST OF KNOWN ISSUES / COMPLAINTS
+       OPTIONAL
+    ===================================================== */
+
+    complaints: {
+      type: [String],
+      default: [],
+    },
+
+    /* =====================================================
        STATUS
     ===================================================== */
 
@@ -770,6 +793,65 @@ carSchema.pre("save", async function (next) {
       ) {
         throw new Error(
           "CSR KM must be a valid number greater than or equal to 0"
+        );
+      }
+    }
+
+    /* =====================================================
+       IDV VALUE VALIDATION
+       INSURANCE IDV
+    ===================================================== */
+
+    if (
+      this.idvValue !== null &&
+      this.idvValue !== undefined
+    ) {
+      this.idvValue = Number(
+        this.idvValue
+      );
+
+      if (
+        !Number.isFinite(this.idvValue) ||
+        this.idvValue < 0
+      ) {
+        throw new Error(
+          "IDV value must be a valid number greater than or equal to 0"
+        );
+      }
+    }
+
+    /* =====================================================
+       COMPLAINTS VALIDATION
+       ARRAY OF NON-EMPTY STRINGS
+    ===================================================== */
+
+    if (
+      this.complaints !== null &&
+      this.complaints !== undefined
+    ) {
+      if (!Array.isArray(this.complaints)) {
+        throw new Error(
+          "Complaints must be an array"
+        );
+      }
+
+      this.complaints = this.complaints
+        .map((c) => String(c).trim())
+        .filter((c) => c.length > 0);
+
+      if (this.complaints.length > 50) {
+        throw new Error(
+          "Complaints cannot exceed 50 items"
+        );
+      }
+
+      const tooLong = this.complaints.find(
+        (c) => c.length > 200
+      );
+
+      if (tooLong) {
+        throw new Error(
+          "Each complaint must be 200 characters or less"
         );
       }
     }

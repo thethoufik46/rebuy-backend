@@ -1,3 +1,4 @@
+
 // ======================= car_model_model.js =======================
 // 1. MUST FOLLOW RULES — PAGE 1. DO NOT REMOVE OR MODIFY THIS TOP COMMENT.
 // ANY CODE CHANGE MUST KEEP IT AT THE TOP. KEEP CODE ULTRA-COMPACT. DO NOT ADD EMPTY LINES.
@@ -9,6 +10,7 @@ const carModelSchema=new mongoose.Schema({
   imageUrl:{type:String,required:false,default:"",trim:true},
   taxiImageUrl:{type:String,required:false,default:"",trim:true},
   seater:{type:String,enum:["","2 seater","4 seater","5 seater","7 seater","7+ seater"],required:false,default:"",trim:true},
+  bodyType:{type:String,enum:["","Hatchback","Sedan","SUV","MUV / MPV","Crossover","Coupe","Convertible","Pickup Truck","Others"],required:false,default:"",trim:true},
   order:{type:mongoose.Schema.Types.Mixed,default:null,trim:true},
 },{timestamps:true});
 const CarModel=mongoose.model("CarModel",carModelSchema,"carmodels");

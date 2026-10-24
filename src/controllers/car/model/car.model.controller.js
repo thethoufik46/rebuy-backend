@@ -7,15 +7,17 @@ import CarBrand from "../../../models/car/brand/car_brand_model.js";
 import {uploadCarModelImage,deleteCarModelImage,uploadTaxiImage,deleteTaxiImage} from "../../../utils/car/model/carModel.js";
 
 const SEATER_OPTIONS=["2 seater","4 seater","5 seater","7 seater","7+ seater"];
+const BODY_TYPE_OPTIONS=["","Hatchback","Sedan","SUV","MUV / MPV","Crossover","Coupe","Convertible","Pickup Truck","Others"];
 
 // ============================================================
 // ADD CAR MODEL
 // ============================================================
 export const addCarModel=async(req,res)=>{
   try{
-    const{brandId,title,seater,order,taxiImageUrl}=req.body;
+    const{brandId,title,seater,bodyType,order,taxiImageUrl}=req.body;
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
+    if(bodyType&&!BODY_TYPE_OPTIONS.includes(bodyType))return res.status(400).json({success:false,message:`Body type must be one of: ${BODY_TYPE_OPTIONS.filter(Boolean).join(", ")}`});
     const orderValue=parseOrder(order);
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
@@ -26,7 +28,7 @@ export const addCarModel=async(req,res)=>{
     let taxiUrl=taxiImageUrl||"";
     if(req.files?.image?.[0])imageUrl=await uploadCarModelImage(req.files.image[0]);
     if(req.files?.taxiImage?.[0])taxiUrl=await uploadTaxiImage(req.files.taxiImage[0]);
-    const carModel=await CarModel.create({brand:brandId,title:cleanTitle,imageUrl,taxiImageUrl:taxiUrl,seater:seater||"",order:orderValue});
+    const carModel=await CarModel.create({brand:brandId,title:cleanTitle,imageUrl,taxiImageUrl:taxiUrl,seater:seater||"",bodyType:bodyType||"",order:orderValue});
     return res.status(201).json({success:true,message:"Car model added successfully",carModel});
   }catch(err){
     console.error("ADD CAR MODEL ERROR 👉",err);
@@ -40,7 +42,7 @@ export const addCarModel=async(req,res)=>{
 export const getAllCarModels=async(req,res)=>{
   try{
     const carModels=await CarModel.find().sort({createdAt:-1}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET ALL CAR MODELS ERROR 👉",err);
@@ -70,7 +72,7 @@ export const getCarModelsByBrand=async(req,res)=>{
       if(bOrder!==null)return 1;
       return aTitle.localeCompare(bTitle,"en",{sensitivity:"base"});
     });
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET CAR MODELS BY BRAND ERROR 👉",err);
@@ -90,7 +92,7 @@ export const getONEBrandhideCarModels=async(req,res)=>{
     if(otherStateBrand)hiddenBrandIds.push(otherStateBrand._id);
     const query=hiddenBrandIds.length?{brand:{$nin:hiddenBrandIds}}:{};
     const carModels=await CarModel.find(query).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET VISIBLE CAR MODELS ERROR 👉",err);
@@ -106,7 +108,7 @@ export const getLoadVehiclesCarModels=async(req,res)=>{
     const brand=await CarBrand.findOne({name:/load vehicles/i});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
     const carModels=await CarModel.find({brand:brand._id}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET LOAD VEHICLES CAR MODELS ERROR 👉",err);
@@ -122,7 +124,7 @@ export const getOtherStateCarModels=async(req,res)=>{
     const brand=await CarBrand.findOne({name:"Other State டெல்லி"});
     if(!brand)return res.status(200).json({success:true,carModels:[]});
     const carModels=await CarModel.find({brand:brand._id}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET OTHER STATE CAR MODELS ERROR 👉",err);
@@ -136,7 +138,7 @@ export const getOtherStateCarModels=async(req,res)=>{
 export const getSelectedCarModels=async(req,res)=>{
   try{
     const carModels=await CarModel.find({title:{$in:["Innova இன்னோவா","Crysta கிரிஸ்டா","Swift ஸ்விப்ட்","Ertiga எர்டிகா"]}}).populate("brand","name logoUrl");
-    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",order:model.order??null}));
+    const data=carModels.map(model=>({_id:model._id.toString(),brandId:model.brand?._id?.toString()||"",brandName:model.brand?.name||"",brandLogo:model.brand?.logoUrl||"",modelName:model.title||"",modelImage:model.imageUrl||"",taxiImageUrl:model.taxiImageUrl||"",seater:model.seater||"",bodyType:model.bodyType||"",order:model.order??null}));
     return res.status(200).json({success:true,carModels:data});
   }catch(err){
     console.error("GET SELECTED CAR MODELS ERROR 👉",err);
@@ -145,16 +147,17 @@ export const getSelectedCarModels=async(req,res)=>{
 };
 
 // ============================================================
-// UPDATE CAR MODEL  ← NOW HANDLES removeImage / removeTaxiImage
+// UPDATE CAR MODEL  ← NOW HANDLES removeImage / removeTaxiImage + bodyType
 // ============================================================
 export const updateCarModel=async(req,res)=>{
   try{
     const{id}=req.params;
-    const{title,brandId,seater,order,taxiImageUrl,removeImage,removeTaxiImage}=req.body;
+    const{title,brandId,seater,bodyType,order,taxiImageUrl,removeImage,removeTaxiImage}=req.body;
     const carModel=await CarModel.findById(id);
     if(!carModel)return res.status(404).json({success:false,message:"Car model not found"});
     if(!brandId||!title||!title.trim())return res.status(400).json({success:false,message:"Brand and car model title are required"});
     if(seater&&!SEATER_OPTIONS.includes(seater))return res.status(400).json({success:false,message:`Seater must be one of: ${SEATER_OPTIONS.join(", ")}`});
+    if(bodyType&&!BODY_TYPE_OPTIONS.includes(bodyType))return res.status(400).json({success:false,message:`Body type must be one of: ${BODY_TYPE_OPTIONS.filter(Boolean).join(", ")}`});
     const orderValue=parseOrder(order);
     const brand=await CarBrand.findById(brandId);
     if(!brand)return res.status(404).json({success:false,message:"Brand not found"});
@@ -165,6 +168,7 @@ export const updateCarModel=async(req,res)=>{
     carModel.brand=brandId;
     carModel.order=orderValue;
     if(seater!==undefined)carModel.seater=seater||"";
+    if(bodyType!==undefined)carModel.bodyType=bodyType||"";
     if(taxiImageUrl!==undefined)carModel.taxiImageUrl=taxiImageUrl||"";
     // ---------- REMOVE IMAGE EXPLICITLY ----------
     const shouldRemoveImage=removeImage===true||removeImage==="true";

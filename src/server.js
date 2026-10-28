@@ -87,6 +87,7 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.get("/privacy-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/privacy-policy.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "../public/terms-and-conditions.html")));
 app.get("/refund-policy", (req, res) => res.sendFile(path.join(__dirname, "../public/refund-cancellation-policy.html")));
+app.get("/delete-account", (req, res) => res.sendFile(path.join(__dirname, "../public/delete-account.html")));
 
 app.use("/", youtubeAuthRoutes);
 

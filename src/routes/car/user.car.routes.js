@@ -151,7 +151,7 @@ router.get("/brands", async (req, res) => {
 ============================================================ */
 router.get("/carmodels", async (req, res) => {
   try {
-    const models = await CarModel.find({}).select("_id brand title imageUrl").sort({ title: 1 }).lean();
+    const models = await CarModel.find({}).select("_id brand title imageUrl bodyType seater").sort({ title: 1 }).lean();
     return res.json({ success: true, count: models.length, models });
   } catch (error) {
     console.error("GET MODELS ERROR:", error);
@@ -176,7 +176,7 @@ router.get("/carmodels/brand/:brandId", async (req, res) => {
   try {
     const { brandId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(brandId)) return res.status(400).json({ success: false, message: "Invalid brand id" });
-    const models = await CarModel.find({ brand: brandId }).select("_id brand title imageUrl").sort({ title: 1 }).lean();
+    const models = await CarModel.find({ brand: brandId }).select("_id brand title imageUrl bodyType seater").sort({ title: 1 }).lean();
     return res.json({ success: true, count: models.length, models });
   } catch (error) {
     console.error("GET MODELS BY BRAND ERROR:", error);
@@ -325,18 +325,22 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       brand, model, variant, status, district, city,
       fuel, transmission, owner, board, insurance, features, search,
       minPrice, maxPrice, minYear, maxYear,
-      registrationState, registrationNumber, bodyType,
+      registrationState, registrationNumber, bodyType, seater,
     } = req.query;
     const filter = {};
     const brandIds = parseObjectIds(brand);
     const modelIds = parseObjectIds(model);
     const variantIds = parseObjectIds(variant);
     const bodyTypeList = parseMultiValues(bodyType);
+    const seaterList = parseMultiValues(seater);
     if (brandIds.length) filter.brand = { $in: brandIds };
     if (variantIds.length) filter.variant = { $in: variantIds };
-    /* bodyType filter: resolve models matching bodyType, intersect with existing model filter */
-    if (bodyTypeList.length) {
-      const modelQuery = { bodyType: { $in: bodyTypeList } };
+    /* model-level filters (bodyType + seater): resolve to matching model IDs, AND-combined */
+    const hasModelLevelFilter = bodyTypeList.length > 0 || seaterList.length > 0;
+    if (hasModelLevelFilter) {
+      const modelQuery = {};
+      if (bodyTypeList.length) modelQuery.bodyType = { $in: bodyTypeList };
+      if (seaterList.length) modelQuery.seater = { $in: seaterList };
       if (brandIds.length) modelQuery.brand = { $in: brandIds };
       const matchingModels = await CarModel.find(modelQuery).select("_id").lean();
       const matchingModelIds = matchingModels.map((m) => m._id);
@@ -445,7 +449,7 @@ router.get("/my", verifyToken, async (req, res) => {
   try {
     const cars = await Car.find({ $or: [{ createdBy: req.user.id }, { sellerUser: req.user.id }] })
       .populate("brand", "_id name logoUrl")
-      .populate("model", "_id brand title imageUrl")
+      .populate("model", "_id brand title imageUrl bodyType seater")
       .populate("variant", "_id carModel title imageUrl")
       .sort({ createdAt: -1 })
       .lean();
@@ -469,7 +473,7 @@ router.get("/my-cars", verifyToken, async (req, res) => {
   try {
     const cars = await Car.find({ $or: [{ createdBy: req.user.id }, { sellerUser: req.user.id }] })
       .populate("brand", "_id name logoUrl")
-      .populate("model", "_id brand title imageUrl")
+      .populate("model", "_id brand title imageUrl bodyType seater")
       .populate("variant", "_id carModel title imageUrl")
       .sort({ createdAt: -1 })
       .lean();
@@ -561,7 +565,7 @@ router.get("/:id", verifyTokenOptional, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ success: false, message: "Invalid car id" });
     const car = await Car.findById(id)
       .populate("brand", "_id name logoUrl")
-      .populate("model", "_id brand title imageUrl")
+      .populate("model", "_id brand title imageUrl bodyType seater")
       .populate("variant", "_id carModel title imageUrl")
       .lean();
     if (!car) return res.status(404).json({ success: false, message: "Car not found" });
@@ -697,7 +701,7 @@ router.put(
       }
       const updatedCar = await Car.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
         .populate("brand", "_id name logoUrl")
-        .populate("model", "_id brand title imageUrl")
+        .populate("model", "_id brand title imageUrl bodyType seater")
         .populate("variant", "_id carModel title imageUrl")
         .lean();
       prepareSellerForResponse(updatedCar, isAdminUser);

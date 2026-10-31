@@ -31,7 +31,6 @@ const parseFeatures = (value) => {
   if (!Array.isArray(arr)) return [];
   return arr.map((v) => String(v).trim()).filter((v) => CAR_FEATURES.includes(v));
 };
-/* ✅ NEW — Complaints parser (array | JSON string | comma-separated) */
 const parseComplaints = (value) => {
   if (value === undefined || value === null || value === "") return [];
   let arr = value;
@@ -43,11 +42,17 @@ const parseComplaints = (value) => {
   if (!Array.isArray(arr)) return [];
   return arr.map((v) => String(v).trim()).filter((v) => v.length > 0 && v.length <= 200).slice(0, 50);
 };
-/* ✅ NEW — IDV validator (null | number ≥ 0) */
 const validateIdvValue = (value) => {
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) throw new Error("IDV value must be a valid number greater than or equal to 0");
+  return n;
+};
+/* ✅ NEW — Mileage validator (null | number ≥ 0) */
+const validateMileage = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error("Mileage must be a valid number greater than or equal to 0");
   return n;
 };
 const parseMultiValues = (value) => {
@@ -65,9 +70,6 @@ const parseObjectIds = (value) => {
     .filter((item) => mongoose.Types.ObjectId.isValid(item))
     .map((item) => new mongoose.Types.ObjectId(item));
 };
-/* ============================================================
-   SELLER RESPONSE
-============================================================ */
 const prepareSellerForResponse = (car, isAdminUser) => {
   if (!car) return car;
   if (!isAdminUser) { delete car.seller; return car; }
@@ -76,9 +78,6 @@ const prepareSellerForResponse = (car, isAdminUser) => {
   }
   return car;
 };
-/* ============================================================
-   REGISTRATION VALIDATION
-============================================================ */
 const REGISTRATION_STATES = [
   "TN","AP","AR","AS","BR","CG","GA","GJ","HR","HP","JH","KA","KL","MP","MH","MN","ML","MZ","NL","OD","PB","RJ","SK","TS","TR","UP","UK","WB","AN","CH","DN","DL","JK","LA","LD","PY",
 ];
@@ -89,9 +88,6 @@ const validateRegistration = (state, number) => {
   if (!/^[0-9]{2}$/.test(registrationNumber)) throw new Error("Registration number must contain exactly 2 digits");
   return { registrationState, registrationNumber };
 };
-/* ============================================================
-   BRAND / MODEL / VARIANT VALIDATION
-============================================================ */
 const validateCarHierarchy = async (brand, model, variant = null) => {
   if (!mongoose.Types.ObjectId.isValid(brand)) throw new Error("Invalid brand id");
   const brandDoc = await CarBrand.findById(brand).select("_id").lean();
@@ -117,9 +113,6 @@ const validateCarHierarchy = async (brand, model, variant = null) => {
     }
   }
 };
-/* ============================================================
-   MEDIA UPLOAD
-============================================================ */
 const uploadCarMedia = async (files) => {
   const bannerImage = files?.banner?.length ? await uploadCarImage(files.banner[0], "cars/banner") : null;
   const galleryImages = files?.gallery?.length ? await Promise.all(files.gallery.map((file) => uploadCarImage(file, "cars/gallery"))) : [];
@@ -134,9 +127,6 @@ const safeDeleteMedia = async (media) => {
     console.error("MEDIA DELETE ERROR:", error.message);
   }
 };
-/* ============================================================
-   GET /api/cars/brands — MASTER BRANDS
-============================================================ */
 router.get("/brands", async (req, res) => {
   try {
     const brands = await CarBrand.find({}).select("_id name logoUrl").sort({ name: 1 }).lean();
@@ -146,9 +136,6 @@ router.get("/brands", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get brands" });
   }
 });
-/* ============================================================
-   GET /api/cars/carmodels — ALL MODELS
-============================================================ */
 router.get("/carmodels", async (req, res) => {
   try {
     const models = await CarModel.find({}).select("_id brand title imageUrl bodyType seater").sort({ title: 1 }).lean();
@@ -158,9 +145,6 @@ router.get("/carmodels", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get models" });
   }
 });
-/* ============================================================
-   GET /api/cars/features — MASTER FEATURES
-============================================================ */
 router.get("/features", async (req, res) => {
   try {
     return res.json({ success: true, count: CAR_FEATURES.length, features: CAR_FEATURES });
@@ -169,9 +153,6 @@ router.get("/features", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get features" });
   }
 });
-/* ============================================================
-   GET /api/cars/carmodels/brand/:brandId
-============================================================ */
 router.get("/carmodels/brand/:brandId", async (req, res) => {
   try {
     const { brandId } = req.params;
@@ -183,9 +164,6 @@ router.get("/carmodels/brand/:brandId", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get models by brand" });
   }
 });
-/* ============================================================
-   GET /api/cars/carvariants — ALL VARIANTS
-============================================================ */
 router.get("/carvariants", async (req, res) => {
   try {
     const variants = await CarVariant.find({}).select("_id carModel title imageUrl").sort({ title: 1 }).lean();
@@ -195,9 +173,6 @@ router.get("/carvariants", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get variants" });
   }
 });
-/* ============================================================
-   GET /api/cars/carvariants/model/:modelId
-============================================================ */
 router.get("/carvariants/model/:modelId", async (req, res) => {
   try {
     const { modelId } = req.params;
@@ -209,9 +184,6 @@ router.get("/carvariants/model/:modelId", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get variants by model" });
   }
 });
-/* ============================================================
-   GET /api/cars/carvariants/brand/:brandId
-============================================================ */
 router.get("/carvariants/brand/:brandId", async (req, res) => {
   try {
     const { brandId } = req.params;
@@ -227,9 +199,6 @@ router.get("/carvariants/brand/:brandId", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get variants by brand" });
   }
 });
-/* ============================================================
-   ✅ SIMILAR CARS — SAME BRAND + SAME MODEL (Exclude Current Car)
-============================================================ */
 router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
   try {
     const { carId } = req.params;
@@ -271,9 +240,6 @@ router.get("/similar/:carId", verifyTokenOptional, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch similar cars" });
   }
 });
-/* ============================================================
-   ✅ COMPARE CARS — SAME BRAND + SAME MODEL (ALL CARS)
-============================================================ */
 router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
   try {
     const { carId } = req.params;
@@ -286,7 +252,7 @@ router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
     };
     if (currentCar.brand) filter.brand = currentCar.brand;
     if (currentCar.model) filter.model = currentCar.model;
-    const cars = await Car.find(filter).sort({ createdAt: -1 }).lean(); // ✅ Removed Limit
+    const cars = await Car.find(filter).sort({ createdAt: -1 }).lean();
     const brandIds = [...new Set(cars.map((c) => (c.brand ? c.brand.toString() : null)).filter(Boolean))];
     const modelIds = [...new Set(cars.map((c) => (c.model ? c.model.toString() : null)).filter(Boolean))];
     const variantIds = [...new Set(cars.map((c) => (c.variant ? c.variant.toString() : null)).filter(Boolean))];
@@ -310,21 +276,18 @@ router.get("/compare/:carId", verifyTokenOptional, async (req, res) => {
       return item;
     });
     const currentCarData = await Car.findById(carId).populate("brand model variant").lean();
-    return res.json({ success: true, cars: [currentCarData, ...responseCars] }); // Current + All Others
+    return res.json({ success: true, cars: [currentCarData, ...responseCars] });
   } catch (error) {
     console.error("COMPARE CARS ERROR:", error);
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch compare cars" });
   }
 });
-/* ============================================================
-   GET /api/cars — ALL PUBLIC CARS (MULTI FILTER)
-============================================================ */
 router.get("/", verifyTokenOptional, async (req, res) => {
   try {
     const {
       brand, model, variant, status, district, city,
       fuel, transmission, owner, board, insurance, features, search,
-      minPrice, maxPrice, minYear, maxYear,
+      minPrice, maxPrice, minYear, maxYear, minMileage, maxMileage,
       registrationState, registrationNumber, bodyType, seater,
     } = req.query;
     const filter = {};
@@ -335,7 +298,6 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     const seaterList = parseMultiValues(seater);
     if (brandIds.length) filter.brand = { $in: brandIds };
     if (variantIds.length) filter.variant = { $in: variantIds };
-    /* model-level filters (bodyType + seater): resolve to matching model IDs, AND-combined */
     const hasModelLevelFilter = bodyTypeList.length > 0 || seaterList.length > 0;
     if (hasModelLevelFilter) {
       const modelQuery = {};
@@ -384,6 +346,12 @@ router.get("/", verifyTokenOptional, async (req, res) => {
       if (minYear !== undefined && minYear !== "") filter.year.$gte = Number(minYear);
       if (maxYear !== undefined && maxYear !== "") filter.year.$lte = Number(maxYear);
     }
+    /* ✅ NEW — mileage range filter */
+    if (minMileage || maxMileage) {
+      filter.mileage = {};
+      if (minMileage !== undefined && minMileage !== "") filter.mileage.$gte = Number(minMileage);
+      if (maxMileage !== undefined && maxMileage !== "") filter.mileage.$lte = Number(maxMileage);
+    }
     if (registrationState) filter.registrationState = String(registrationState).trim().toUpperCase();
     if (registrationNumber) filter.registrationNumber = String(registrationNumber).trim();
     if (search) {
@@ -422,9 +390,6 @@ router.get("/", verifyTokenOptional, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch cars" });
   }
 });
-/* ============================================================
-   PUT /api/cars/:id/request-delete
-============================================================ */
 router.put("/:id/request-delete", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -442,9 +407,6 @@ router.put("/:id/request-delete", verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: error.message || "Failed to request car deletion" });
   }
 });
-/* ============================================================
-   GET /api/cars/my
-============================================================ */
 router.get("/my", verifyToken, async (req, res) => {
   try {
     const cars = await Car.find({ $or: [{ createdBy: req.user.id }, { sellerUser: req.user.id }] })
@@ -466,9 +428,6 @@ router.get("/my", verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get my cars" });
   }
 });
-/* ============================================================
-   GET /api/cars/my-cars
-============================================================ */
 router.get("/my-cars", verifyToken, async (req, res) => {
   try {
     const cars = await Car.find({ $or: [{ createdBy: req.user.id }, { sellerUser: req.user.id }] })
@@ -484,9 +443,6 @@ router.get("/my-cars", verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get user cars" });
   }
 });
-/* ============================================================
-   POST /api/cars/user-add and /api/cars/
-============================================================ */
 router.post(
   ["/user-add", "/"],
   verifyToken,
@@ -502,7 +458,7 @@ router.post(
       const {
         brand, model, variant, videoLink,
         registrationState, registrationNumber,
-        year, price, km,
+        year, price, km, mileage,
         serviceRecord, csrKm, stig,
         color, fuel, transmission, owner, board, insurance,
         idvValue, complaints,
@@ -511,9 +467,10 @@ router.post(
       } = req.body;
       await validateCarHierarchy(brand, model || null, variant || null);
       const registration = validateRegistration(registrationState, registrationNumber);
-      /* ✅ NEW — validate idvValue & complaints */
       const finalIdvValue = validateIdvValue(idvValue);
       const finalComplaints = parseComplaints(complaints);
+      /* ✅ NEW — validate mileage */
+      const finalMileage = validateMileage(mileage);
       const carData = {
         ...req.body,
         brand,
@@ -523,6 +480,7 @@ router.post(
         registrationState: registration.registrationState,
         registrationNumber: registration.registrationNumber,
         year, price, km,
+        mileage: finalMileage,
         serviceRecord: serviceRecord || null,
         csrKm: csrKm === "" || csrKm === undefined ? null : csrKm,
         stig: stig || null,
@@ -556,9 +514,6 @@ router.post(
     }
   }
 );
-/* ============================================================
-   GET /api/cars/:id
-============================================================ */
 router.get("/:id", verifyTokenOptional, async (req, res) => {
   try {
     const { id } = req.params;
@@ -580,9 +535,6 @@ router.get("/:id", verifyTokenOptional, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Failed to get car" });
   }
 });
-/* ============================================================
-   PUT /api/cars/:id
-============================================================ */
 router.put(
   "/:id",
   verifyToken,
@@ -612,9 +564,10 @@ router.put(
       await validateCarHierarchy(nextBrand, nextModel, nextVariant);
       const updateData = { ...req.body, brand: nextBrand, model: nextModel, variant: nextVariant };
       if (req.body.features !== undefined) updateData.features = parseFeatures(req.body.features);
-      /* ✅ NEW — validate idvValue & complaints on update */
       if (req.body.idvValue !== undefined) updateData.idvValue = validateIdvValue(req.body.idvValue);
       if (req.body.complaints !== undefined) updateData.complaints = parseComplaints(req.body.complaints);
+      /* ✅ NEW — validate mileage on update */
+      if (req.body.mileage !== undefined) updateData.mileage = validateMileage(req.body.mileage);
       if (updateData.seller !== undefined) {
         updateData.seller = updateData.seller && String(updateData.seller).trim()
           ? encryptSeller(String(updateData.seller).trim())

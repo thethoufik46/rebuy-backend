@@ -185,6 +185,17 @@ const carSchema = new mongoose.Schema(
     },
 
     /* =====================================================
+       MILEAGE
+       OPTIONAL • NUMBERS ONLY
+    ===================================================== */
+
+    mileage: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    /* =====================================================
        SERVICE RECORD
        OPTIONAL
     ===================================================== */
@@ -793,6 +804,29 @@ carSchema.pre("save", async function (next) {
       ) {
         throw new Error(
           "CSR KM must be a valid number greater than or equal to 0"
+        );
+      }
+    }
+
+    /* =====================================================
+       MILEAGE VALIDATION
+       NUMBERS ONLY
+    ===================================================== */
+
+    if (
+      this.mileage !== null &&
+      this.mileage !== undefined
+    ) {
+      this.mileage = Number(
+        this.mileage
+      );
+
+      if (
+        !Number.isFinite(this.mileage) ||
+        this.mileage < 0
+      ) {
+        throw new Error(
+          "Mileage must be a valid number greater than or equal to 0"
         );
       }
     }
